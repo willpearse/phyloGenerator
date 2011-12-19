@@ -3,9 +3,9 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>Bootstrap, from Twitter</title>
+    <title>phyloGenerator - automated phylogeney generation for ecologists</title>
     <meta name="description" content="">
-    <meta name="author" content="">
+    <meta name="author" content="Will Pearse">
 
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -82,14 +82,11 @@
           <a class="brand" href="#">phyloGenerator</a>
           <ul class="nav">
             <li class="active"><a href="#">Home</a></li>
-            <li><a href="#about">About</a></li>
-            <li><a href="#contact">Contact</a></li>
+            <li><a href="install.html">Install</a></li>
+            <li><a href="tutorial.html">Tutorial</a></li>
+			<li><a href="reference.html">Reference</a></li>
+			<li><a href="http://imperial.academia.edu/WillPearse">Who?</a></li>
           </ul>
-          <form action="" class="pull-right">
-            <input class="input-small" type="text" placeholder="Username">
-            <input class="input-small" type="password" placeholder="Password">
-            <button class="btn" type="submit">Sign in</button>
-          </form>
         </div>
       </div>
     </div>
@@ -102,10 +99,30 @@
         </div>
         <div class="row">
           <div class="span10">
-            <h2>Main content</h2>
+            <h2>Overview</h2>
+			<p>Making phylogenies is hard enough for phylogeneticists, but it's something that ecologists are forced to do more and more frequently - especially in the field of community phylogenetics. I think it's a shame that lots of effort goes into generating ecological data, while the (equally important!) phylogeny is often neglected.</p>
+			<p>With phyloGenerator, you can download <b>real</b> DNA sequence data for your species of interest, and then generate calibrated phylogeny using a defensible constraint tree. Your phylogeny may not be 'correct', but it will have accurate branch lengths and its topology will be safe. In other words, it's be a 'real' phylogeny, but a best-guess from taxonomy filled with polytomies.</p>
+			<p>At the moment, this is not a completely-finished product, but it does essentially work. If you're interested in the general idea (or not!) please contact me using the link on the right. I'm not trying to replace phylogeneticists (I am one!), I'm just trying to tidy up what I see as a massive problem in my field.</p>
+			<p>
           </div>
           <div class="span4">
-            <h3>Secondary content</h3>
+  			<h3>Useful links</h3>
+  			<ul>
+  			<li><a href="install.html">Installation Guide</a></li>
+  			<li><a href="downloads.html">Downloads</a></li>
+  			<li><a href="tutorial.html">Tutorial</a></li>
+  			<li><a href="reference.html">Internal Reference</a></li>
+			<li><a href="http://imperial.academia.edu/WillPearse">Who Wrote This?</a></li>
+			<li><a href="mailto:william.pearse08@imperial.ac.uk">Email</a></li>
+  			</ul>
+            <h3>Quickstart</h3>
+			<ol>
+				<li>Python (>= 2.6.x, not 3.x)</li>
+				<li>BioPython (>= 1.58 )</li>
+				<li>Any phylogenetics software you want to use with it</li>
+				<li>Download it</li>
+				<li>...import the script, and you're away!'</li>
+			</ol>
           </div>
         </div>
       </div>
