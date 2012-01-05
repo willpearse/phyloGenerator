@@ -100,8 +100,9 @@
         <div class="row">
           <div class="span10">
             <h2>Installing</h2>
-			<p>Installing phyloGenerator is really just about setting up its dependencies: Python, SciPy, BioPython, and the phylogenetics tools you'll be using. It may seem like a lot to do, but really you just need to click a few buttons every five minutes and the installer scripts will do all the hard work for you.</p>
-			<h3>MacOS</h3>
+			<p>Installing phyloGenerator is really just about setting up its dependencies: Python, SciPy, BioPython, and the phylogenetics tools you'll be using. It may seem like a lot to do, but really you just need to click a few buttons every five minutes and the installer scripts will do all the hard work for you. Trust e, it's easier than it looks!</p>
+			<p>You can easily jump to the <a href="#Mac">Mac</a>, <a href="#Windows">Windows</a>, and <a href="#Linux">Linux</a> instructions below.</p>
+			<a name="Mac"><h3>MacOS</h3></a>
 			For this, you need to open up 'Terminal'. It's in your 'Applications' folder, inside the 'Utilities' folder - you can open it from the dock.
 			<ol>
 				<li>Python</li>
@@ -128,7 +129,6 @@
 					<li>Type 'python setup.py build' in Terminal and press enter.</li>
 					<li>Type 'sudo python setup.py install' in Terminal and press enter. Enter your password and press enter.</li>
 				</ol>
-			</ol>
 				<li>BioPython</li>
 				<ol>
 					<li>You likely won't have BioPython installed without knowing about it, but you can check by opening Python ('python', hit enter), trying to load a module from it ('from Bio import SeqIO', hit enter), and then quitting Python ('quit()', hit enter). If you don't get an error message (there may be a delay), skip to the step below. While I give brief instructions below, <a href="http://biopython.org/DIST/docs/install/Installation.html#htoc25">more thorough instructions can be found here</a>.</li>
@@ -138,13 +138,19 @@
 					<li>Type 'python setup.py build' in Terminal and press enter.</li>
 					<li>Type 'python setup.py install' in Terminal and press enter.</li>
 				</ol>
-			</ol>
+			<li>Installing phyloGenerator</lo>
+			<ol>
+			<li>Download a zipped up copy of the package, go to the directory you downloaded it to in Finder, and then unzip it by double-clicking on it.</li>
+			<li>Move into the unziped folder in Terminal, by typing 'cd ' and then dragging the folder icon in your Terminal window.</li>
+			<li>Make the script 'executable' by typing 'chmod 777 phyloGenerator.py'</li>
+			<li>You're done! Now <a href="tutorial.html">read the tutorial to see how to use phyloGenerator!</a></li>
+		</ol>
+		</ol>
 			
-			<p>Installing phyloGenerat</p>
-			<p></p>
-			<p></p>
-			<p></p>
-			<p></p>
+			<a name="Windows"><h3>Windows</h3></a>
+			<p>Coming soon...</p>
+			<a name="Linux"><h3>Linux</h3></a>
+			<p>Coming soon - for now, you should be able to just follow the Mac instructions.</p>
           </div>
           <div class="span4">
   			<h3>Useful links</h3>
@@ -153,7 +159,7 @@
   			<li><a href="downloads.html">Downloads</a></li>
   			<li><a href="tutorial.html">Tutorial</a></li>
   			<li><a href="reference.html">Internal Reference</a></li>
-			<li><a href="http://imperial.academia.edu/WillPearse">Who Wrote This?</a></li>
+			<li><a href="http://imperial.academia.edu/WillPearse/About/">Who Wrote This?</a></li>
 			<li><a href="mailto:william.pearse08@imperial.ac.uk">Email</a></li>
   			</ul>
             <h3>Quickstart</h3>
