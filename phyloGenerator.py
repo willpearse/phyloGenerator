@@ -15,6 +15,7 @@ from Bio.SeqFeature import SeqFeature, FeatureLocation #Sequence manipulation
 from Bio import SeqIO #Sequence manipulation
 import random #Randomly select from multiple matches when downloading sequences
 import numpy as np #Array and matrix sums
+import scipy as sp #Stats (quantiles, etc.)
 import subprocess, threading #Background process class
 from Bio.Align.Applications import MuscleCommandline #Make a muscle commandline call
 from Bio import AlignIO #Handle alignments
@@ -260,7 +261,7 @@ def findGenes(speciesList, geneNames, download=False, titleText=None, targetNoGe
 			foundSeqs = []
 		else:
 			foundSeqs = np.zeros((len(speciesList), len(geneNames)), int)
-		if verbose:	progBar = pbar.ProgressBar(widgets=[pbar.Percentage(), pbar.Bar()], maxval=len(speciesList)).start()
+		if verbose: progBar = pbar.ProgressBar(widgets=[pbar.Percentage(), pbar.Bar()], maxval=len(speciesList)).start()
 		for i in range(len(speciesList)):
 			if verbose: progBar.update(i+1)
 			speciesGenes = []
@@ -368,9 +369,6 @@ def alignSequences(seqs, method='muscle', tempStem='temp', timeout=99999999):
 
 def checkAlignmentList(alignList, method='length', gapType='-'):
 	#Check a list of alignments for internal similarity
-	def alignLength(alignList):
-		return [x.get_alignment_length() for x in alignList]
-	
 	def noGaps(alignList, gapType):
 		meanGapNumber = []
 		medianGapNumber = []
@@ -391,7 +389,7 @@ def checkAlignmentList(alignList, method='length', gapType='-'):
 		return {'meanGapNumber':meanGapNumber, 'medianGapNumber':medianGapNumber, 'sdGapNumber':sdGapNumber, 'maxGapNumber':maxGapNumber, 'minGapNumber':minGapNumber}
 	
 	def gapFraction(alignList, gapType):
-		lengths = alignLength(alignList)
+		lengths = alignList.get_alignment_length()
 		gaps = noGaps(alignList, gapType)
 		meanFraction = []
 		medianFraction = []
@@ -405,34 +403,34 @@ def checkAlignmentList(alignList, method='length', gapType='-'):
 		return {'meanFraction':meanFraction, 'medianFraction':medianFraction, 'sdGaps':gaps['sdGapNumber'], 'maxFraction':maxFraction, 'minFraction':minFraction}
 	
 	if method == 'length':
-		return alignLength(alignList)
+		return alignList.get_alignment_length()
 	elif method == 'gapNumber':
 		return noGaps(alignList, gapType)
 	elif method =='gapFraction':
 		return gapFraction(alignList, gapType)
 	elif method == 'everything':
-		return {'length':alignLength(alignList), 'noGaps':noGaps(alignList, gapType), 'gapFraction':gapFraction(alignList, gapType)}
+		return {'length':alignList.get_alignment_length(), 'noGaps':noGaps(alignList, gapType), 'gapFraction':gapFraction(alignList, gapType)}
 	else:
 		raise RuntimeError("No valid alignment checking method requested")
 
-def checkASequenceList(seqList, method='length', tolerance=None):
+def checkSequenceList(seqList, method='length', tolerance=None):
 	#Check a list of sequences for internal similarity
 	def seqLength(seqList):
 		return [len(x) for x in seqList]
 	
 	def quantiles(seqList):
 		seqLengths = seqLength(seqList)
-		quantileLengths = sp.quantile(seqLengths, [0.05, 0.25, 0.5, 0.75, 0.95])
+		quantileLengths = sp.percentile(seqLengths, [5, 25, 5, 75, 95])
 		maxLength = max(seqLengths)
 		minLength = min(seqLengths)
 		upperQuantile = [False] * len(seqList)
 		lowerQuantile = [False] * len(seqList)
 		for i in range(len(seqLengths)):
-			if seqLength[i] >= quantileLengths[0]:
+			if seqLengths[i] >= quantileLengths[0]:
 				lowerQuantile[i] = True
-			elif seqLength[i] <= quantileLengths[4]:
+			elif seqLengths[i] <= quantileLengths[4]:
 				upperQuantile[i] = True
-		return {'seqLengths':lengths, 'maxLength':maxLength, 'minLength':minLength, 'quantiles':quantileLengths, 'lowerQuantile':lowerQuantile, 'upperQuantile':upperQuantile}
+		return {'seqLengths':seqLengths, 'maxLength':maxLength, 'minLength':minLength, 'quantileLengths':quantileLengths, 'lowerQuantile':lowerQuantile, 'upperQuantile':upperQuantile}
 	
 	if method == 'length':
 		return seqLength(seqList)
@@ -455,16 +453,30 @@ def checkASequenceList(seqList, method='length', tolerance=None):
 def sequenceDisplay(seqList, speciesNames, seqDetect=None):
 	#Only works with one gene at the moment
 	if(seqDetect):
-		maxInputName = max(len(speciesNames))
+		#Get longest species name
+		maxInputName = 0
+		for each in speciesNames:
+			if each:
+				if len(each) > maxInputName:
+					maxInputName = len(each)
+		#Get longest sequence name
+		maxSeqName = 0
+		for each in seqList:
+			if each:
+			 	if len(each.name) > maxSeqName:
+					maxSeqName = len(each.name)
+		if maxSeqName < len("GenBankName"): maxSeqName = len("GenBankName") 
 		print "\nPrinting sequence info. Refer to manual for more details, but note that '^^^' and '___' denote sequences in the upper or lower 5% of sequence lengths'\nGeneral summary:\n"
 		if seqDetect['tolerable']:
 			print "Sequence lengths within specified tolerance"
 		else:
 			print "Sequence lengths *outside* specified tolerance"
-		print "\nSequence summary:\nInput name".ljust(maxInputName), "GenBankName".ljust(maxSeqName), "Sequence Length".ljust(6), "Issue"
+		print "\nSequence summary:\nSeq ID ".ljust(len("Seq ID ")), "Input name".ljust(maxInputName), "GenBankName".ljust(maxSeqName), "Sequence Length".ljust(6), "Issue"
 		for i in range(len(seqList)):
-			print speciesNames[i].ljust(maxInputName), seqList[i].name.ljust(maxSeqName), len(seqList[i].ljust(6))
-	return ()
+			if seqList[i]:
+				print str(i).ljust(len("Seq ID ")), str(speciesNames[i]).ljust(maxInputName), str(seqList[i].name).ljust(maxSeqName), str(len(seqList[i])).ljust(6)
+			else:
+				print str(i).ljust(len("Seq ID ")), str(speciesNames[i]).ljust(maxInputName), "NO SEQUENCE".ljust(maxSeqName), "NA".ljust(6)
 
 def phyloGen(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=None, cladeList=None,  DNAmodel='GTR+G', cleanup=True):
 	#Make a phylogeny from a given set of sequences in the background.
@@ -479,21 +491,23 @@ def phyloGen(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=
 	#TO-DO: different types of RAxML executable?
 	#TO-DO: implement BEAST
 	#TO-DO: output some diagnostics from the program while it's running
+	
 	################################
 	#RAXML##########################
 	################################
 	if 'RAxML' in method:
-		print 'a'
 		#RAxML version
 		if 'SSE3' in method and 'PTHREADS' in method:
-			raxmlVersion = 'raxmlHPC-PTHREADS-SSE3'
+			raxmlCompile = '-PTHREADS-SSE3'
 		elif 'SSE3' in method:
-			raxmlVersion = 'raxmlHPC-SSE3'
+			raxmlCompile = '-SSE3'
 		elif 'PTHREADS' in method:
-			raxmlVersion = 'raxmlHPC-PTHREADS'
+			raxmlCompile = '-PTHREADS'
 			noThreads = argsCheck(options, 'PTHREADS')
 			options += ' -N ' + noThreads
-		elif 'localVersion' in method:
+		else:
+			raxmlCompile = ''
+		if 'localVersion' in method:
 			raxmlVersion = 'raxml'
 		else:
 			raxmlVersion = 'raxmlHPC'
@@ -520,7 +534,7 @@ def phyloGen(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=
 		if outgroup:
 			options += ' -o ' + outgroup
 		AlignIO.write(alignment, inputFile, "phylip")
-		commandLine = raxmlVersion + fileLine + algorithm + DNAmodel + options
+		commandLine = raxmlVersion + raxmlCompile + fileLine + algorithm + DNAmodel + options
 		if not timeout:
 			return commandLine
 	elif 'BEAST' in method:
@@ -528,19 +542,19 @@ def phyloGen(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=
 		#BEAST##########################
 		################################
 		def indent(elem, level=0):
-		    i = "\n" + level*"  "
-		    if len(elem):
-		        if not elem.text or not elem.text.strip():
-		            elem.text = i + "  "
-		        if not elem.tail or not elem.tail.strip():
-		            elem.tail = i
-		        for elem in elem:
-		            indent(elem, level+1)
-		        if not elem.tail or not elem.tail.strip():
-		            elem.tail = i
-		    else:
-		        if level and (not elem.tail or not elem.tail.strip()):
-		            elem.tail = i
+			i = "\n" + level*"	"
+			if len(elem):
+				if not elem.text or not elem.text.strip():
+					elem.text = i + "  "
+				if not elem.tail or not elem.tail.strip():
+					elem.tail = i
+				for elem in elem:
+					indent(elem, level+1)
+				if not elem.tail or not elem.tail.strip():
+					elem.tail = i
+			else:
+				if level and (not elem.tail or not elem.tail.strip()):
+					elem.tail = i
 		
 		def createElement(name, id):
 			element=ET.Element("taxa", id=cladeNames[i])
@@ -745,16 +759,18 @@ class PhyloGenerator:
 		self.GenBankFile = ''
 		self.sequences = []
 		self.speciesNames = []
-		self.downloadInterval = 10
+		self.downloadInterval = 2
 	
 	def loadDNAFile(self):
 		locker = True
-		print "\nIf you have already-downloaded DNA in a single FASTA file, please enter the filename. Otherwise, hit enter to abort"
+		print "\nIf you have already-downloaded DNA in a single FASTA file, please enter the filename. Otherwise, hit enter to continue."
 		while locker:
 			inputFile = raw_input("")
 			if inputFile:
 				try:
-					self.sequences.append(list(SeqIO.parse(inputFile, 'fasta')))
+					tempSeqs = list(SeqIO.parse(inputFile, 'fasta'))
+					self.sequences.extend(tempSeqs)
+					self.speciesNames.extend([x.id for x in tempSeqs])
 					self.fastaFile = inputFile
 					locker = False
 				except IOError:
@@ -773,8 +789,7 @@ class PhyloGenerator:
 				try:
 					with open(inputFile, 'r') as f:
 						for each in f:
-							self.speciesNames.append(each)
-					
+							self.speciesNames.append(each.strip())
 					self.genbankFile = inputFile
 					locker = False
 				except IOError:
@@ -783,10 +798,11 @@ class PhyloGenerator:
 				print "\nNo DNA downloaded"
 				locker = False
 				aborted = True
+		
 		if not aborted:
 			print "\n", len(self.speciesNames), "Species loaded."
 			print "\nPlease enter a valid email address to let Entrez know who you are. It's *your* fault if this is not valid, and you will likely have your IP address barred from using GenBank if you don't enter one"
-			self.EntrezEmail = raw_input("")
+			Entrez.email = raw_input("")
 			print"\nPlease enter the name of the gene you want to use, e.g. 'COI' for cytochrome oxidase one, or just hit enter to abort"
 			inputGene = raw_input("")
 			if inputGene:
@@ -794,26 +810,72 @@ class PhyloGenerator:
 				for species in self.speciesNames:
 					temp = sequenceDownload(species, inputGene)
 					self.sequences.append(temp)
+					print "...", species, "found"
 					time.sleep(self.downloadInterval)
 			else:
 				self.GenBankFile = ''
 				self.speciesNames = []
 				print "\nGenBank Download aborted"
 	
-	def DNALoaded():
-		if self.sequences:
-			pass
-		else:
+	def DNALoaded(self):
+		if not self.sequences:
 			print "\nNo DNA loaded. Exiting."
 			sys.exit()
 	
-	def dnaChecking():
-		pass
+	def dnaChecking(self, tolerance=0.1):
+		self.tolerance = tolerance
+		self.dnaCheck = checkSequenceList(self.sequences, tolerance=self.tolerance, method="quantileDetect")
+		sequenceDisplay(self.sequences, self.speciesNames, self.dnaCheck)
 	
+	def dnaEditing(self):
+		locker = True
+		print "\nTo delete a sequence, enter its SeqID and press return - *one sequence at a time*\nTo continue, press enter with no SeqID\n"
+		while(locker):
+			inputSeq = raw_input("")
+			if inputSeq:
+				if int(inputSeq) in range(len(self.sequences)):
+					del self.sequences[int(inputSeq)]
+					print "SeqID", inputSeq, "Successfully deleted"
+				else:
+					print "Sorry, I didn't recognise", inputSeq, "- try again"
+			else:
+				locker = False
+				print "No more sequences to delete. Continuing."
+	
+	def align(self, method='muscle'):
+		print "\nAligning DNA using", method, "\n"
+		self.alignment = alignSequences(self.sequences, method=method, tempStem='temp', timeout=99999999)
+		print "\nAlignment complete!"
+	
+	def alignmentChecking(self, tolerance=0.1):
+		self.tolerances = tolerance
+		self.alignCheck = checkAlignmentList(self.alignment)
+		#sequenceDisplay(self.sequences, self.speciesNames, self.dnaCheck)
+	
+	def phylogen(self, method="RAxML-localVersion"):
+		print"\nPlease name the output phylogeny"
+		phyloName = raw_input("")
+		print"\n Running with options:", method
+		self.phylogeny = phyloGen(self.alignment, method=method, timeout=999)
+		print"\nRun complete!"
+		Phylo.write(self.phylogeny, phyloName, 'newick')
+	
+	def cleanUpSequences(self):
+		for i in reversed(range(len(sequences))):
+			if not sequences[i]:
+				print "\nDelete species:", speciesNames[i]
+				del sequences[i]
+				del speciesNames[i]
+		print "\nClean-up complete!"
+		
+	def renamePhylogeny(self):
+		pass
 
 def main():
 	currentState = PhyloGenerator()
 	print "\n\nWelcome to phyloGenerator! Let's make a phylogeny!"
+	print "---Please go to http://willpearse.github.com/phyloGenerator for help"
+	print "---Written by Will Pearse (will.pearse@gmail.com)"
 	print "\nDNA INPUT"
 	currentState.loadDNAFile()
 	print "\nDNA DOWNLOAD"
@@ -821,6 +883,20 @@ def main():
 	currentState.DNALoaded()
 	print "\nDNA CHECKING"
 	currentState.dnaChecking()
+	currentState.dnaEditing()
+	#currentState.cleanUpSequences() TO-DO!
+	#TO-DO: allow them to download new sequences for particular species...
+	print "\nDNA ALIGNMENT"
+	currentState.align()
+	print "\nALIGNMENT CHECKING"
+	currentState.alignmentChecking()
+	#currentState.alignmentDisplay() TO-DO - essentially, just print out whether there's a problem and offer to open a program if it doesn't work...
+	#TO-DO - allow them to re-align and remove some sequences if they wish
+	print "\nPHYLOGENY GENERATION"
+	currentState.phylogen()
+	currentState.renamePhylogeny() #TO-DO
+	print "\nCongratulations! Exiting phyloGenerator."
+	
 
 if __name__ == '__main__':
 	main()

@@ -7,7 +7,8 @@ A way to make phylogenies quickly and easily if you're an ecologist. Think of it
 REQUIRES: Python >=2.6; Biopython >=2.5; NumPy.
 
 Very much a work-in-progress.
-Eventually, you'll be able to just run it with 'python phyloGenerator' from the command line. You can at present, but you won't get a full workflow (i.e. it'll stop part-way through :p).
+Running it is simple; make sure phyloGenerator.py has permission to execute, then run it. If you use 'test.txt' for species to lookup, and 'test.fasta' as pre-made DNA to include, the whole thing should run through. It's far from perfect, so don't be surprised if you get error messages. I'm still working on it!
+
 However, for the time being, it's a fairly handy set of functions you can use when manipulating DNA sequences in Python. There's no wiki yet, but there will be.
 Email me if you want anything!
 
