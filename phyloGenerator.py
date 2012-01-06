@@ -26,6 +26,8 @@ import xml.etree.ElementTree as ET #XML parsing for BEAST
 from Bio.Data import CodonTable #Codon positions for trimming sequences
 import progressbar as pbar #For progress bar
 import time #For waiting between sequence downloads
+import argparse #For command line arguments
+import webbrowser #Load website on request
 
 def taxonIDLookup(taxonID):
 	#Lookup a species ID in the NCBI taxonomy database
@@ -790,12 +792,18 @@ def rateSmooth(phylo, method='PATHd8', nodes=tuple(), sequenceLength=int(), temp
 
 class PhyloGenerator:
 	def __init__(self, stem):
-		self.fastaFile = ''
-		self.GenBankFile = ''
-		self.sequences = []
-		self.speciesNames = []
+		self.fastaFile = False
+		self.GenBankFile = False
+		self.sequences = False
+		self.speciesNames = False
 		self.downloadInterval = 2
 		self.stem = stem
+		self.alignmentList = False
+		self.phylogeny = False
+		self.alignment = False
+		self.smoothPhylogeny = False
+		self.root = False
+		self.genBankIDs = False
 	
 	def loadDNAFile(self):
 		locker = True
@@ -891,7 +899,7 @@ class PhyloGenerator:
 					print "SeqID", inputSeq, "Successfully deleted"
 					print "Re-calulating alignment and summary statistics..."
 					self.align()
-					self.dnaChecking()
+					alignmentDisplay(self.alignmentList, self.alignmentListNames, self.alignmentCheck)
 				else:
 					print "Sorry, I didn't recognise", inputSeq, "- try again"
 			else:
@@ -914,7 +922,7 @@ class PhyloGenerator:
 				elif alignInput == "everything":
 					print "Aligning DNA with:"
 					print "...MUSCLE"
-					self.alignmentList = [alignSequences(self.sequences, method="muscle", tempStem='temp', timeout=99999999)]
+					self.alignmentList.append(alignSequences(self.sequences, method="muscle", tempStem='temp', timeout=99999999))
 					print "\n...MAFFT"
 					self.alignmentList.append(alignSequences(self.sequences, method="mafft", tempStem='temp', timeout=99999999))
 					print "\n...Clustal-O"
@@ -929,27 +937,48 @@ class PhyloGenerator:
 				self.alignment = alignSequences(self.sequences, method="muscle", tempStem='temp', timeout=99999999)
 				self.alignmentMethod = "muscle"
 				print "\nAlignment complete!"
-	
-	def alignmentChoice(self):
-		self.alignmentCheck = checkAlignmentList(self.alignmentList, method='everything')
-		alignmentDisplay(self.alignmentList, self.alignmentListNames, self.alignmentCheck)
-		print "\nAny problems with your alignment likely result from poor-quality DNA sequences."
-		print "To write out your alignments and view these sequences in an external viewer, type 'output'"
-		print "To edit DNA sequences, type 'edit'. To choose an alignment, enter its ID number."
-		locker = True
-		while locker:
-			alignInput = raw_input("Alignment Choice Input: ")
-			if alignInput == "output":
-				for alignment, method in zip(self.alignmentList, self.alignmentListNames):
-					AlignIO.write(alignment, self.stem+"_TEMP_alignment_"+method+".fasta", "fasta")
-				print "Alignments written to your working directory."
-			elif alignInput == "edit":
-				self.dnaEditing()
-			elif alignInput in range(self.alignmentList):
-				self.alignment = self.alignmentList[alignInput]
-				self.alignmentMethod = self.alignmentListNames[alignInput]
-				print self.alignmentMethod + "alignment chosen."
 				locker = False
+	
+	def alignmentChecking(self):
+		if self.alignmentList:
+			self.alignmentCheck = checkAlignmentList(self.alignmentList, method='everything')
+			alignmentDisplay(self.alignmentList, self.alignmentListNames, self.alignmentCheck)
+			print "\nAny problems with your alignment likely result from poor-quality DNA sequences."
+			print "To write out your alignments and view these sequences in an external viewer, type 'output'"
+			print "To edit DNA sequences, type 'edit'. To choose an alignment, enter its ID number."
+			locker = True
+			while locker:
+				alignInput = raw_input("Alignment Choice: ")
+				if alignInput == "output":
+					for alignment, method in zip(self.alignmentList, self.alignmentListNames):
+						AlignIO.write(alignment, self.stem+"_TEMP_alignment_"+method+".fasta", "fasta")
+					print "Alignments written to your working directory."
+				elif alignInput == "edit":
+					self.alignmentEditing()
+				elif alignInput in range(self.alignmentList):
+					self.alignment = self.alignmentList[alignInput]
+					self.alignmentMethod = self.alignmentListNames[alignInput]
+					print self.alignmentMethod + "alignment chosen."
+					locker = False
+		else:
+			print "\nIt is *strongly* recommended that you manually check you alignment for long gaps, etc."
+			print "To write out your alignment and view it in an external viewer, type 'output'"
+			print "To edit DNA sequences, type 'edit'. To continue, just press enter."
+			locker = True
+			while locker:
+				alignInput = raw_input("Alignment Choice: ")
+				if alignInput:
+					if alignInput == "output":
+						AlignIO.write(self.alignment, self.stem+"_TEMP_alignment.fasta", "fasta")
+						print "Alignment written to your working directory."
+					elif alignInput == "edit":
+						self.alignmentEditing()
+					else:
+						print "Sorry, I didn't recognise", alignInput, "- try again"
+				else:
+					locker = False
+					print "Continuing..."
+
 	
 	def phylogen(self, method="RAxML-localVersion"):
 		print"\n Running with options:", method
@@ -967,8 +996,10 @@ class PhyloGenerator:
 					self.phylogeny.root_with_outgroup(inputSmooth)
 					self.smoothPhylogeny = rateSmooth(self.phylogeny, sequenceLength=self.alignment.get_alignment_length())
 					locker = False
+				else:
+					print "Sorry, I couldn't find", alignInput, " in your phylogeny - try again"
 			else:
-				self.smoothPhylogeny = False
+				locker = False
 	
 	def cleanUpSequences(self):
 		cleaned = []
@@ -989,49 +1020,90 @@ class PhyloGenerator:
 			self.sequences[i].name = self.speciesNames
 	
 	def writeOutput(self):
+		#Log
+		#TO-DO
+		#Sequences
+		if self.sequences:
+			SeqIO.write(self.sequences, self.stem+"_raw_sequences.fasta", 'fasta')
 		#Alignment
-		AlignIO.write(self.alignment, self.stem+"_alignment.fasta", 'fasta')
+		if self.alignment:
+			AlignIO.write(self.alignment, self.stem+"_alignment.fasta", 'fasta')
 		#Sequence info
-		with open(self.stem+"_sequence_info.txt", 'w') as f:
-			f.write("Sequence ID, Species Name\n")
-			for i in range(len(self.sequences)):
-				f.write(self.genBankIDs[i]+","+self.speciesNames[i]+"\n")
+		if self.genBankIDs:
+			with open(self.stem+"_sequence_info.txt", 'w') as f:
+				f.write("Sequence ID, Species Name\n")
+				for i in range(len(self.sequences)):
+					f.write(self.genBankIDs[i]+","+self.speciesNames[i]+"\n")
 		#Phylogeny
-		Phylo.write(self.phylogeny, self.stem+"_phylogeny.tre", 'newick')
+		if self.phylogeny:
+			Phylo.write(self.phylogeny, self.stem+"_phylogeny.tre", 'newick')
+		#Smoothed phylogeny
 		if self.smoothPhylogeny:
 			Phylo.write(self.smoothPhylogeny, self.stem+"_phylogeny_smoothed.tre", 'newick')
 	
 
 def main():
-	print "\n\nWelcome to phyloGenerator! Let's make a phylogeny!"
-	print "---Please go to http://willpearse.github.com/phyloGenerator for help"
-	print "---Written by Will Pearse (will.pearse@gmail.com)"
-	print "\nLet's get going!\nPlease input a 'stem' name for all your output (phylogeny, sequences, etc.)"
-	stem = raw_input("")
-	currentState = PhyloGenerator(stem=stem.strip())
-	print "\nDNA INPUT"
-	currentState.loadDNAFile()
-	print "\nDNA DOWNLOAD"
-	currentState.loadGenBank()
-	"\nDNA CHECKING"
-	currentState.DNALoaded()
-	currentState.dnaChecking()
-	print "\nYou are now able to delete DNA sequences you have loaded.\nEvery time you delete a sequence, your summary statistics will be re-calculated, and displayed to you again.\n*IMPORTANT*: Sequence IDs may change once you delete a sequence."
-	currentState.dnaEditing()
-	#TO-DO: allow them to download new sequences for particular species...
-	print "\nDNA ALIGNMENT"
-	currentState.align()
-	print "\nALIGNMENT CHECKING"
-	currentState.alignmentChecking()
-	print "\nYou are again able to delete DNA sequences you have loaded.\nEvery time you delete a sequence, your alignment and statistics will be re-calculated, and displayed to you again.\n*IMPORTANT*: Sequence IDs may change once you delete a sequence."
-	currentState.alignmentEditing()
-	currentState.cleanUpSequences()
-	currentState.renameSequences()
-	print "\nPHYLOGENY GENERATION"
-	currentState.phylogen()
-	currentState.rateSmooth()
+	try:
+		args = parser.parse_args()
+		if args.version:
+			print "Version 0.1a"
+		elif args.manual:
+			 webbrowser.open("http://willpearse.github.com/phyloGenerator")
+		else:
+			print "\n\nWelcome to phyloGenerator! Let's make a phylogeny!"
+			print "---Please go to http://willpearse.github.com/phyloGenerator for help"
+			print "---Written by Will Pearse (will.pearse@gmail.com)"
+			if args.name:
+				print "\nLet's get going!\nUsing stem name", args.name, "..."
+				currentState = PhyloGenerator(stem=args.name)
+			else:
+				print "\nLet's get going!\nPlease input a 'stem' name for all your output (phylogeny, sequences, etc.)"
+				stem = raw_input("Stem name: ")
+				currentState = PhyloGenerator(stem=stem)
+			if args.alignment:
+				currentState.alignment = AlignIO.read(args.dna, 'fasta')
+				print "Alignment successfully loaded from file", args.alignment, "..."
+			else:
+				if args.dna:
+					currentState.sequences = list(SeqIO.parse(args.dna, 'fasta'))
+					print "\nDNA successfully loaded from file", args.dna, "..."
+				else:
+					print "\nDNA INPUT"
+					currentState.loadDNAFile()
+					print "\nDNA DOWNLOAD"
+					currentState.loadGenBank()
+					"\nDNA CHECKING"
+					currentState.DNALoaded()
+					currentState.dnaChecking()
+					print "\nYou are now able to delete DNA sequences you have loaded.\nEvery time you delete a sequence, your summary statistics will be re-calculated, and displayed to you again.\n*IMPORTANT*: Sequence IDs may change once you delete a sequence."
+					currentState.dnaEditing()
+					currentState.cleanUpSequences()
+					currentState.renameSequences()
+					#TO-DO: allow them to download new sequences for particular species...
+				print "\nDNA ALIGNMENT"
+				currentState.align()
+				print "\nALIGNMENT CHECKING"
+				currentState.alignmentChecking()
+			print "\nPHYLOGENY GENERATION"
+			currentState.phylogen()
+			currentState.rateSmooth()
+	except:
+		print "\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+		print "Sorry, an unhandled exception has occured."
+		print "I will try to write out whatever has been done so far."
+		print "If this isn't obviously something you've done, please contact me - will.pearse@gmail.com"
+		print "Sorry again!"
 	currentState.writeOutput()
 	print "\nCongratulations! Exiting phyloGenerator."
 
+
 if __name__ == '__main__':
+	parser = argparse.ArgumentParser(description="phyloGenerator - phylogeny generation for ecologists.", epilog="Help at http://willpearse.github.com/phyloGenerator - written by Will Pearse")
+	parser.add_argument("--version", action="store_true", help="Display version information.")
+	parser.add_argument("--manual", action="store_true", help="(Attempt to) open browser and show help")
+	parser.add_argument("-name", "-n", help="'Stem' name for all output files.")
+	parser.add_argument("-dna", "-d", help="Unaligned DNA (in FASTA format).")
+	parser.add_argument("-species", "-s", help="Binomial names of species, each on a new line")
+	parser.add_argument("-alignment", "-a", help="Aligned DNA (in FASTA format).")
+	parser.add_argument("-parameters", "-p", help="Parameter file giving detailed instructions to phyloGen.")
 	main()
