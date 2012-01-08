@@ -6,6 +6,26 @@ First attempt at putting together an automated phylogeny assembly programme for 
 This version will be funcitonal, i.e. there will be no class definitions
 Created by Will Pearse on 2011-08-24.
 Copyright (c) 2011 Imperial College london. All rights reserved.
+TO-DO:
+* Add these as items on the GitHub bug tracker
+* Progress-bar
+* Dictionary keys for all list return types
+* Doc-strings
+* Unit tests
+* Find relatives
+* Better new sequence download
+* Neaten download wrapper function
+* Speed up download and sort of sequences
+* Custom sequence searches?
+* findGenes should use search history
+* findGenes interactive gene selection
+* TerminationPipe quiet and better controlled
+* Handle multiple genes
+* BEAST
+* 'Execute later' code
+* Options file
+* Constraint tree input
+* Generate constraint tree from GenBank, Phylomatic, web servers, etc.
 """
 
 from Bio import Entrez #Taxonomy lookup
@@ -24,10 +44,10 @@ import re #Search for files to delete
 from Bio import Phylo #Load constructed phylogeny
 import xml.etree.ElementTree as ET #XML parsing for BEAST
 from Bio.Data import CodonTable #Codon positions for trimming sequences
-import progressbar as pbar #For progress bar
 import time #For waiting between sequence downloads
 import argparse #For command line arguments
 import webbrowser #Load website on request
+import sys #To exit on errors
 
 def taxonIDLookup(taxonID):
 	#Lookup a species ID in the NCBI taxonomy database
@@ -38,8 +58,6 @@ def taxonIDLookup(taxonID):
 	#TEST: commonLookup("German doodlebug")
 	#NOTE: order of return isn't what you'd want, probably, but done like this for historical reasons
 	#NOTE: you wouldn't want to look up anything other than a species with this
-	#TO-DO: Make the return type a dictionary key for ease of use
-	#TO-DO: Check that the ID exists (worth it?)
 	handleDownload = Entrez.efetch(db="taxonomy", id=taxonID, retmode="xml")
 	resultsDownload = Entrez.read(handleDownload)
 	handleDownload.close()
@@ -59,7 +77,6 @@ def commonLookup(spName):
 	#TEST: commonLookup("human")
 	#TEST: commonLookup("German doodlebug")
 	#NOTE: order of return isn't what you'd want, probably, but done like this for historical reasons
-	#TO-DO: Make the return type a dictionary key for ease of use
 	handleSearch = Entrez.esearch(db="taxonomy", term=spName)
 	resultsSearch = Entrez.read(handleSearch)
 	handleSearch.close()
@@ -88,7 +105,6 @@ def cladeSpecies(cladeName):
 
 def findRelativeSequence(spName, geneName=None, cladeDepth=0, thorough=False, rettype='gb', titleText=None, noSeqs=1, seqChoice='random', download=True, retStart=0, retMax=20, targetLength=None, trimSeq=False, DNAtype='Standard', gapType='-', includeGenome=True, includePartial=True):
 	#Download a relative's sequence (to be used if one can't be found for that target species)
-	#TO-DO: Re-write this because it's horribly written in the while loop!
 	genusName = spName.partition(' ')[0]
 	namesTried = [genusName]
 	genusDownload = sequenceDownload(spName, geneName, thorough, rettype, titleText, noSeqs, seqChoice, download, retStart, retMax, targetLength, trimSeq, DNAtype, gapType, includeGenome, includePartial)
@@ -156,9 +172,6 @@ def sequenceDownload(spName, geneName=None, thorough=False, rettype='gb', titleT
 		#TEST: sequenceDownload("Homo sapiens", includeGenome=False, geneName="COI")
 		#TEST: sequenceDownload("Homo sapiens", download=False)
 		#TEST: sequenceDownload("German doodlebug")
-		#TO-DO: include more ways to deal with multiple hits
-		#TO-DO: allow custom searches to be specified
-		#TO-DO: neaten the length stuff with a wrapper function - you're doing the same thing five times!
 		searchTerm = spName + "[Organism]"
 		if geneName: searchTerm = "(" + searchTerm + ") AND " + geneName + "[Gene Name]"
 		if titleText: searchTerm = "(" + searchTerm + ") AND " + titleText + " [Title]"
@@ -242,9 +255,6 @@ def findGenes(speciesList, geneNames, download=False, titleText=None, targetNoGe
 	#OUTPUT: NumPy array of the species/genes matches, in the order each was given
 	#		-OR- the genes you should use
 	#ASSUMES that all these species have been checked for validity beforehand (i.e. that they're worth searching for)
-	#TO-DO: Do you need to implement some kind of WebEnv/QueryKey method for this?
-	#TO-DO: Let the user select the top genes after they've done a general search
-	#TO-DO: Some kind of progress bar
 	#TEST: findGenes(['Quercus robur', 'Quercus ilex', 'Pinus sylvaticus'], ['rbcL', 'ITS1', 'matK', 'ITS2'])
 	#TEST: findGenes(['Quercus robur', 'Quercus ilex', 'Pinus sylvaticus'], ['rbcL', 'ITS1', 'matK', 'ITS2'], targetNoGenes=2)
 	#TEST: findGenes(['Quercus robur', 'Quercus ilex', 'Pinus sylvaticus'], ['rbcL', 'ITS1'], targetNoGenes=2)
@@ -263,9 +273,7 @@ def findGenes(speciesList, geneNames, download=False, titleText=None, targetNoGe
 			foundSeqs = []
 		else:
 			foundSeqs = np.zeros((len(speciesList), len(geneNames)), int)
-		if verbose: progBar = pbar.ProgressBar(widgets=[pbar.Percentage(), pbar.Bar()], maxval=len(speciesList)).start()
 		for i in range(len(speciesList)):
-			if verbose: progBar.update(i+1)
 			speciesGenes = []
 			for k in range(len(geneNames)):
 				sequence = sequenceDownload(speciesList[i], geneNames[k], titleText=titleText, noSeqs=noSeqs, includePartial=includePartial, includeGenome=includeGenome, seqChoice=seqChoice, download=download, thorough=thorough)
@@ -512,7 +520,7 @@ def alignmentDisplay(alignList, alignMethods, alignDetect=None):
 		for i in range(len(alignList)):
 			print str(i).ljust(len("ID")), alignMethods[i].ljust(len("Alignment")), str(alignList[i].get_alignment_length()).ljust("Length")
 
-def phyloGen(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=None, cladeList=None,  DNAmodel='GTR+G', cleanup=True):
+def phyloGen(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=None, cladeList=None,  DNAmodel='GTR+G', constraint=None, cleanup=True):
 	#Make a phylogeny from a given set of sequences in the background.
 	#NOTE: Uses subprocess class (above) because internal BioPython methos can hang if you ask for the alignment too soon.
 	#NOTE: Requires phylgoeny program to be accessible from everywhere
@@ -568,7 +576,15 @@ def phyloGen(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=
 		if outgroup:
 			options += ' -o ' + outgroup
 		AlignIO.write(alignment, inputFile, "phylip")
+		#Constraint
+		if constraint:
+			if constraint.is_bifurcating():
+				options += " -r " + tempStem + "_constraint.tre"
+			else:
+				options += " -g " + tempStem + "_constraint.tre"
+			Phylo.write(constraint, tempStem + "_constraint.tre", 'newick')
 		commandLine = raxmlVersion + raxmlCompile + fileLine + algorithm + DNAmodel + options
+		print "\n", commandLine
 		if not timeout:
 			return commandLine
 	elif 'BEAST' in method:
@@ -794,8 +810,8 @@ class PhyloGenerator:
 	def __init__(self, stem):
 		self.fastaFile = False
 		self.GenBankFile = False
-		self.sequences = False
-		self.speciesNames = False
+		self.sequences = []
+		self.speciesNames = []
 		self.downloadInterval = 2
 		self.stem = stem
 		self.alignmentList = False
@@ -803,45 +819,64 @@ class PhyloGenerator:
 		self.alignment = False
 		self.smoothPhylogeny = False
 		self.root = False
-		self.genBankIDs = False
+		self.genBankIDs = []
+		self.constraint = False
 	
-	def loadDNAFile(self):
-		locker = True
-		print "\nIf you have already-downloaded DNA in a single FASTA file, please enter the filename. Otherwise, hit enter to continue."
-		while locker:
-			inputFile = raw_input("")
-			if inputFile:
-				try:
-					tempSeqs = list(SeqIO.parse(inputFile, 'fasta'))
-					self.sequences.extend(tempSeqs)
-					self.speciesNames.extend([x.id for x in tempSeqs])
-					self.fastaFile = inputFile
+	def loadDNAFile(self, inputFile=""):
+		if inputFile:
+			try:
+				self.sequences.extend(list(SeqIO.parse(inputFile, 'fasta')))
+				self.speciesNames.extend([x.name for x in self.sequences])
+				self.fastaFile = inputFile
+			except IOError:
+				print "\nDNA sequence file not found. Exiting..."
+				sys.exit()
+		else:
+			locker = True
+			print "\nIf you have already-downloaded DNA in a single FASTA file, please enter the filename. Otherwise, hit enter to continue."
+			while locker:
+				inputFile = raw_input("")
+				if inputFile:
+					try:
+						tempSeqs = list(SeqIO.parse(inputFile, 'fasta'))
+						self.sequences.extend(tempSeqs)
+						self.speciesNames.extend([x.name for x in tempSeqs])
+						self.fastaFile = inputFile
+						locker = False
+					except IOError:
+						print "\nFile not found. Please try again!"
+				else:
+					print "\nNo DNA loaded"
 					locker = False
-				except IOError:
-					print "\nFile not found. Try again, or hit end-of-file to exit"
-			else:
-				print "\nNo DNA loaded"
-				locker = False
 	
-	def loadGenBank(self):
-		locker = True
-		aborted = False
-		print "\nIf you need to download gene sequences from GenBank, please enter the filename of the species list (each species on a new line). Otherwise, hit enter to abort"
-		while locker:
-			inputFile = raw_input("")
-			if inputFile:
-				try:
-					with open(inputFile, 'r') as f:
-						for each in f:
-							self.speciesNames.append(each.strip())
-					self.genbankFile = inputFile
+	def loadGenBank(self, inputFile=False):
+		if inputFile:
+			try:
+				with open(inputFile, 'r') as f:
+					for each in f:
+						self.speciesNames.append(each.strip())
+						aborted = False
+			except IOError:
+				print "\nERROR: File not found. Exiting..."
+		else:
+			locker = True
+			aborted = False
+			print "\nIf you need to download gene sequences from GenBank, please enter the filename of the species list (each species on a new line). Otherwise, hit enter to abort"
+			while locker:
+				inputFile = raw_input("")
+				if inputFile:
+					try:
+						with open(inputFile, 'r') as f:
+							for each in f:
+								self.speciesNames.append(each.strip())
+						self.genbankFile = inputFile
+						locker = False
+					except IOError:
+						print "\nFile not found. Try again, or hit end-of-file to exit"
+				else:
+					print "\nNo DNA downloaded"
 					locker = False
-				except IOError:
-					print "\nFile not found. Try again, or hit end-of-file to exit"
-			else:
-				print "\nNo DNA downloaded"
-				locker = False
-				aborted = True
+					aborted = True
 		
 		if not aborted:
 			print "\n", len(self.speciesNames), "Species loaded."
@@ -980,9 +1015,9 @@ class PhyloGenerator:
 					print "Continuing..."
 
 	
-	def phylogen(self, method="RAxML-localVersion"):
-		print"\n Running with options:", method
-		self.phylogeny = phyloGen(self.alignment, method=method, timeout=999)
+	def phylogen(self, method="RAxML-localVersion"):		
+		print"\n Running with additional options:", method
+		self.phylogeny = phyloGen(self.alignment, method=method, constraint=self.constraint, timeout=999)
 		print"\nRun complete!"
 	
 	def rateSmooth(self):
@@ -1014,14 +1049,12 @@ class PhyloGenerator:
 				print "\n", each
 	
 	def renameSequences(self):
-		self.genBankIDs = []
 		for i in range(len(self.sequences)):
 			self.genBankIDs.append(self.sequences[i].id)
-			self.sequences[i].name = self.speciesNames
+			self.sequences[i].name = self.speciesNames[i]
 	
 	def writeOutput(self):
-		#Log
-		#TO-DO
+		#Log - TO-DO
 		#Sequences
 		if self.sequences:
 			SeqIO.write(self.sequences, self.stem+"_raw_sequences.fasta", 'fasta')
@@ -1037,62 +1070,136 @@ class PhyloGenerator:
 		#Phylogeny
 		if self.phylogeny:
 			Phylo.write(self.phylogeny, self.stem+"_phylogeny.tre", 'newick')
+		#Constraint tree
+		if self.constraint:
+			Phylo.write(self.constraint, self.stem+"_constraint.tre", 'newick')
 		#Smoothed phylogeny
 		if self.smoothPhylogeny:
 			Phylo.write(self.smoothPhylogeny, self.stem+"_phylogeny_smoothed.tre", 'newick')
 	
+	def getConstraint(self, fileName=""):
+		if not fileName:
+			print "It is *stronlgy* advised that you use a constraint tree with this program."
+			print "Please input the filename of your constraint tree (in newick format), or press enter to continue without one."
+			locker = True
+			while locker:
+				inputConstraint = raw_input("Constraint Tree: ")
+				if inputConstraint:
+					try:
+						self.constraint = Phylo.read(inputConstraint, 'newick')
+						locker = False
+					except IOError:
+						print "\nFile not found. Please try again!"
+					if self.checkConstraint():
+						print "Constraint tree loaded!"
+						locker = False
+					else:
+						print "Constraint tree does *not* match the species names you've inputted. Please load another file."
+				else:
+					print "...No constraint tree loaded"
+					locker = False
+		else:
+			try:
+				self.constraint = Phylo.read(fileName, 'newick')
+			except IOError:
+				print "\nFile not found. Exiting..."
+				sys.exit()
+			if self.checkConstraint():
+				print "Constraint tree loaded!"
+			else:
+				print "Constraint tree does *not* match the species names you've inputted. Exiting..."
+				sys.exit()
+	
+	def checkConstraint(self):
+		if self.constraint:
+			tipLabels = [x.name for x in self.constraint.get_terminals()]
+			count = 0
+			for each in tipLabels:
+				if each in self.speciesNames:
+					count += 1
+			if count == len(tipLabels):
+				return True
+			else:
+				return False
+		else:
+			return False
+	
 
 def main():
-	try:
-		args = parser.parse_args()
-		if args.version:
-			print "Version 0.1a"
-		elif args.manual:
-			 webbrowser.open("http://willpearse.github.com/phyloGenerator")
+	args = parser.parse_args()
+	if args.version:
+		print "Version 0.1a :p"
+	elif args.manual:
+		 webbrowser.open("http://willpearse.github.com/phyloGenerator")
+	else:
+		print "\n\nWelcome to phyloGenerator! Let's make a phylogeny!"
+		print "---Please go to http://willpearse.github.com/phyloGenerator for help"
+		print "---Written by Will Pearse (will.pearse@gmail.com)"
+		
+		#Stem name
+		if args.name:
+			print "\nLet's get going!\nUsing stem name", args.name, "..."
+			currentState = PhyloGenerator(stem=args.name)
 		else:
-			print "\n\nWelcome to phyloGenerator! Let's make a phylogeny!"
-			print "---Please go to http://willpearse.github.com/phyloGenerator for help"
-			print "---Written by Will Pearse (will.pearse@gmail.com)"
-			if args.name:
-				print "\nLet's get going!\nUsing stem name", args.name, "..."
-				currentState = PhyloGenerator(stem=args.name)
-			else:
-				print "\nLet's get going!\nPlease input a 'stem' name for all your output (phylogeny, sequences, etc.)"
-				stem = raw_input("Stem name: ")
-				currentState = PhyloGenerator(stem=stem)
-			if args.alignment:
+			print "\nLet's get going!\nPlease input a 'stem' name for all your output (phylogeny, sequences, etc.)"
+			stem = raw_input("Stem name: ")
+			currentState = PhyloGenerator(stem=stem)
+		
+		#Handle sequence input
+		if args.alignment and args.dna:
+			print "\nERROR: Can't handle an alignment and DNA - suggest you manually strip the alignment and merge the files.\nExiting."
+			sys.exit()
+		#Alignment
+		if args.alignment :
+			try:
 				currentState.alignment = AlignIO.read(args.dna, 'fasta')
 				print "Alignment successfully loaded from file", args.alignment, "..."
-			else:
-				if args.dna:
-					currentState.sequences = list(SeqIO.parse(args.dna, 'fasta'))
-					print "\nDNA successfully loaded from file", args.dna, "..."
-				else:
-					print "\nDNA INPUT"
-					currentState.loadDNAFile()
-					print "\nDNA DOWNLOAD"
-					currentState.loadGenBank()
-					"\nDNA CHECKING"
-					currentState.DNALoaded()
-					currentState.dnaChecking()
-					print "\nYou are now able to delete DNA sequences you have loaded.\nEvery time you delete a sequence, your summary statistics will be re-calculated, and displayed to you again.\n*IMPORTANT*: Sequence IDs may change once you delete a sequence."
-					currentState.dnaEditing()
-					currentState.cleanUpSequences()
-					currentState.renameSequences()
-					#TO-DO: allow them to download new sequences for particular species...
-				print "\nDNA ALIGNMENT"
-				currentState.align()
-				print "\nALIGNMENT CHECKING"
-				currentState.alignmentChecking()
-			print "\nPHYLOGENY GENERATION"
-			currentState.phylogen()
-			currentState.rateSmooth()
-	except:
-		print "\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-		print "Sorry, an unhandled exception has occured."
-		print "I will try to write out whatever has been done so far."
-		print "If this isn't obviously something you've done, please contact me - will.pearse@gmail.com"
-		print "Sorry again!"
+			except:
+				print "\n!!!Cannot load alignment file! Exiting..."
+				sys.exit()
+		elif args.dna:
+			#Raw DNA
+			currentState.loadDNAFile(args.dna)
+		elif args.species:
+			#Species list
+			currentState.loadGenBank(args.species)
+		else:
+			print "\nDNA INPUT"
+			currentState.loadDNAFile()
+			print "\nDNA DOWNLOAD"
+			currentState.loadGenBank()
+			"\nDNA CHECKING"
+			currentState.DNALoaded()
+			currentState.dnaChecking()
+			print "\nYou are now able to delete DNA sequences you have loaded.\nEvery time you delete a sequence, your summary statistics will be re-calculated, and displayed to you again.\n*IMPORTANT*: Sequence IDs may change once you delete a sequence."
+			currentState.dnaEditing()
+			currentState.cleanUpSequences()
+			currentState.renameSequences()
+			#TO-DO: allow them to download new sequences for particular species...
+		
+		#Constraint tree
+		if args.constraint:
+			currentState.getConstraint(args.constraint)
+		else:
+			print "\nCONSTRAINT TREE"
+			currentState.getConstraint()
+		
+		#Alignment
+		
+		if not args.alignment:
+			print "\nDNA ALIGNMENT"
+			currentState.align()
+			print "\nALIGNMENT CHECKING"
+			currentState.alignmentChecking()
+		print "\nPHYLOGENY GENERATION"
+		currentState.phylogen()
+		currentState.rateSmooth()
+	#except:
+	#	print "\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+	#	print "Sorry, an unhandled exception has occured."
+	#	print "I will try to write out whatever has been done so far."
+	#	print "If this isn't obviously something you've done, please contact me - will.pearse@gmail.com"
+	#	print "Sorry again!"
 	currentState.writeOutput()
 	print "\nCongratulations! Exiting phyloGenerator."
 
@@ -1105,5 +1212,6 @@ if __name__ == '__main__':
 	parser.add_argument("-dna", "-d", help="Unaligned DNA (in FASTA format).")
 	parser.add_argument("-species", "-s", help="Binomial names of species, each on a new line")
 	parser.add_argument("-alignment", "-a", help="Aligned DNA (in FASTA format).")
+	parser.add_argument("-constraint", "-c", help="Constraint tree (in newick format).")
 	parser.add_argument("-parameters", "-p", help="Parameter file giving detailed instructions to phyloGen.")
 	main()
