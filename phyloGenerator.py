@@ -584,7 +584,6 @@ def phyloGen(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=
 				options += " -g " + tempStem + "_constraint.tre"
 			Phylo.write(constraint, tempStem + "_constraint.tre", 'newick')
 		commandLine = raxmlVersion + raxmlCompile + fileLine + algorithm + DNAmodel + options
-		print "\n", commandLine
 		if not timeout:
 			return commandLine
 	elif 'BEAST' in method:
