@@ -48,6 +48,7 @@ import time #For waiting between sequence downloads
 import argparse #For command line arguments
 import webbrowser #Load website on request
 import sys #To exit on errors
+import urllib #Download files for install
 
 def taxonIDLookup(taxonID):
 	#Lookup a species ID in the NCBI taxonomy database
@@ -722,7 +723,7 @@ def trimSequence(seq, DNAtype='Standard', gapType='-'):
 		if len(temp[0]) > len(output):
 			output = temp[0]
 			directionFrame = frame + str(position)
-	seq = SeqRecord(Seq(output), id=seq.id, description=seq.description)
+	seq = SeqRecord(Seq(output), id=seq.id, description=seq.description, name=seq.name)
 	return(seq)
 
 def findGeneInSeq(seq, gene, trimSeq=False, DNAtype='Standard', gapType='-'):
@@ -804,6 +805,29 @@ def rateSmooth(phylo, method='PATHd8', nodes=tuple(), sequenceLength=int(), temp
 	else:
 		raise RuntimeError("I haven't implemented anything other than default PATHd8 smoothing methods yet")
 
+def cleanAlignment(align, method='trimAl-automated', tempStem='temp', timeout=None):
+	if 'trimAl' in method:
+		options = ""
+		if 'automated' in method:
+			options += " -automated1"
+		fileLine = " -in " + tempStem + "Input.fasta -out " + tempStem + "Output.fasta -fasta"
+		trimalVersion = "trimal"
+		commandLine = trimalVersion + fileLine + options
+		if timeout:
+			pipe = TerminationPipe(commandLine, timeout)
+			pipe.run()
+			if not pipe.failure:
+				align = AlignIO.read(tempStem + "Output.fasta", "fasta")
+				os.remove(tempStem + "Output.fasta")
+				os.remove(tempStem + "Input.fasta")
+				return align
+		else:
+			raise RuntimeError("Either trimAl failed, or it ran out of time")
+		else:
+			return commandLine
+	else:
+		raise RuntimeError("Only automated trimAl methods supported at this time.")
+
 
 class PhyloGenerator:
 	def __init__(self, stem):
@@ -820,6 +844,7 @@ class PhyloGenerator:
 		self.root = False
 		self.genBankIDs = []
 		self.constraint = False
+		self.genes = []
 	
 	def loadDNAFile(self, inputFile=""):
 		if inputFile:
@@ -881,19 +906,16 @@ class PhyloGenerator:
 			print "\n", len(self.speciesNames), "Species loaded."
 			print "\nPlease enter a valid email address to let Entrez know who you are. It's *your* fault if this is not valid, and you will likely have your IP address barred from using GenBank if you don't enter one"
 			Entrez.email = raw_input("")
-			print"\nPlease enter the name of the gene you want to use, e.g. 'COI' for cytochrome oxidase one, or just hit enter to abort"
-			inputGene = raw_input("")
-			if inputGene:
-				locker = False
-				for species in self.speciesNames:
-					temp = sequenceDownload(species, inputGene)
-					self.sequences.append(temp)
-					print "...", species, "found"
-					time.sleep(self.downloadInterval)
-			else:
-				self.GenBankFile = ''
-				self.speciesNames = []
-				print "\nGenBank Download aborted"
+			print"\nPlease enter the name of the gene you want to use, e.g. 'COI' for cytochrome oxidase one. To enter multiple genes, enter each on a separateline. Just hit enter to abort."
+			locker = True
+			while locker:
+				inputGene = raw_input("")
+				if inputGene:
+					self.genes.append(inputGene)
+				else:
+					locker = False
+			if self.genes:
+				self.sequences = findGenes(self.speciesNames, self.genes, download=True, seqChoice=median, verbose=True, thorough=True)
 	
 	def DNALoaded(self):
 		if not self.sequences:
@@ -1014,7 +1036,7 @@ class PhyloGenerator:
 					print "Continuing..."
 
 	
-	def phylogen(self, method="RAxML-localVersion"):		
+	def phylogen(self, method="RAxML-localVersion"):
 		print"\n Running with additional options:", method
 		self.phylogeny = phyloGen(self.alignment, method=method, constraint=self.constraint, timeout=999)
 		print"\nRun complete!"
@@ -1048,9 +1070,17 @@ class PhyloGenerator:
 				print "\n", each
 	
 	def renameSequences(self):
-		for i in range(len(self.sequences)):
-			self.genBankIDs.append(self.sequences[i].id)
-			self.sequences[i].name = self.speciesNames[i]
+		if len(self.genes) > 1:
+			for i in range(len(self.sequences)):
+				tGenBankIDs = []
+				for k in range(len(self.sequences[i])):
+					tgenBankIDs.append(self.sequences[i][k].id)
+					self.sequences[i][k].name = self.speciesNames[i]
+				self.genBankIDs.append(tGenBankIDs)
+		else:
+			for i in range(len(self.sequences)):
+				self.genBankIDs.append(self.sequences[i].id)
+				self.sequences[i].name = self.speciesNames[i]
 	
 	def writeOutput(self):
 		#Log - TO-DO
