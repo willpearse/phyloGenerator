@@ -821,8 +821,8 @@ def cleanAlignment(align, method='trimAl-automated', tempStem='temp', timeout=No
 				os.remove(tempStem + "Output.fasta")
 				os.remove(tempStem + "Input.fasta")
 				return align
-		else:
-			raise RuntimeError("Either trimAl failed, or it ran out of time")
+			else:
+				raise RuntimeError("Either trimAl failed, or it ran out of time")
 		else:
 			return commandLine
 	else:
@@ -1053,7 +1053,7 @@ class PhyloGenerator:
 					self.smoothPhylogeny = rateSmooth(self.phylogeny, sequenceLength=self.alignment.get_alignment_length())
 					locker = False
 				else:
-					print "Sorry, I couldn't find", alignInput, " in your phylogeny - try again"
+					print "Sorry, I couldn't find", inputSmooth, " in your phylogeny - try again"
 			else:
 				locker = False
 	
