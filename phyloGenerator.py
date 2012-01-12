@@ -55,8 +55,6 @@ def taxonIDLookup(taxonID):
 	#INPUT: species ID
 	#OUTPUT: tuple of scientific name, and (tuple) of lineage info (sorted genus-order), taxon ID, mitocondrial code of taxon
 	#			-OR- empty tuple
-	#TEST: commonLookup("human")
-	#TEST: commonLookup("German doodlebug")
 	#NOTE: order of return isn't what you'd want, probably, but done like this for historical reasons
 	#NOTE: you wouldn't want to look up anything other than a species with this
 	handleDownload = Entrez.efetch(db="taxonomy", id=taxonID, retmode="xml")
@@ -103,6 +101,17 @@ def cladeSpecies(cladeName):
 		return output
 	else:
 		return()
+
+def findLineage(spName):
+	handleSpName = Entrez.esearch(db="taxonomy", term=spName)
+	resultsSpName = Entrez.read(handleSpName)
+	handleSpName.close()
+	handleID = Entrez.efetch(db="Taxonomy", id=resultsSpName['IdList'], retmode="xml")
+	resultsSpID = Entrez.read(handleID)
+	lineage = resultsSpID[0]["Lineage"].split("; ")
+	lineage.append(spName)
+	lineage.reverse()
+	return lineage
 
 def findRelativeSequence(spName, geneName=None, cladeDepth=0, thorough=False, rettype='gb', titleText=None, noSeqs=1, seqChoice='random', download=True, retStart=0, retMax=20, targetLength=None, trimSeq=False, DNAtype='Standard', gapType='-', includeGenome=True, includePartial=True):
 	#Download a relative's sequence (to be used if one can't be found for that target species)
@@ -828,6 +837,31 @@ def cleanAlignment(align, method='trimAl-automated', tempStem='temp', timeout=No
 	else:
 		raise RuntimeError("Only automated trimAl methods supported at this time.")
 
+def createConstraintTree(spNames):
+	def recursiveTree(lineageList):
+		#Make the current depth's elements
+		current = [x[1] for x in lineageList]
+		uniqueLevels = list(set(current))
+		groupedLists = []
+		for each in uniqueLevels:
+			groupedLists.append([])
+		for currentLineage in lineageList:
+			for groupedList, uniqueLevel in zip(groupedLists, uniqueLevels):
+				if currentLineage[1] == uniqueLevel:
+					groupedList.append(currentLineage)
+					break
+		#Remove the current taxonomic level (don't pass it on in the recursion)
+		if len(groupedLists) == 1:
+			return "(" + ",".join([x[0] for x in groupedLists[0]]) + ")"
+		else:
+			for gList in groupedLists:
+				for each in gList:
+					del each[1]
+		
+			return "(" + ",".join([recursiveTree(x) for x in groupedLists]) + ")"
+	
+	lineages = [findLineage(x) for x in spName]
+	return recursiveTree(lineages)
 
 class PhyloGenerator:
 	def __init__(self, stem):
