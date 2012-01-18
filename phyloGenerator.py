@@ -860,9 +860,40 @@ def createConstraintTree(spNames):
 		
 			return "(" + ",".join([recursiveTree(x) for x in groupedLists]) + ")"
 	
-	lineages = [findLineage(x) for x in spName]
+	lineages = [findLineage(x) for x in spNames]
 	return recursiveTree(lineages)
 
+def createConstraintTreeCaps(spNames):
+	def recursiveTree(lineageList):
+		#Make the current depth's elements
+		current = [x[1] for x in lineageList]
+		uniqueLevels = list(set(current))
+		groupedLists = []
+		for each in uniqueLevels:
+			groupedLists.append([])
+		for currentLineage in lineageList:
+			for groupedList, uniqueLevel in zip(groupedLists, uniqueLevels):
+				if currentLineage[1] == uniqueLevel:
+					groupedList.append(currentLineage)
+					break
+		#Remove the current taxonomic level (don't pass it on in the recursion)
+		if len(groupedLists) == 1:
+			return "(" + ",".join([x[0] for x in groupedLists[0]]) + ")"
+		else:
+			for gList in groupedLists:
+				for each in gList:
+					del each[1]
+		
+		return "(" + ",".join([recursiveTree(x) for x in groupedLists]) + ")"
+	
+	lineages = [findLineage(x) for x in spNames]
+	for each in lineages:
+		for i in reversed(range(len(each))):
+			if not each[i].istitle():
+				del each[i]
+	return recursiveTree(lineages)
+
+def createConstraintTree
 class PhyloGenerator:
 	def __init__(self, stem):
 		self.fastaFile = False
