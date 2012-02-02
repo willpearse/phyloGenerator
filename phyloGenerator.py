@@ -360,90 +360,110 @@ def argsCheck(arguments, parameter, argSplit='-', paramSplit=' '):
 			raise RuntimeError("A match value for '" + paramter + "' was not found in the call '" + arguments + "'")
 
 def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, silent=False, nGenes=1):
-	#OUTPUT: alignment object, -or- null tuple if out of time
-	#TEST: t = sequenceDownload("vulpes", noSeqs=5, geneName='COI')
-	#TEST: alignSequences(t)
-	#TEST: alignSequences(t, method='mafft')
-	#TEST: alignSequences(t = sequenceDownload("Homo sapiens", noSeqs=10), timeout=5)
-	#Setup for each of the genes to be aligned
+	finalOutput = []
+	output = []
+	alignedSomething = False
+	if method == 'everything': method = 'muscle-mafft-clustalo'
 	for i in range(nGenes):
+		geneOutput = []
 		seqs = [x[i] for x in seqList]
-		output = []
-		if method == 'muscle':
+		if 'muscle' in method:
 			inputFile = tempStem + '.fasta'
 			outputFile = tempStem + 'Out.fasta'
 			commandLine = 'muscle -in ' + inputFile + " -out " + outputFile
 			SeqIO.write(seqs, inputFile, "fasta")
-		elif method == 'mafft':
+			pipe = TerminationPipe(commandLine, timeout)
+			pipe.run(silent=silent)
+			os.remove(inputFile)
+			if not pipe.failure:
+				geneOutput.append(AlignIO.read(outputFile, 'fasta'))
+				os.remove(outputFile)
+				alignedSomething = True
+			else:
+				raise RuntimeError("MUSCLE alignment not complete in time allowed")
+		
+		if 'mafft' in method:
 			inputFile = tempStem + '.fasta'
 			outputFile = tempStem + 'Out.fasta'
 			commandLine = 'mafft --auto ' + inputFile + " > " + outputFile
 			SeqIO.write(seqs, inputFile, "fasta")
-		elif method == 'clustalo':
+			pipe = TerminationPipe(commandLine, timeout)
+			pipe.run(silent=silent)
+			os.remove(inputFile)
+			if not pipe.failure:
+				geneOutput.append(AlignIO.read(outputFile, 'fasta'))
+				os.remove(outputFile)
+				alignedSomething = True
+			else:
+				raise RuntimeError("Mafft alignment not complete in time allowed")
+		
+		if 'clustalo' in method:
 			inputFile = tempStem + '.fasta'
 			outputFile = tempStem + 'Out.fasta'
 			commandLine = 'clustalo -i ' + inputFile + " -o " + outputFile + " -v"
 			SeqIO.write(seqs, inputFile, "fasta")
-		else:
-			raise RuntimeError("Alignment method must be 'muscle', 'mafft' or 'clustalo'.")
-		pipe = TerminationPipe(commandLine, timeout)
-		pipe.run(silent=silent)
-		os.remove(inputFile)
-		if not pipe.failure:
-			alignment = AlignIO.read(outputFile, 'fasta')
-			os.remove(outputFile)
-			output.append(alignment)
-		else:
-			raise RuntimeError("Alignment not complete in time allowed")
+			pipe = TerminationPipe(commandLine, timeout)
+			pipe.run(silent=silent)
+			os.remove(inputFile)
+			if not pipe.failure:
+				geneOutput.append(AlignIO.read(outputFile, 'fasta'))
+				os.remove(outputFile)
+				alignedSomething = True
+			else:
+				raise RuntimeError("Clustal-o alignment not complete in time allowed")
+			
+		output.append(geneOutput)
+	
+	if not alignedSomething:
+		raise RuntimeError("Alignment method must be 'muscle', 'mafft' or 'clustalo'.")
 	return output
 
+alignList = alignSequences(seqList, nGenes=2)
 def checkAlignmentList(alignList, method='length', gapType='-'):
-	#Check a list of alignments for internal similarity
 	def noGaps(alignList, gapType):
-		meanGapNumber = []
-		medianGapNumber = []
-		sdGapNumber = []
-		maxGapNumber = []
-		minGapNumber = []
+		output = {'mean':[], 'median':[], 'sd':[], 'max':[], 'min':[]}
 		for align in alignList:
 			gapLength = [len(x) for x in align]
 			unGapLength = [len(x.seq.ungap(gapType)) for x in align]
 			gapNumber = []
 			for g, u in zip(gapLength, unGapLength):
 				gapNumber.append(g-u)
-			meanGapNumber.append(np.mean(gapNumber))
-			medianGapNumber.append(np.median(gapNumber))
-			sdGapNumber.append(np.std(gapNumber))
-			maxGapNumber.append(max(gapNumber))
-			minGapNumber.append(min(gapNumber))
-		return {'mean':meanGapNumber, 'median':medianGapNumber, 'sd':sdGapNumber, 'max':maxGapNumber, 'min':minGapNumber}
+			output['mean'].append(np.mean(gapNumber))
+			output['median'].append(np.median(gapNumber))
+			output['sd'].append(np.std(gapNumber))
+			output['max'].append(max(gapNumber))
+			output['min'].append(min(gapNumber))
+		return output
 	
 	def gapFraction(alignList, gapType):
+		output = {'mean':[], 'median':[], 'max':[], 'min':[]}
 		lengths = [x.get_alignment_length() for x in alignList]
 		gaps = noGaps(alignList, gapType)
-		meanFraction = []
-		medianFraction = []
-		maxFraction = []
-		minFraction = []
-		sdFraction = []
 		for i in range(len(lengths)):
-			meanFraction.append(gaps['mean'][i] / float(lengths[i]))
-			medianFraction.append(gaps['median'][i] / float(lengths[i]))
-			maxFraction.append(gaps['max'][i] / float(lengths[i]))
-			minFraction.append(gaps['min'][i] / float(lengths[i]))
-		return {'mean':meanFraction, 'median':medianFraction, 'max':maxFraction, 'min':minFraction}
+			output['mean'].append(gaps['mean'][i] / float(lengths[i]))
+			output['median'].append(gaps['median'][i] / float(lengths[i]))
+			output['max'].append(gaps['max'][i] / float(lengths[i]))
+			output['min'].append(gaps['min'][i] / float(lengths[i]))
+		return output
+	
+	def alignLen(geneAlignList):
+		output = []
+		for method in geneAlignList:
+			output.append(method.get_alignment_length())
+		return output
 	
 	if method == 'length':
-		return alignList.get_alignment_length()
+		return [alignLen(x) for x in alignList]
 	elif method == 'gapNumber':
-		return noGaps(alignList, gapType)
+		return [noGaps(x, gapType) for x in alignList]
 	elif method =='gapFraction':
-		return gapFraction(alignList, gapType)
+		return [gapFraction(x, gapType) for x in alignList]
 	elif method == 'everything':
-		return {'length':[x.get_alignment_length() for x in alignList], 'noGaps':noGaps(alignList, gapType), 'gapFraction':gapFraction(alignList, gapType)}
+		return {'length':[alignLen(x) for x in alignList], 'noGaps':[noGaps(x, gapType) for x in alignList], 'gapFraction':[gapFraction(x, gapType) for x in alignList]}
 	else:
 		raise RuntimeError("No valid alignment checking method requested")
 
+checkAlignmentList(alignList, method='everything')
 def checkSequenceList(seqList, method='length', tolerance=None):
 	#Check a list of sequences for internal similarity
 	def seqLength(seqList):
@@ -554,18 +574,22 @@ def sequenceDisplay(seqList, speciesNames, geneNames, seqDetect=None):
 				row += str(len(seqList[i][k])).ljust(geneNameLengths[k])
 			print row
 
-def alignmentDisplay(alignList, alignMethods, alignDetect=None):
-	assert len(alignList)==len(alignMethods)
-	print "Below are details of the alignment. Please refer to the manual for more details."
-	if alignDetect:
-		print "ID", "Alignment".ljust(12), "Length".ljust(10), "Med. Gaps".ljust(15), "SD Gaps".ljust(15), "Min-Max Gaps".ljust(15), "Med. Gap Frac.".ljust(15), "Max Gap Frac.".ljust(15)
-		for i in range(len(alignList)):
-			print '{ID:3}{alignment:<12}{length:<10}{medGaps:<16.1f}{sdGaps:<16.2f}{minMaxGaps:15}{medGapsFrac:<16.2f}{minMaxGapsFrac:15}'.format(ID=str(i), alignment=alignMethods[i], length=alignDetect['length'][i], medGaps=alignDetect['noGaps']['median'][i], sdGaps=alignDetect['noGaps']['sd'][i], minMaxGaps=str(str(round(alignDetect['noGaps']['min'][i],3))+" - "+str(round(alignDetect['noGaps']['max'][i],3))), medGapsFrac=alignDetect['gapFraction']['median'][i], minMaxGapsFrac=str(str(round(alignDetect['gapFraction']['min'][i],3))+"-"+str(round(alignDetect['gapFraction']['max'][i],3))))
-	else:
-		print "ID", "Alignment", "Length"
-		for i in range(len(alignList)):
-			print str(i).ljust(len("ID")), alignMethods[i].ljust(len("Alignment")), str(alignList[i].get_alignment_length()).ljust("Length")
+def alignmentDisplay(alignments, alignMethods, geneNames, alignDetect=None):
+	assert len(alignments)==len(geneNames)
+	assert len(alignments[0])==len(alignMethods)
+	print "Below are details of the alignment(s). Please refer to the manual for more details."
+	for alignNo, alignList in enumerate(alignments):
+		print "\nGene", geneNames[alignNo]
+		if alignDetect:
+			print "ID", "Alignment".ljust(12), "Length".ljust(10), "Med. Gaps".ljust(15), "SD Gaps".ljust(15), "Min-Max Gaps".ljust(15), "Med. Gap Frac.".ljust(15), "Max Gap Frac.".ljust(15)
+			for i in range(len(alignList)):
+				print  '{ID:3}{alignment:<12}{length:<10}{medGaps:<16.1f}{sdGaps:<16.2f}{minMaxGaps:15}{medGapsFrac:<16.2f}{minMaxGapsFrac:15}'.format(ID=str(i), alignment=alignMethods[i], length=alignDetect['length'][alignNo][i], medGaps=alignDetect['noGaps'][alignNo]['median'][i], sdGaps=alignDetect['noGaps'][alignNo]['sd'][i], minMaxGaps=str(str(round(alignDetect['noGaps'][alignNo]['min'][i],3))+" - "+str(round(alignDetect['noGaps'][alignNo]['max'][i],3))), medGapsFrac=alignDetect['gapFraction'][alignNo]['median'][i], minMaxGapsFrac=str(str(round(alignDetect['gapFraction'][alignNo]['min'][i],3))+"-"+str(round(alignDetect['gapFraction'][alignNo]['max'][i],3))))
+		else:
+			print "ID", "Alignment", "Length"
+			for i in range(len(alignList)):
+				print str(i).ljust(len("ID")), alignMethods[i].ljust(len("Alignment")), str(alignList[i].get_alignment_length()).ljust(len("Length"))
 
+alignmentDisplay(alignList, ['muscle', 'mafft', 'clusta-o'], ['rbcL', 'matK'], alignCheck)
 def phyloGen(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=None, cladeList=None,  DNAmodel='GTR+G', constraint=None, cleanup=True):
 	#Make a phylogeny from a given set of sequences in the background.
 	#NOTE: Uses subprocess class (above) because internal BioPython methos can hang if you ask for the alignment too soon.
