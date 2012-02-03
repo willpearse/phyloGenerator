@@ -26,8 +26,9 @@ TO-DO:
 * Options file
 * Constraint tree input
 * Generate constraint tree from GenBank, Phylomatic, web servers, etc.
+* Be able to delete a particular gene from the line-up
 """
-
+import pdb
 from Bio import Entrez #Taxonomy lookup
 from Bio.Seq import Seq #Sequence manipulation
 from Bio.SeqRecord import SeqRecord #Sequence manipulation
@@ -418,7 +419,6 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
 		raise RuntimeError("Alignment method must be 'muscle', 'mafft' or 'clustalo'.")
 	return output
 
-alignList = alignSequences(seqList, nGenes=2)
 def checkAlignmentList(alignList, method='length', gapType='-'):
 	def noGaps(alignList, gapType):
 		output = {'mean':[], 'median':[], 'sd':[], 'max':[], 'min':[]}
@@ -463,7 +463,6 @@ def checkAlignmentList(alignList, method='length', gapType='-'):
 	else:
 		raise RuntimeError("No valid alignment checking method requested")
 
-checkAlignmentList(alignList, method='everything')
 def checkSequenceList(seqList, method='length', tolerance=None):
 	#Check a list of sequences for internal similarity
 	def seqLength(seqList):
@@ -547,9 +546,9 @@ def sequenceDisplay(seqList, speciesNames, geneNames, seqDetect=None):
 			stars = []
 			for k in range(len(seqList[i])):
 				if seqList[i][k]:
-					if seqDetect['upperQuantile'][i][k]:
+					if seqDetect['upperQuantile'][k][i]:
 						stars.append("^^^")
-					elif seqDetect['lowerQuantile'][i][k]:
+					elif seqDetect['lowerQuantile'][k][i]:
 						stars.append("___")
 					else:
 						stars.append("	 ")
@@ -589,7 +588,6 @@ def alignmentDisplay(alignments, alignMethods, geneNames, alignDetect=None):
 			for i in range(len(alignList)):
 				print str(i).ljust(len("ID")), alignMethods[i].ljust(len("Alignment")), str(alignList[i].get_alignment_length()).ljust(len("Length"))
 
-alignmentDisplay(alignList, ['muscle', 'mafft', 'clusta-o'], ['rbcL', 'matK'], alignCheck)
 def phyloGen(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=None, cladeList=None,  DNAmodel='GTR+G', constraint=None, cleanup=True):
 	#Make a phylogeny from a given set of sequences in the background.
 	#NOTE: Uses subprocess class (above) because internal BioPython methos can hang if you ask for the alignment too soon.
@@ -953,6 +951,32 @@ def createConstraintTreeCaps(spNames):
 				del each[i]
 	return recursiveTree(lineages)
 
+class TerminationPipe(object):
+	#Background process class
+	def __init__(self, cmd, timeout):
+		self.cmd = cmd
+		self.timeout = timeout
+		self.process = None
+		self.output = None
+		self.failure = False
+	
+	def run(self, silent=True):
+		def target(silent=True):
+			if silent:
+				pipe_silent  = open('/Users/will/test.txt', 'w')
+				self.process = subprocess.Popen(self.cmd, shell=True, stdout=pipe_silent)
+			else:
+				self.process = subprocess.Popen(self.cmd, shell=True, stdout=subprocess.PIPE)
+			self.output=self.process.communicate()
+		
+		thread = threading.Thread(target=target)
+		thread.start()
+		thread.join(self.timeout)
+		if thread.is_alive():
+			self.process.terminate()
+			thread.join()
+			self.failure = True
+
 class PhyloGenerator:
 	def __init__(self, stem):
 		self.fastaFile = False
@@ -962,22 +986,30 @@ class PhyloGenerator:
 		self.dnaCheck = []
 		self.downloadInterval = 2
 		self.stem = stem
-		self.alignmentList = False
 		self.phylogeny = False
-		self.alignment = False
+		self.alignment = []
 		self.smoothPhylogeny = False
 		self.root = False
 		self.genBankIDs = []
 		self.constraint = False
 		self.genes = []
 		self.maxGenBankDownload = 50
+		self.alignmentMethod = []
+		self.alignmentMethodChosen = []
+		self.email = False
 	
 	def loadDNAFile(self, inputFile=""):
 		if inputFile:
 			try:
-				self.sequences.extend(list(SeqIO.parse(inputFile, 'fasta')))
-				self.speciesNames.extend([x.name for x in self.sequences])
+				tempSeqs = list(SeqIO.parse(inputFile, 'fasta'))
+				for each in tempSeqs:
+					self.sequences.append([each])
+				self.speciesNames.extend([x.name for x in tempSeqs])
 				self.fastaFile = inputFile
+				if not self.genes:
+					print "DNA loaded; please enter the name of the gene you're using below"
+					self.genes.append(raw_input("Gene name: "))
+				print "DNA loaded"
 			except IOError:
 				print "\nDNA sequence file not found. Exiting..."
 				sys.exit()
@@ -989,9 +1021,14 @@ class PhyloGenerator:
 				if inputFile:
 					try:
 						tempSeqs = list(SeqIO.parse(inputFile, 'fasta'))
-						self.sequences.extend(tempSeqs)
+						for each in tempSeqs:
+							self.sequences.append([each])
 						self.speciesNames.extend([x.name for x in tempSeqs])
 						self.fastaFile = inputFile
+						if not self.genes:
+							print "DNA loaded; please enter the name of the gene you're using below"
+							self.genes.append(raw_input("Gene name: "))
+						print "DNA loaded"
 						locker = False
 					except IOError:
 						print "\nFile not found. Please try again!"
@@ -1030,16 +1067,18 @@ class PhyloGenerator:
 		
 		if not aborted:
 			print "\n", len(self.speciesNames), "Species loaded."
-			print "\nPlease enter a valid email address to let Entrez know who you are. It's *your* fault if this is not valid, and you will likely have your IP address barred from using GenBank if you don't enter one"
-			Entrez.email = raw_input("")
-			print"\nPlease enter the name of the gene you want to use, e.g. 'COI' for cytochrome oxidase one. To enter multiple genes, enter each on a separateline. Just hit enter to abort."
-			locker = True
-			while locker:
-				inputGene = raw_input("")
-				if inputGene:
-					self.genes.append(inputGene)
-				else:
-					locker = False
+			if not self.email:
+				print "\nPlease enter a valid email address to let Entrez know who you are. It's *your* fault if this is not valid, and you will likely have your IP address barred from using GenBank if you don't enter one"
+				Entrez.email = raw_input("")
+			if not self.genes:
+				print"\nPlease enter the name of the gene you want to use, e.g. 'COI' for cytochrome oxidase one. To enter multiple genes, enter each on a separateline. Just hit enter to abort."
+				locker = True
+				while locker:
+					inputGene = raw_input("")
+					if inputGene:
+						self.genes.append(inputGene)
+					else:
+						locker = False
 			if self.genes:
 				self.sequences = findGenes(self.speciesNames, self.genes, download=True, seqChoice="medianLength", verbose=True, thorough=True)
 	
@@ -1051,22 +1090,32 @@ class PhyloGenerator:
 	def dnaChecking(self, tolerance=0.1):
 		self.tolerance = tolerance
 		self.dnaCheck = checkSequenceList(self.sequences, tolerance=self.tolerance, method="quantileDetect")
-		sequenceDisplay(self.sequences, self.speciesNames, self.dnaCheck)
+		sequenceDisplay(self.sequences, self.speciesNames, self.genes, self.dnaCheck)
 	
 	def dnaEditing(self):
-		def deleteMode():
-			print "\nYou're in deletion mode. To delete a species, enter its SeqID and press return.\t*One species at a time please!*"
-			print "To change to the 'reload' or 'trim' modes, simply type their names then hit enter."
-			inputSeq = raw_input("DNA Editing (delete):")
+		def deleteMode(firstTime=True):
+			if firstTime:
+				print "\nYou're in deletion mode. To delete a species, enter its SeqID and press return.\t*One species at a time please!*"
+				print "To change to the 'reload' or 'trim' modes, simply type their names then hit enter."
+			inputSeq = raw_input("DNA Editing (delete): ")
 			if inputSeq:
-				if int(inputSeq) in range(len(self.sequences)):
-					del self.sequences[int(inputSeq)]
-					print "SeqID", inputSeq, "Successfully deleted"
-					print "Re-calulating summary statistics..."
-					self.dnaChecking()
-					return False, False
+				try:
+					if int(inputSeq) in range(len(self.sequences)):
+						del self.sequences[int(inputSeq)]
+						del self.speciesNames[int(inputSeq)]
+						print "SeqID", inputSeq, "Successfully deleted"
+						print "Re-calulating summary statistics..."
+						self.dnaChecking()
+						return 'delete', False
+				except:
+					pass
+				if inputSeq == "trim":
+					return "trim", True
+				elif inputSeq == "reload":
+					return "reload", True
 				else:
-					return "KEYERROR"
+					print "Sorry,", inputSeq, "was not recognised. Please try again."
+					return 'delete', False
 			else:
 				return "EXIT", True
 		
@@ -1076,34 +1125,36 @@ class PhyloGenerator:
 				print "To change to the 'delete' or 'trim' modes, simply type their names then hit enter."
 			inputSeq = raw_input("DNA Editing (reload):")
 			if inputSeq:
-				if int(inputSeq) in range(len(self.sequences)):
-					for i,each in enumerate(self.sequences[inputSeq]):
-						#Replace it with a new one, thoroughly searched for, with a median sequence length
-						self.sequences[inputSeq][i] = sequenceDownload(self.speciesNames[i], self.genes[i], thorough=True, retMax=self.maxGenBankDownload, seqChoice='targetLength', targetLength=self.dnaCheck['quantileLengths'][i][2])
-					print "Re-calulating summary statistics..."
-					self.dnaChecking()
-					return False
-				else:
-					for i,gene in enumerate(self.genes):
-						if gene in inputSeq:
-							seqID = re.search("[0-9]*", inputSeq)
-							if seqID and seqID < len(self.sequences):
-								print "Reloading SeqID", seqID, "gene", gene
-								self.sequences[seqID][i] = sequenceDownload(self.speciesNames[seqID], self.genes[i], thorough=True, retMax=self.maxGenBankDownload, seqChoice='targetLength', targetLength=self.dnaCheck['quantileLengths'][i][2])
-								print "Re-calulating summary statistics..."
-								self.dnaChecking()
-					else:
-						if inputSeq is "EVERYTHING":
-							self.sequences = findGenes(self.speciesNames, self.genes, download=True, seqChoice="medianLength", verbose=True, thorough=True, retMax=self.maxGenBankDownload)
+				try:
+					if int(inputSeq) in range(len(self.sequences)):
+						for i,each in enumerate(self.sequences[int(inputSeq)]):
+							self.sequences[int(inputSeq)][i] = sequenceDownload(self.speciesNames[int(inputSeq)], self.genes[i], thorough=True, retMax=self.maxGenBankDownload, seqChoice='targetLength', targetLength=self.dnaCheck['quantileLengths'][i][2])
+						print "Re-calulating summary statistics..."
+						self.dnaChecking()
+						return 'reload', False
+				except:
+					pass
+				for i,gene in enumerate(self.genes):
+					if gene in inputSeq:
+						seqID = re.search("[0-9]*", inputSeq).group()
+						if seqID and seqID < len(self.sequences):
+							print "Reloading SeqID", seqID, "gene", gene
+							self.sequences[seqID][i] = sequenceDownload(self.speciesNames[seqID], self.genes[i], thorough=True, retMax=self.maxGenBankDownload, seqChoice='targetLength', targetLength=self.dnaCheck['quantileLengths'][i][2])
 							print "Re-calulating summary statistics..."
 							self.dnaChecking()
-							return False, False
-						if inputSeq is "delete":
-							return "delete", True
-						elif inputSeq is "trim":
-							return "trim", True
-						else:
-							return "KEYERROR", False
+							return 'trim', False
+				if inputSeq == "EVERYTHING":
+					self.sequences = findGenes(self.speciesNames, self.genes, download=True, seqChoice="medianLength", verbose=True, thorough=True, retMax=self.maxGenBankDownload)
+					print "Re-calulating summary statistics..."
+					self.dnaChecking()
+					return 'reload', False
+				elif inputSeq == "delete":
+					return "delete", True
+				elif inputSeq == "trim":
+					return "trim", True
+				else:
+					print "Sorry,", inputSeq, "was not recognised. Please try again."
+					return 'reload', False
 			else:
 				return "EXIT", True
 		
@@ -1113,36 +1164,38 @@ class PhyloGenerator:
 				print "To change to the 'delete' or 'trim' modes, simply type their names then hit enter."
 			inputSeq = raw_input("DNA Editing (trim):")
 			if inputSeq:
-				if int(inputSeq) in range(len(self.sequences)):
-					for i,each in enumerate(self.sequences[inputSeq]):
-						self.sequences[inputSeq][i] = trimSequence(self.sequences[inputSeq][i])
-					print "Re-calulating summary statistics..."
-					self.dnaChecking()
-					return False, False
-				else:
-					for i,gene in enumerate(self.genes):
-						if gene in inputSeq:
-							seqID = re.search("[0-9]*", inputSeq)
-							if seqID and seqID < len(self.sequences):
-								print "Reloading SeqID", seqID, "gene", gene
-								self.sequences[seqID][i] = trimSequence(self.sequences[inputSeq][i])
-								print "Re-calulating summary statistics..."
-								self.dnaChecking()
-								return False, False
-					else:
-						if inputSeq is "delete":
-							return "delete"
-						elif inputSeq is "reload":
-							return "reload"
-						elif inputSeq is "EVERYTHING":
-							for i,sp in enumerate(self.sequences):
-								for j,gene in enumerate(sp):
-									self.sequences[i][j] = trimSequence(self.sequences[i][j])
+				try:
+					if int(inputSeq) in range(len(self.sequences)):
+						for i,each in enumerate(self.sequences[int(inputSeq)]):
+							self.sequences[int(inputSeq)][i] = trimSequence(self.sequences[int(inputSeq)][i])
+						print "Re-calulating summary statistics..."
+						self.dnaChecking()
+						return 'trim', False
+				except:
+					pass
+				for i,gene in enumerate(self.genes):
+					if gene in inputSeq:
+						seqID = re.search("[0-9]*", inputSeq).group()
+						if seqID and int(seqID) < len(self.sequences):
+							print "Reloading SeqID", seqID, "gene", gene
+							self.sequences[seqID][i] = trimSequence(self.sequences[inputSeq][i])
 							print "Re-calulating summary statistics..."
 							self.dnaChecking()
-							return False, False
-						else:
-							return "KEYERROR", False
+							return 'trim', False
+				if inputSeq == "delete":
+					return "delete", True
+				elif inputSeq == "reload":
+					return "reload", True
+				elif inputSeq == "EVERYTHING":
+					for i,sp in enumerate(self.sequences):
+						for j,gene in enumerate(sp):
+							self.sequences[i][j] = trimSequence(self.sequences[i][j])
+					print "Re-calulating summary statistics..."
+					self.dnaChecking()
+					return 'trim', False
+				else:
+					print "Sorry,", inputSeq, "was not recognised. Please try again."
+					return 'trim', False
 			else:
 				return "EXIT", True
 		
@@ -1150,37 +1203,54 @@ class PhyloGenerator:
 		firstTime = True
 		mode = "delete"
 		while(locker):
-			if mode is "delete":
+			if mode == "delete":
 				mode, firstTime = deleteMode(firstTime)
-			elif mode is "reload":
+			elif mode == "reload":
 				mode, firstTime = reloadMode(firstTime)
-			elif mode is "trim":
+			elif mode == "trim":
 				mode, firstTime = trimMode(firstTime)
 			else:
 				raise RuntimeError("Unrecognised DNA Editing mode!")
 			if mode:
-				if mode is "KEYERROR":
-					print "I'm sorry, I didn't get that. Please try again."
-				elif mode is "EXIT":
-					locker = False				
+				if mode == "EXIT":
+					locker = False
 	
 	def alignmentEditing(self):
+		alignmentDisplay(self.alignment, self.alignmentMethod, self.genes, checkAlignmentList(self.alignment, method='everything'))
+		print "\nIt's *strongly* recommended that you take a look at your alignment before continuing; the summary statistics above are unlikely to be sufficient to spot big problems!"
+		print "To print out your alignments, type 'output'. To return to the DNA editting stage, type 'DNA', and to align the sequences differently type 'align'."
+		print "\t, To automatically trim your sequences using trimAl, type 'trim'"
+		print "\nYou *cannot* continue without a chosen alignment for each gene you are using. To choose an alignment, just hit enter"
 		locker = True
-		print "\nTo delete a sequence, enter its SeqID and press return - *one sequence at a time*\nTo continue, press enter with no SeqID\n"
-		while(locker):
-			inputSeq = raw_input("")
-			if inputSeq:
-				if int(inputSeq) in range(len(self.sequences)):
-					del self.sequences[int(inputSeq)]
-					print "SeqID", inputSeq, "Successfully deleted"
-					print "Re-calulating alignment and summary statistics..."
+		while locker:
+			inputAlign = raw_input("Alignment Checking:")
+			if inputAlign:
+				if inputAlign == 'output':
+					for i,gene in enumerate(self.genes):
+						for j,method in enumerate(self.methods):
+							AlignIO.write(self.alignments[i][k], self.stem+"_"+gene+"_"+method, 'fasta')
+				elif inputAlign == 'DNA':
+					self.dnaChecking()
+				elif inputAlign == 'align':
 					self.align()
-					alignmentDisplay(self.alignmentList, self.alignmentListNames, self.alignmentCheck)
+				elif inputAlign == 'trim':
+					self.alignment = trimAlignment(self.alignment)
+					alignmentDisplay(self.alignment)
 				else:
-					print "Sorry, I didn't recognise", inputSeq, "- try again"
+					print "Sorry, I don't understand", inputAlign, "- please try again."
 			else:
 				locker = False
-				print "No more sequences to delete. Continuing."
+		print "\nIn the prompt below is the name of a gene. Type the ID number of the alignment you'd like to use for that gene below."
+		for i,gene in enumerate(self.genes):
+			locker = True
+			while locker:
+				choice = raw_input(gene+": ")
+				if int(choice) in range(len(self.genes)):
+					self.alignment[i] = self.alignment[i][int(choice)]
+					self.alignmentMethodChosen.append(self.alignmentMethod[int(choice)])
+					locker = False
+				else:
+					print "Sorry, didn't get that. Try again."
 	
 	def align(self):
 		print "Enter the name of an alignment method ('muscle', 'mafft', 'clustalo'), 'everything' to do all three and compare their outputs, or simply hit return to align with muscle."
@@ -1192,71 +1262,31 @@ class PhyloGenerator:
 				if alignInput in methods:
 					print "Aligning DNA with default settings of", alignInput
 					self.alignment = alignSequences(self.sequences, method=alignInput, tempStem='temp', timeout=99999999, nGenes=len(self.genes))
-					self.alignmentMethod = alignInput
+					self.alignmentMethod.append(alignInput)
 					print "\nAlignment complete!"
 					locker = False
 				elif alignInput == "everything":
 					print "Aligning DNA with:"
 					print "...MUSCLE"
-					self.alignmentList.append(alignSequences(self.sequences, method="muscle", tempStem='temp', timeout=99999999, nGenes=len(self.genes)))
+					self.alignment.append(alignSequences(self.sequences, method="muscle", tempStem='temp', timeout=99999999, nGenes=len(self.genes)))
 					print "\n...MAFFT"
-					self.alignmentList.append(alignSequences(self.sequences, method="mafft", tempStem='temp', timeout=99999999, nGenes=len(self.genes)))
+					self.alignment.append(alignSequences(self.sequences, method="mafft", tempStem='temp', timeout=99999999, nGenes=len(self.genes)))
 					print "\n...Clustal-O"
-					self.alignmentList.append(alignSequences(self.sequences, method="clustalo", tempStem='temp', timeout=99999999, nGenes=len(self.genes)))
-					self.alignmentListNames = ['MUSCLE', 'MAFFT', 'Clustal-O']
+					self.alignment.append(alignSequences(self.sequences, method="clustalo", tempStem='temp', timeout=99999999, nGenes=len(self.genes)))
+					self.alignmentMethods = ['MUSCLE', 'MAFFT', 'Clustal-O']
 					print "\nAlignments complete!"
-					self.alignmentChoice()
+					locker = False
 				else:
 					print "Sorry, I didn't recognise", alignInput, "- please try again."
 			else:
 				print "Alignging DNA with default settings of MUSCLE"
 				self.alignment = alignSequences(self.sequences, method="muscle", tempStem='temp', timeout=99999999, nGenes=len(self.genes))
-				self.alignmentMethod = "muscle"
+				self.alignmentMethod.append("muscle")
 				print "\nAlignment complete!"
 				locker = False
 	
-	def alignmentChecking(self):
-		if self.alignmentList:
-			self.alignmentCheck = checkAlignmentList(self.alignmentList, method='everything')
-			alignmentDisplay(self.alignmentList, self.alignmentListNames, self.alignmentCheck)
-			print "\nAny problems with your alignment likely result from poor-quality DNA sequences."
-			print "To write out your alignments and view these sequences in an external viewer, type 'output'"
-			print "To edit DNA sequences, type 'edit'. To choose an alignment, enter its ID number."
-			locker = True
-			while locker:
-				alignInput = raw_input("Alignment Choice: ")
-				if alignInput == "output":
-					for alignment, method in zip(self.alignmentList, self.alignmentListNames):
-						AlignIO.write(alignment, self.stem+"_TEMP_alignment_"+method+".fasta", "fasta")
-					print "Alignments written to your working directory."
-				elif alignInput == "edit":
-					self.alignmentEditing()
-				elif alignInput in range(self.alignmentList):
-					self.alignment = self.alignmentList[alignInput]
-					self.alignmentMethod = self.alignmentListNames[alignInput]
-					print self.alignmentMethod + "alignment chosen."
-					locker = False
-		else:
-			print "\nIt is *strongly* recommended that you manually check you alignment for long gaps, etc."
-			print "To write out your alignment and view it in an external viewer, type 'output'"
-			print "To edit DNA sequences, type 'edit'. To continue, just press enter."
-			locker = True
-			while locker:
-				alignInput = raw_input("Alignment Choice: ")
-				if alignInput:
-					if alignInput == "output":
-						AlignIO.write(self.alignment, self.stem+"_TEMP_alignment.fasta", "fasta")
-						print "Alignment written to your working directory."
-					elif alignInput == "edit":
-						self.alignmentEditing()
-					else:
-						print "Sorry, I didn't recognise", alignInput, "- try again"
-				else:
-					locker = False
-					print "Continuing..."
-	
 	def phylogen(self, method="RAxML-localVersion"):
-		print"\n Running with additional options:", method
+		print"\n Running with options:", method
 		self.phylogeny = phyloGen(self.alignment, method=method, constraint=self.constraint, timeout=999)
 		print"\nRun complete!"
 	
@@ -1293,28 +1323,34 @@ class PhyloGenerator:
 			for i in range(len(self.sequences)):
 				tGenBankIDs = []
 				for k in range(len(self.sequences[i])):
-					tgenBankIDs.append(self.sequences[i][k].id)
+					tGenBankIDs.append(self.sequences[i][k].id)
 					self.sequences[i][k].name = self.speciesNames[i]
 				self.genBankIDs.append(tGenBankIDs)
-		else:
-			for i in range(len(self.sequences)):
-				self.genBankIDs.append(self.sequences[i].id)
-				self.sequences[i].name = self.speciesNames[i]
 	
 	def writeOutput(self):
+		#This is unlikely to work if called at any point during execution (alignment's structure changes, etc.)
+		# - but this reflects a more fundamental problem in the way in which you've structured everything...
 		#Log - TO-DO
 		#Sequences
 		if self.sequences:
-			SeqIO.write(self.sequences, self.stem+"_raw_sequences.fasta", 'fasta')
+			for i,gene in enumerate(self.genes):
+				currentGene = []
+				for seq in self.sequences:
+					currentGene.append(seq[i])
+				SeqIO.write(currentGene, self.stem+"_"+"gene"+"raw_sequences.fasta", 'fasta')
+		
 		#Alignment
-		if self.alignment:
-			AlignIO.write(self.alignment, self.stem+"_alignment.fasta", 'fasta')
+		if self.alignment and self.genes:
+			for gene,align in zip(self.genes, self.alignment):
+				AlignIO.write(align, self.stem+"_"+gene+"_alignment.fasta", 'fasta')
+		
 		#Sequence info
 		if self.genBankIDs:
-			with open(self.stem+"_sequence_info.txt", 'w') as f:
-				f.write("Sequence ID, Species Name\n")
-				for i in range(len(self.sequences)):
-					f.write(self.genBankIDs[i]+","+self.speciesNames[i]+"\n")
+			for i,gene in enumerate(self.genBankIDs):
+				with open(self.stem+"_"+self.genes[i]+"_sequence_info.txt", 'w') as f:
+					f.write("Sequence ID, Species Name\n")
+					for j,info in enumerate(gene):
+						f.write(info+","+self.speciesNames[j]+"\n")
 		#Phylogeny
 		if self.phylogeny:
 			Phylo.write(self.phylogeny, self.stem+"_phylogeny.tre", 'newick')
@@ -1374,21 +1410,16 @@ class PhyloGenerator:
 	
 	def concatenateSequences(self):
 		if len(self.genes) > 1:
-			output = []
-			for each in self.sequences:
-				element = each[0]
-				for i in range(1, len(each)):
-					element += each[i]
-				output.append(element)
-			self.concatenatedSequences = output
-		else:
-			self.concatenatedSequences = self.sequences
+			tempAlignment = self.alignment[0]
+			for i in range(1, len(self.genes)):
+				tempAlignment += self.alignment[i]
+			self.alignment = tempAlignment
 	
 
 def main():
 	args = parser.parse_args()
 	if args.version:
-		print "Version 0.1a :p"
+		print "v0.1"
 	elif args.manual:
 		 webbrowser.open("http://willpearse.github.com/phyloGenerator")
 	else:
@@ -1404,6 +1435,15 @@ def main():
 			print "\nLet's get going!\nPlease input a 'stem' name for all your output (phylogeny, sequences, etc.)"
 			stem = raw_input("Stem name: ")
 			currentState = PhyloGenerator(stem=stem)
+		
+		#Email
+		if args.email:
+			Entrez.email = args.email
+			currentState.email = True
+		
+		#Gene
+		if args.gene:
+			currentState.genes = args.gene.split(',')
 		
 		#Handle sequence input
 		if args.alignment and args.dna:
@@ -1428,14 +1468,14 @@ def main():
 			currentState.loadDNAFile()
 			print "\nDNA DOWNLOAD"
 			currentState.loadGenBank()
-			"\nDNA CHECKING"
-			currentState.DNALoaded()
-			currentState.dnaChecking()
-			print "\nYou are now able to delete DNA sequences you have loaded.\nEvery time you delete a sequence, your summary statistics will be re-calculated, and displayed to you again.\n*IMPORTANT*: Sequence IDs may change once you delete a sequence."
-			currentState.dnaEditing()
-			currentState.cleanUpSequences()
-			currentState.renameSequences()
-			#TO-DO: allow them to download new sequences for particular species...
+		"\nDNA CHECKING"
+		currentState.DNALoaded()
+		currentState.dnaChecking()
+		print "\nYou are now able to delete DNA sequences you have loaded.\nEvery time you delete a sequence, your summary statistics will be re-calculated, and displayed to you again.\n*IMPORTANT*: Sequence IDs may change once you delete a sequence."
+		currentState.dnaEditing()
+		currentState.cleanUpSequences()
+		currentState.renameSequences()
+		#TO-DO: allow them to download new sequences for particular species...
 		
 		#Constraint tree
 		if args.constraint:
@@ -1450,8 +1490,9 @@ def main():
 			print "\nDNA ALIGNMENT"
 			currentState.align()
 			print "\nALIGNMENT CHECKING"
-			currentState.alignmentChecking()
-		print "\nPHYLOGENY GENERATION"
+			currentState.alignmentEditing()
+			currentState.concatenateSequences()
+			print "\nPHYLOGENY GENERATION"
 		currentState.phylogen()
 		currentState.rateSmooth()
 	#except:
@@ -1470,8 +1511,10 @@ if __name__ == '__main__':
 	parser.add_argument("--manual", action="store_true", help="(Attempt to) open browser and show help")
 	parser.add_argument("-name", "-n", help="'Stem' name for all output files.")
 	parser.add_argument("-dna", "-d", help="Unaligned DNA (in FASTA format).")
+	parser.add_argument("-gene", "-g", help="The genes to search for (multiple genes are comma-separated)")
 	parser.add_argument("-species", "-s", help="Binomial names of species, each on a new line")
 	parser.add_argument("-alignment", "-a", help="Aligned DNA (in FASTA format).")
 	parser.add_argument("-constraint", "-c", help="Constraint tree (in newick format).")
+	parser.add_argument("-email", "-e", help="Email address for GenBank searches.")
 	parser.add_argument("-parameters", "-p", help="Parameter file giving detailed instructions to phyloGen.")
 	main()
