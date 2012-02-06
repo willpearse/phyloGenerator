@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8">
     <title>phyloGenerator - automated phylogeny generation for ecologists</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="">
     <meta name="author" content="Will Pearse">
 
@@ -12,126 +13,139 @@
     <![endif]-->
 
     <!-- Le styles -->
-    <link href="http://twitter.github.com/bootstrap/1.4.0/bootstrap.min.css" rel="stylesheet">
-    <style type="text/css">
-      /* Override some defaults */
-      html, body {
-        background-color: #eee;
-      }
-      body {
-        padding-top: 40px; /* 40px to make the container go all the way to the bottom of the topbar */
-      }
-      .container > footer p {
-        text-align: center; /* center align it with the container */
-      }
-      .container {
-        width: 820px; /* downsize our container to make the content feel a bit tighter and more cohesive. NOTE: this removes two full columns from the grid, meaning you only go to 14 columns and not 16. */
-      }
-
-      /* The white background content wrapper */
-      .content {
-        background-color: #fff;
-        padding: 20px;
-        margin: 0 -20px; /* negative indent the amount of the padding to maintain the grid system */
-        -webkit-border-radius: 0 0 6px 6px;
-           -moz-border-radius: 0 0 6px 6px;
-                border-radius: 0 0 6px 6px;
-        -webkit-box-shadow: 0 1px 2px rgba(0,0,0,.15);
-           -moz-box-shadow: 0 1px 2px rgba(0,0,0,.15);
-                box-shadow: 0 1px 2px rgba(0,0,0,.15);
-      }
-
-      /* Page header tweaks */
-      .page-header {
-        background-color: #f5f5f5;
-        padding: 20px 20px 10px;
-        margin: -20px -20px 20px;
-      }
-
-      /* Styles you shouldn't keep as they are for displaying this base example only */
-      .content .span10,
-      .content .span4 {
-        min-height: 500px;
-      }
-      /* Give a quick and non-cross-browser friendly divider */
-      .content .span4 {
-        margin-left: 0;
-        padding-left: 19px;
-        border-left: 1px solid #eee;
-      }
-
-      .topbar .btn {
-        border: 0;
-      }
-
-    </style>
+    <link href="assets/css/bootstrap.css" rel="stylesheet">
+    <link href="assets/css/bootstrap-responsive.css" rel="stylesheet">
+    <link href="assets/css/docs.css" rel="stylesheet">
+    <link href="assets/js/google-code-prettify/prettify.css" rel="stylesheet">
 
     <!-- Le fav and touch icons -->
-    <link rel="shortcut icon" href="images/favicon.ico">
-    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
-    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
-    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+    <link rel="shortcut icon" href="assets/ico/favicon.ico">
+    <link rel="apple-touch-icon" href="assets/ico/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="assets/ico/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="assets/ico/apple-touch-icon-114x114.png">
   </head>
 
-  <body>
+  <body data-spy="scroll" data-target=".subnav" data-offset="50">
 
-    <div class="topbar">
-      <div class="fill">
+
+  <!-- Navbar
+    ================================================== -->
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
         <div class="container">
-          <a class="brand" href="#">phyloGenerator</a>
-          <ul class="nav">
-            <li class="active"><a href="#">Home</a></li>
-			<li><a href="download.html">Download</a></li>
-            <li><a href="install.html">Install</a></li>
-            <li><a href="walkthrough.html">Walkthrough</a></li>
-			<li><a href="reference.html">Reference</a></li>
-			<li><a href="http://imperial.academia.edu/WillPearse">Who?</a></li>
-          </ul>
+          <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </a>
+          <a class="brand" href="./index.html">phyloGenerator</a>
+          <div class="nav-collapse">
+            <ul class="nav">
+              <li class="active">
+                <a href="./index.html">Home</a>
+              </li>
+              <li class="">
+                <a href="./install.html">Install</a>
+              </li>
+              <li class="">
+                <a href="./walkthrough.html">Walkthrough</a>
+              </li>
+              <li class="">
+                <a href="./reference.html">Reference</a>
+              </li>
+              <li class="">
+                <a href="http://imperial.academia.edu/WillPearse">Who?</a>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>
 
     <div class="container">
 
-      <div class="content">
-        <div class="page-header">
-          <h1>phyloGenerator <small>automated phylogeny generation for ecologists</small></h1>
-        </div>
-        <div class="row">
-          <div class="span10">
-            <h2>Overview</h2>
-			<p>Making phylogenies is hard enough for phylogeneticists, but it's something that ecologists are forced to do more and more frequently - especially in the field of community phylogenetics. I think it's a shame that lots of effort goes into generating ecological data, while the (equally important!) phylogeny is often neglected.</p>
-			<p>With phyloGenerator, you can download <b>real</b> DNA sequence data for your species of interest, and then generate calibrated phylogeny using a defensible constraint tree. Your phylogeny may not be 'correct', but it will have accurate branch lengths and its topology will be safe. In other words, it's be a 'real' phylogeny, but a best-guess from taxonomy filled with polytomies.</p>
-			<p>At the moment, this is not a completely-finished product, but it does essentially work. If you're interested in the general idea (or not!) please contact me using the link on the right. I'm not trying to replace phylogeneticists (I am one!), I'm just trying to tidy up what I see as a massive problem in my field.</p>
-			<p>
-          </div>
-          <div class="span4">
-  			<h3>Useful links</h3>
-  			<ul>
-  			<li><a href="install.html">Installation Guide</a></li>
-  			<li><a href="downloads.html">Downloads</a></li>
-	  			<li><a href="walkthrough.html">Walkthrough</a></li>
-  			<li><a href="reference.html">Internal Reference</a></li>
-			<li><a href="http://imperial.academia.edu/WillPearse/About/">Who Wrote This?</a></li>
-			<li><a href="mailto:william.pearse08@imperial.ac.uk">Email</a></li>
-  			</ul>
-            <h3>Quickstart</h3>
-			<ol>
-				<li>Python (>= 2.6.x, not 3.x)</li>
-				<li>BioPython (>= 1.58 )</li>
-				<li>Any phylogenetics software you want to use with it</li>
-				<li>Download it</li>
-				<li>...import the script, and you're away!'</li>
-			</ol>
-          </div>
-        </div>
-      </div>
+<!-- Masthead
+================================================== -->
+<header class="jumbotron masthead">
+  <div class="inner">
+    <h1>phyloGenerator</h1>
+    <p>An easy way for ecologists to make realistic, tenable phylogenies. Automated install and fully-customisable.</p>
+    <p class="download-info">
+      <a href="https://github.com/willpearse/phyloGenerator/" class="btn btn-primary btn-large">View project on GitHub</a>
+      <a href="assets/bootstrap.zip" class="btn btn-large">Download phyloGenerator</a>
+    </p>
+  </div>
 
-      <footer>
-        <p>&copy; Will Pearse (Imperial College London) 2011</p>
+  <ul class="quick-links">
+    <li><a href="./install.html">Installing</a></li>
+    <li><a href="./waklthrough.html">Walkthrough / instructions</a></li>
+    <li><a href="http://imperial.academia.edu/WillPearse">Who did this?</a></li>
+	<li><a href="http://www.bio.ic.ac.uk/research/apurvis/ajpurvis.htm">Purvis Lab</a></li>
+    <li class="divider">&middot;</li>
+    <li>
+      <iframe class="github-btn" src="http://markdotto.github.com/github-buttons/github-btn.html?user=willpearse&repo=phyloGenerator&type=watch&count=false" allowtransparency="true" frameborder="0" scrolling="0" width="114px" height="20px"></iframe>
+    </li>
+    <li>
+      <iframe class="github-btn" src="http://markdotto.github.com/github-buttons/github-btn.html?user=willpearse&repo=phyloGenerator&type=fork&count=false" allowtransparency="true" frameborder="0" scrolling="0" width="98px" height="20px"></iframe>
+    </li>
+  </ul>
+</header>
+
+<div class="marketing">
+  
+  <hr class="soften">
+
+  <h1>Make realistic phylogenies quickly and easily</h1>
+  <p class="marketing-byline">...and be confident that they will not conflict with existing taxonomic opinions</p>
+  <ul class="thumbnails example-sites">
+    <li class="span4">
+	<h2>Overview</h2>
+      <p>Making phylogenies is hard enough for phylogeneticists, but it's something that ecologists are forced to do more and more frequently - especially in the field of community phylogenetics. I think it's a shame that lots of effort goes into generating ecological data, while the (equally important!) phylogeny is often neglected.</p>
+    </li>
+    <li class="span4">
+	<h2>Branch lengths matter</h2>
+      <p>With phyloGenerator, you can download <b>real</b> DNA sequence data for your species of interest, and then generate calibrated phylogeny using a defensible constraint tree. Your phylogeny may not be 'correct', but it will have accurate branch lengths and its topology will be safe. In other words, it's be a 'real' phylogeny, but a best-guess from taxonomy filled with polytomies.</p>
+    </li>
+    <li class="span4">
+	<h2>A work in progress...</h2>
+      <p>At the moment, this is not a completely-finished product, but it does essentially work. If you're interested in the general idea (or not!) please contact me using the link on the right. I'm not trying to replace phylogeneticists (I am one!), I'm just trying to tidy up what I see as a massive problem in my field.</p>
+    </li>
+  </ul>
+
+</div><!-- /.marketing -->
+
+     <!-- Footer
+      ================================================== -->
+      <footer class="footer">
+        <p class="pull-right"><a href="#">Back to top</a></p>
+		<p>(c) <a href="http://imperial.academia.edu/WillPearse">Will Pearse</a> (2012), PhD student in the Purvis Lab at Imperial College London.</p>
+        <p>Website (heavily) based on Twitter's Bootstrap - thank you! Bootstrap was built by <a href="http://twitter.com/mdo" target="_blank">@mdo</a> and <a href="http://twitter.com/fat" target="_blank">@fat</a>, their code licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0" target="_blank">Apache License v2.0</a>.</p>
       </footer>
 
-    </div> <!-- /container -->
+    </div><!-- /container -->
+
+
+
+    <!-- Le javascript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script type="text/javascript" src="http://platform.twitter.com/widgets.js"></script>
+    <script src="assets/js/jquery.js"></script>
+    <script src="assets/js/google-code-prettify/prettify.js"></script>
+    <script src="assets/js/bootstrap-transition.js"></script>
+    <script src="assets/js/bootstrap-alert.js"></script>
+    <script src="assets/js/bootstrap-modal.js"></script>
+    <script src="assets/js/bootstrap-dropdown.js"></script>
+    <script src="assets/js/bootstrap-scrollspy.js"></script>
+    <script src="assets/js/bootstrap-tab.js"></script>
+    <script src="assets/js/bootstrap-tooltip.js"></script>
+    <script src="assets/js/bootstrap-popover.js"></script>
+    <script src="assets/js/bootstrap-button.js"></script>
+    <script src="assets/js/bootstrap-collapse.js"></script>
+    <script src="assets/js/bootstrap-carousel.js"></script>
+    <script src="assets/js/bootstrap-typeahead.js"></script>
+    <script src="assets/js/application.js"></script>
+
 
   </body>
 </html>

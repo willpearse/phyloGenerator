@@ -2,7 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>phyloGenerator (install) - automated phylogeny generation for ecologists</title>
+    <title>phyloGenerator - automated phylogeny generation for ecologists</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="">
     <meta name="author" content="Will Pearse">
 
@@ -12,174 +13,310 @@
     <![endif]-->
 
     <!-- Le styles -->
-    <link href="http://twitter.github.com/bootstrap/1.4.0/bootstrap.min.css" rel="stylesheet">
-    <style type="text/css">
-      /* Override some defaults */
-      html, body {
-        background-color: #eee;
-      }
-      body {
-        padding-top: 40px; /* 40px to make the container go all the way to the bottom of the topbar */
-      }
-      .container > footer p {
-        text-align: center; /* center align it with the container */
-      }
-      .container {
-        width: 820px; /* downsize our container to make the content feel a bit tighter and more cohesive. NOTE: this removes two full columns from the grid, meaning you only go to 14 columns and not 16. */
-      }
-
-      /* The white background content wrapper */
-      .content {
-        background-color: #fff;
-        padding: 20px;
-        margin: 0 -20px; /* negative indent the amount of the padding to maintain the grid system */
-        -webkit-border-radius: 0 0 6px 6px;
-           -moz-border-radius: 0 0 6px 6px;
-                border-radius: 0 0 6px 6px;
-        -webkit-box-shadow: 0 1px 2px rgba(0,0,0,.15);
-           -moz-box-shadow: 0 1px 2px rgba(0,0,0,.15);
-                box-shadow: 0 1px 2px rgba(0,0,0,.15);
-      }
-
-      /* Page header tweaks */
-      .page-header {
-        background-color: #f5f5f5;
-        padding: 20px 20px 10px;
-        margin: -20px -20px 20px;
-      }
-
-      /* Styles you shouldn't keep as they are for displaying this base example only */
-      .content .span10,
-      .content .span4 {
-        min-height: 500px;
-      }
-      /* Give a quick and non-cross-browser friendly divider */
-      .content .span4 {
-        margin-left: 0;
-        padding-left: 19px;
-        border-left: 1px solid #eee;
-      }
-
-      .topbar .btn {
-        border: 0;
-      }
-
-    </style>
+    <link href="assets/css/bootstrap.css" rel="stylesheet">
+    <link href="assets/css/bootstrap-responsive.css" rel="stylesheet">
+    <link href="assets/css/docs.css" rel="stylesheet">
+    <link href="assets/js/google-code-prettify/prettify.css" rel="stylesheet">
 
     <!-- Le fav and touch icons -->
-    <link rel="shortcut icon" href="images/favicon.ico">
-    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
-    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
-    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+    <link rel="shortcut icon" href="assets/ico/favicon.ico">
+    <link rel="apple-touch-icon" href="assets/ico/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="assets/ico/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="assets/ico/apple-touch-icon-114x114.png">
   </head>
 
-  <body>
+  <body data-spy="scroll" data-target=".subnav" data-offset="50">
 
-    <div class="topbar">
-      <div class="fill">
-        <div class="container">
-          <a class="brand" href="#">phyloGenerator</a>
-          <ul class="nav">
-            <li class="active"><a href="#">Home</a></li>
-			<li><a href="download.html">Download</a></li>
-            <li><a href="install.html">Install</a></li>
-            <li><a href="walkthrough.html">Walkthrough</a></li>
-			<li><a href="reference.html">Reference</a></li>
-			<li><a href="http://imperial.academia.edu/WillPearse">Who Did This?</a></li>
-          </ul>
-        </div>
-      </div>
+
+	  <!-- Navbar
+	    ================================================== -->
+	    <div class="navbar navbar-fixed-top">
+	      <div class="navbar-inner">
+	        <div class="container">
+	          <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+	            <span class="icon-bar"></span>
+	            <span class="icon-bar"></span>
+	            <span class="icon-bar"></span>
+	          </a>
+	          <a class="brand" href="./index.html">phyloGenerator</a>
+	          <div class="nav-collapse">
+	            <ul class="nav">
+	              <li class="active">
+	                <a href="./index.html">Home</a>
+	              </li>
+	              <li class="">
+	                <a href="./install.html">Install</a>
+	              </li>
+	              <li class="">
+	                <a href="./walkthrough.html">Walkthrough</a>
+	              </li>
+	              <li class="">
+	                <a href="./reference.html">Reference</a>
+	              </li>
+	              <li class="">
+	                <a href="http://imperial.academia.edu/WillPearse">Who?</a>
+	              </li>
+	            </ul>
+	          </div>
+	        </div>
+	      </div>
+	    </div>
+
+	    <div class="container">
+
+<!-- Masthead
+================================================== -->
+<header class="jumbotron subhead" id="overview">
+  <h1>Install</h1>
+  <p class="lead">Use an installer script, or do everything manually. Windows, Mac and Linux instructions below.</p>
+  <div class="subnav">
+    <ul class="nav nav-pills">
+	  <li><a href="#labels">*Auto-Install*</a></li>
+	  <li><a href="#python">Python</a></li>
+      <li><a href="#numPy">NumPy</a></li>
+      <li><a href="#sciPy">SciPy</a></li>
+      <li><a href="#bioPython">BioPython</a></li>
+      <li><a href="#phyloGenerator">phyloGenerator</a></li>
+      <li class="dropdown">
+        <a class="dropdown-toggle" data-toggle="dropdown" href="#alignTop">Alignment Tools<b class="caret"></b></a>
+        <ul class="dropdown-menu">
+          <li><a href="#buttonGroups">MUSCLE</a></li>
+          <li><a href="#buttonDropdowns">MAFFT</a></li>
+		  <li><a href="#buttonDropdowns">Clustal-o</a></li>
+		  <li><a href="#buttonDropdowns">trimAl</a></li>
+        </ul>
+      </li>
+      <li class="dropdown">
+        <a class="dropdown-toggle" data-toggle="dropdown" href="#">Construction Tools<b class="caret"></b></a>
+        <ul class="dropdown-menu">
+          <li><a href="#navs">RAxML</a></li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+</header>
+
+
+<!-- autoInstaller
+================================================== -->
+<a name="autoInstall"></a>
+<section id="autoInstall">
+  <div class="page-header">
+    <h1>Auto-Install</h1>
+  </div>
+  <div class="row">
+    <div class="span4">
+      <h3>Windows</h3>
+      <p>Coming soon...</p>
     </div>
+    <div class="span4">
+      <h3>Mac OS</h3>
+      	<p>Coming soon...</p>
+    </div>
+    <div class="span4">
+      <h3>Linux</h3>
+      <p>Coming soon...</p>
+    </div>
+</section>
 
-    <div class="container">
 
-      <div class="content">
-        <div class="page-header">
-          <h1>phyloGenerator <small>automated phylogeny generation for ecologists</small></h1>
-        </div>
-        <div class="row">
-          <div class="span10">
-            <h2>Installing</h2>
-			<p>Installing phyloGenerator is really just about setting up its dependencies: Python, SciPy, BioPython, and the phylogenetics tools you'll be using. It may seem like a lot to do, but really you just need to click a few buttons every five minutes and the installer scripts will do all the hard work for you. Trust me, it's easier than it looks!</p>
-			<p>You can easily jump to the <a href="#Mac">Mac</a>, <a href="#Windows">Windows</a>, and <a href="#Linux">Linux</a> instructions below.</p>
-			<p>Or, if you're feeling lucky, why not try the pre-built installer script for Mac that comes with phyloGenerator (and may work with Linux), or the pre-built binary for Windows (coming soon).</p>
-			<a name="Mac"><h3>MacOS</h3></a>
-			For this, you need to open up 'Terminal'. It's in your 'Applications' folder, inside the 'Utilities' folder - you can open it from the dock.
-			<ol>
-				<li>Python</li>
-				<ol>
-				<li>In Terminal, type 'python -v' and hit enter. If the version number is greater than '2.6.0', but does not start with a 3, skip to the Scipy step below.</li>
-				<li>If it's not, <a href="http://www.python.org/getit/">download the latest version of Python 2</a> - <b>do not</b> download any Python version starting with a 3.</li>
-				</ol>
-				<li>NumPy</li>
-				<ol>
-					<li>Check to see if you've got NumPy installed. From Terminal, type 'python' and hit enter. Then type 'import scipy' and hit enter. Now quit python by typing 'quit()'. If you don't get an error message (there may be a delay), skip to the BioPython step below. While I give brief instructions below, <a href="http://www.scipy.org/Installing_SciPy/Mac_OS_X">more thorough instructions can be found here</a>.</li>
-					<li><a href="http://sourceforge.net/projects/numpy/files/">Download the latest version.</a></li>
-					<li>Go to the directory you downloaded it to in Finder, and then unzip it by double-clicking on it.</li>
-					<li>Move into the unziped folder in Terminal, by typing 'cd ' and then dragging the folder icon in your Terminal window.</li>
-					<li>Type 'python setup.py build' in Terminal and press enter.</li>
-					<li>Type 'sudo python setup.py install' in Terminal and press enter.</li>
-				</ol>
-				
-				<li>SciPy</li>
-				<ol>
-					<li>Check to see if you've got SciPy installed. From Terminal, type 'python' and hit enter. Then type 'import scipy' and hit enter. Now quit python by typing 'quit()'. If you don't get an error message (there may be a delay), skip to the BioPython step below. While I give brief instructions below, <a href="http://www.scipy.org/Installing_SciPy/Mac_OS_X">more thorough instructions can be found here</a>.</li>
-					<li><a href="http://sourceforge.net/projects/scipy/files/">Download the latest version.</a></li>
-					<li>Go to the directory you downloaded it to in Finder, and then unzip it by double-clicking on it.</li>
-					<li>Move into the unziped folder in Terminal, by typing 'cd ' and then dragging the folder icon in your Terminal window.</li>
-					<li>Type 'python setup.py build' in Terminal and press enter.</li>
-					<li>Type 'sudo python setup.py install' in Terminal and press enter. Enter your password and press enter.</li>
-				</ol>
-				<li>BioPython</li>
-				<ol>
-					<li>You likely won't have BioPython installed without knowing about it, but you can check by opening Python ('python', hit enter), trying to load a module from it ('from Bio import SeqIO', hit enter), and then quitting Python ('quit()', hit enter). If you don't get an error message (there may be a delay), skip to the step below. While I give brief instructions below, <a href="http://biopython.org/DIST/docs/install/Installation.html#htoc25">more thorough instructions can be found here</a>.</li>
-					<li><a href="http://biopython.org/wiki/Download">Download the latest version.</a></li>
-					<li>Go to the directory you downloaded it to in Finder, and then unzip it by double-clicking on it.</li>
-					<li>Move into the unziped folder in Terminal, by typing 'cd ' and then dragging the folder icon in your Terminal window.</li>
-					<li>Type 'python setup.py build' in Terminal and press enter.</li>
-					<li>Type 'python setup.py install' in Terminal and press enter.</li>
-				</ol>
-			<li>Installing phyloGenerator</lo>
-			<ol>
-			<li>Download a zipped up copy of the package, go to the directory you downloaded it to in Finder, and then unzip it by double-clicking on it.</li>
+<!-- Python
+================================================== -->
+<a name="python"></a>
+<section id="python">
+  <div class="page-header">
+    <h1>SciPy</h1>
+  </div>
+  <div class="row">
+    <div class="span4">
+      <h3>Windows</h3>
+      <p>Coming soon...</p>
+    </div>
+    <div class="span4">
+      <h3>Mac OS</h3>
+      	<ol>
+		<li>In Terminal, type 'python -v' and hit enter. If the version number is greater than '2.6.0', but does not start with a 3, skip to the Scipy step below.</li>
+		<li>If it's not, <a href="http://www.python.org/getit/">download the latest version of Python 2</a> - <b>do not</b> download any Python version starting with a 3.</li>
+		</ol>
+    </div>
+    <div class="span4">
+      <h3>Linux</h3>
+      <p>Coming soon...</p>
+    </div>
+</section>
+
+
+<!-- NumPy
+================================================== -->
+<a name="numPy"></a>
+<section id="numPy">
+  <div class="page-header">
+    <h1>NumPy</h1>
+  </div>
+  <div class="row">
+    <div class="span4">
+      <h3>Windows</h3>
+      <p>Coming soon...</p>
+    </div>
+    <div class="span4">
+      <h3>Mac OS</h3>
+      	<ol>
+			<li>Check to see if you've got NumPy installed. From Terminal, type 'python' and hit enter. Then type 'import scipy' and hit enter. Now quit python by typing 'quit()'. If you don't get an error message (there may be a delay), skip to the BioPython step below. While I give brief instructions below, <a href="http://www.scipy.org/Installing_SciPy/Mac_OS_X">more thorough instructions can be found here</a>.</li>
+			<li><a href="http://sourceforge.net/projects/numpy/files/">Download the latest version.</a></li>
+			<li>Go to the directory you downloaded it to in Finder, and then unzip it by double-clicking on it.</li>
 			<li>Move into the unziped folder in Terminal, by typing 'cd ' and then dragging the folder icon in your Terminal window.</li>
-			<li>Make the script 'executable' by typing 'chmod 777 phyloGenerator.py'</li>
-			<li>You're done! Now <a href="walkthrough.html">read the walkthrough to see how to use phyloGenerator!</a></li>
+			<li>Type 'python setup.py build' in Terminal and press enter.</li>
+			<li>Type 'sudo python setup.py install' in Terminal and press enter.</li>
 		</ol>
+    </div>
+    <div class="span4">
+      <h3>Linux</h3>
+      <p>Coming soon...</p>
+    </div>
+</section>
+
+
+<!-- SciPy
+================================================== -->
+<a name="sciPy"></a>
+<section id="sciPy">
+  <div class="page-header">
+    <h1>Python</h1>
+  </div>
+  <div class="row">
+    <div class="span4">
+      <h3>Windows</h3>
+      <p>Coming soon...</p>
+    </div>
+    <div class="span4">
+      <h3>Mac OS</h3>
+      	<ol>
+			<li>Check to see if you've got SciPy installed. From Terminal, type 'python' and hit enter. Then type 'import scipy' and hit enter. Now quit python by typing 'quit()'. If you don't get an error message (there may be a delay), skip to the BioPython step below. While I give brief instructions below, <a href="http://www.scipy.org/Installing_SciPy/Mac_OS_X">more thorough instructions can be found here</a>.</li>
+			<li><a href="http://sourceforge.net/projects/scipy/files/">Download the latest version.</a></li>
+			<li>Go to the directory you downloaded it to in Finder, and then unzip it by double-clicking on it.</li>
+			<li>Move into the unziped folder in Terminal, by typing 'cd ' and then dragging the folder icon in your Terminal window.</li>
+			<li>Type 'python setup.py build' in Terminal and press enter.</li>
+			<li>Type 'sudo python setup.py install' in Terminal and press enter. Enter your password and press enter.</li>
 		</ol>
-			
-			<a name="Windows"><h3>Windows</h3></a>
-			<p>Coming soon...</p>
-			<a name="Linux"><h3>Linux</h3></a>
-			<p>Coming soon - for now, you should be able to just follow the Mac instructions.</p>
-          </div>
-          <div class="span4">
-  			<h3>Useful links</h3>
-  			<ul>
-  			<li><a href="install.html">Installation Guide</a></li>
-  			<li><a href="downloads.html">Downloads</a></li>
-  			<li><a href="walkthrough.html">Walkthrough</a></li>
-  			<li><a href="reference.html">Internal Reference</a></li>
-			<li><a href="http://imperial.academia.edu/WillPearse/About/">Who Wrote This?</a></li>
-			<li><a href="mailto:william.pearse08@imperial.ac.uk">Email</a></li>
-  			</ul>
-            <h3>Quickstart</h3>
-			<ol>
-				<li>Python (>= 2.6.x, not 3.x)</li>
-				<li>BioPython (>= 1.58 )</li>
-				<li>Any phylogenetics software you want to use with it</li>
-				<li>Download it</li>
-				<li>...import the script, and you're away!'</li>
-			</ol>
-          </div>
-        </div>
-      </div>
+    </div>
+    <div class="span4">
+      <h3>Linux</h3>
+      <p>Coming soon...</p>
+    </div>
+</section>
 
-      <footer>
-        <p>&copy; Will Pearse (Imperial College London) 2011</p>
-      </footer>
+<!-- BioPython
+================================================== -->
+<a name="bioPython"></a>
+<section id="bioPython">
+  <div class="page-header">
+    <h1>BioPython</h1>
+  </div>
+  <div class="row">
+    <div class="span4">
+      <h3>Windows</h3>
+      <p>Coming soon...</p>
+    </div>
+    <div class="span4">
+      <h3>Mac OS</h3>
+      	<ol>
+			<li>You likely won't have BioPython installed without knowing about it, but you can check by opening Python ('python', hit enter), trying to load a module from it ('from Bio import SeqIO', hit enter), and then quitting Python ('quit()', hit enter). If you don't get an error message (there may be a delay), skip to the step below. While I give brief instructions below, <a href="http://biopython.org/DIST/docs/install/Installation.html#htoc25">more thorough instructions can be found here</a>.</li>
+			<li><a href="http://biopython.org/wiki/Download">Download the latest version.</a></li>
+			<li>Go to the directory you downloaded it to in Finder, and then unzip it by double-clicking on it.</li>
+			<li>Move into the unziped folder in Terminal, by typing 'cd ' and then dragging the folder icon in your Terminal window.</li>
+			<li>Type 'python setup.py build' in Terminal and press enter.</li>
+			<li>Type 'python setup.py install' in Terminal and press enter.</li>
+		</ol>
+    </div>
+    <div class="span4">
+      <h3>Linux</h3>
+      <p>Coming soon...</p>
+    </div>
+</section>
 
-    </div> <!-- /container -->
+
+<!-- phyloGenerator
+================================================== -->
+<a name="phyloGenerator"></a>
+<section id="phyloGenerator">
+  <div class="page-header">
+    <h1>phyloGenerator</h1>
+  </div>
+  <div class="row">
+    <div class="span4">
+      <h3>Windows</h3>
+      <p>Coming soon...</p>
+    </div>
+    <div class="span4">
+      	<ol>
+		<li>Download a zipped up copy of the package, go to the directory you downloaded it to in Finder, and then unzip it by double-clicking on it.</li>
+		<li>Move into the unziped folder in Terminal, by typing 'cd ' and then dragging the folder icon in your Terminal window.</li>
+		<li>Make the script 'executable' by typing 'chmod 777 phyloGenerator.py'</li>
+		<li>You're done! Now <a href="walkthrough.html">read the walkthrough to see how to use phyloGenerator!</a></li>
+	</ol>
+	</ol>
+    </div>
+    <div class="span4">
+      <h3>Linux</h3>
+      <p>Coming soon...</p>
+    </div>
+</section>
+
+
+<!-- Alignment Top
+================================================== -->
+<a name="alignTop"></a>
+<section id="alignTop">
+  <div class="page-header">
+    <h1>Alignment Tools</h1>
+  </div>
+  <div class="row">
+    <div class="span4">
+      <h3>Windows</h3>
+      <p>Coming soon...</p>
+    </div>
+    <div class="span4">
+      <h3>Mac OS</h3>
+      <p>Coming soon...</p>
+    </div>
+    <div class="span4">
+      <h3>Linux</h3>
+      <p>Coming soon...</p>
+    </div>
+</section>
+
+ <!-- Footer
+  ================================================== -->
+  <footer class="footer">
+    <p class="pull-right"><a href="#">Back to top</a></p>
+	<p>(c) <a href="http://imperial.academia.edu/WillPearse">Will Pearse</a> (2012), PhD student in the Purvis Lab at Imperial College London.</p>
+    <p>Website (heavily) based on Twitter's Bootstrap - thank you! Bootstrap was built by <a href="http://twitter.com/mdo" target="_blank">@mdo</a> and <a href="http://twitter.com/fat" target="_blank">@fat</a>, their code licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0" target="_blank">Apache License v2.0</a>.</p>
+  </footer>
+
+</div><!-- /container -->
+
+
+
+    <!-- Le javascript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script type="text/javascript" src="http://platform.twitter.com/widgets.js"></script>
+    <script src="assets/js/jquery.js"></script>
+    <script src="assets/js/google-code-prettify/prettify.js"></script>
+    <script src="assets/js/bootstrap-transition.js"></script>
+    <script src="assets/js/bootstrap-alert.js"></script>
+    <script src="assets/js/bootstrap-modal.js"></script>
+    <script src="assets/js/bootstrap-dropdown.js"></script>
+    <script src="assets/js/bootstrap-scrollspy.js"></script>
+    <script src="assets/js/bootstrap-tab.js"></script>
+    <script src="assets/js/bootstrap-tooltip.js"></script>
+    <script src="assets/js/bootstrap-popover.js"></script>
+    <script src="assets/js/bootstrap-button.js"></script>
+    <script src="assets/js/bootstrap-collapse.js"></script>
+    <script src="assets/js/bootstrap-carousel.js"></script>
+    <script src="assets/js/bootstrap-typeahead.js"></script>
+    <script src="assets/js/application.js"></script>
+
 
   </body>
 </html>

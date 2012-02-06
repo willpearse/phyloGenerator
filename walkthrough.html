@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>phyloGenerator (walkthrough) - automated phylogeny generation for ecologists</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="Will Pearse">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le styles -->
+    <link href="assets/css/bootstrap.css" rel="stylesheet">
+    <link href="assets/css/bootstrap-responsive.css" rel="stylesheet">
+    <link href="assets/css/docs.css" rel="stylesheet">
+    <link href="assets/js/google-code-prettify/prettify.css" rel="stylesheet">
+
+    <!-- Le fav and touch icons -->
+    <link rel="shortcut icon" href="assets/ico/favicon.ico">
+    <link rel="apple-touch-icon" href="assets/ico/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="assets/ico/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="assets/ico/apple-touch-icon-114x114.png">
+  </head>
+
+  <body data-spy="scroll" data-target=".subnav" data-offset="50">
+
+
+	  <!-- Navbar
+	    ================================================== -->
+	    <div class="navbar navbar-fixed-top">
+	      <div class="navbar-inner">
+	        <div class="container">
+	          <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+	            <span class="icon-bar"></span>
+	            <span class="icon-bar"></span>
+	            <span class="icon-bar"></span>
+	          </a>
+	          <a class="brand" href="./index.html">phyloGenerator</a>
+	          <div class="nav-collapse">
+	            <ul class="nav">
+	              <li class="active">
+	                <a href="./index.html">Home</a>
+	              </li>
+	              <li class="">
+	                <a href="./install.html">Install</a>
+	              </li>
+	              <li class="">
+	                <a href="./walkthrough.html">Walkthrough</a>
+	              </li>
+	              <li class="">
+	                <a href="./reference.html">Reference</a>
+	              </li>
+	              <li class="">
+	                <a href="http://imperial.academia.edu/WillPearse">Who?</a>
+	              </li>
+	            </ul>
+	          </div>
+	        </div>
+	      </div>
+	    </div>
+
+	    <div class="container">
+
+<!-- Masthead
+================================================== -->
+<header class="jumbotron subhead" id="overview">
+  <h1>Walkthrough</h1>
+  <p class="lead">How to use phyloGenerator</p>
+  <div class="subnav">
+    <ul class="nav nav-pills">
+	  <li><a href="#overview">Overview</a></li>
+	  <li><a href="#startUp">Start-Up</a></li>
+      <li><a href="#dnaChecking">DNA Checking</a></li>
+      <li><a href="#align">Alignment</a></li>
+      <li><a href="#phylogeny">Phylogeny Building</a></li>
+      <li><a href="#output">Output</a></li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+</header>
+
+
+<!-- Overview
+================================================== -->
+<a name="overview"></a>
+<section id="overview">
+  <div class="page-header">
+    <h1>Overview</h1>
+  </div>
+  <div class="row">
+    <div class="span6">
+		<p>phyloGenerator is simple enough to use, but it does take time to download everything from GenBank. Patience and a cup of tea are all that's required, however! Whenever you need to input a file, if it's not in the same folder as phyloGenerator you'll need to give phyloGenerator the 'absolute path' to the file. Something like '/Users/will/Documents/dna.fasta', or 'C:/Documents and Settings/dna.fasta'.</p>
+	</div>
+    <div class="span6">
+    	<p>There are some example files included with phyloGenerator - to use them, simply type in whatever you see in <i>italics</i> wherever prompted below.</p>
+		<p>Using an options file will give you more control over phyloGenerator, and its use is described in the 'reference' section. However, you can also use it interactively, and this will be described below. I will assume that you have successfully installed phyloGenerator, and have started it running.</p>
+    </div>
+    <div class="span4">
+		
+    </div>
+</section>
+
+
+<!-- Start-up
+================================================== -->
+<a name="startUp"></a>
+<section id="startUp">
+  <div class="page-header">
+    <h1>Start-Up</h1>
+  </div>
+  <div class="row">
+	<div class="span6">
+    	<h4>Stem Name</h4>
+			<p>phyloGenerator will automatically output all your files, but you need to give it a 'stem name' so that it knows what to call everything. I'd suggest 'test' for your first attempt!</p>
+		<h4>DNA Input</h4>
+			<p>If you've already downloaded or sequenced your data, but not aligned it, tell phyloGenerator where that FASTA formatted file is now. Otherwise, just press enter.</p>
+			<p>An example file here is <i>test.fasta</i>.</p>
+			</div>
+	    <div class="span6">
+			<h4>DNA Download</h4>
+				<p>If you don't have DNA sequences already, you'll need to download some. Tell phyloGenerator where a plain text file containing the binomial names of the species you want is. Each species must be on a separate line, with no formatting of any kind in the file. Otherwise, just press enter.</p>
+				<p>If you're downloading DNA, you'll need to provide a valid email address so Entrez can contact you about your downloads - don't worry, they won't if you provide a real one! You then need to give the genes you want to search for. If you want to give more than one, make sure you enter them on separate lines, and simply press enter on an empty line to continue once you're done.</p>
+				<p>You may have to wait some time before your sequences have all been downloaded, but phyloGenerator will tell you how it's doing. By default, it waits ten seconds after downloading each DNA sequence so that it doesn't irritate the servers at GenBank. You can change this behaviour in the options file, if you like.</p>
+				<p>An example file here is <i>test.txt</i>.</p>
+</section>
+
+
+<!-- DNA Checking
+================================================== -->
+<a name="dnaChecking"></a>
+<section id="dnaChecking">
+  <div class="page-header">
+    <h1>DNA Checking</h1>
+  </div>
+  <div class="row">
+    <div class="span6">
+		<p>You will only get to this stage if you have some DNA from the previous steps loaded in.</p>
+		<p>This table shows each DNA sequence's 'ID', name used when searching GenBank (if appropriate), the name it was given on GenBank (usually an ID number), and its length. Sequences that are in the top or bottom 10% of sequence lengths are highlighted in the list. If the sequence lengths are within the 'specified tolerance' (by default, the minimum sequence length should be no less than 90% of the maximum length) it will be stated, but you can continue with intolerable sequences.</p>
+	</div>
+    <div class="span6">
+    	<p>There are three modes when 'checking' DNA: <em>delete</em>, <em>reload</em> and <em>trim</em>. You can enter any of the modes by typing their names. To continue, simply type <em>continue</em>.</p>
+	<dl>
+		<dt>delete</dt>
+		<dd>Enter a single sequence's 'Seq ID' to delete it.</dd>
+		<dt>reload</dt>
+		<dd>Enter a single sequence's 'Seq ID' to download another sequence from GenBank with the search term originally used. By default, phyloGenerator will look through more sequences and take the sequence with the length closest to median of the others. You can change these defaults in the parameter file.</dd>
+		<dt>trim</dt>
+		<dd>Enter a single sequence's 'Seq ID' to trim a sequence down to only its Open Reading Frame (ORF). If you want to trim all the sequences (and that's advisable), enter 'all' and press enter. To change the translation table for the sequence you're working with (it might be from a plant's chloroplast, for example), type <em>translation</em> and select the appropriate number for each gene. Note that phyloGenerator will likely have already trimmed a sequence originating from a whole plasmid (e.g., a mitochondrial gene), by extracting what has been annotated as that gene.</dd>
+	</dl>
+	</div>
+</section>
+
+
+<!-- Alignment and Checking
+================================================== -->
+<a name="align"></a>
+<section id="align">
+  <div class="page-header">
+    <h1>Alignment</h1>
+  </div>
+  <div class="row">
+	<div class="span4">
+    	<h4>Alignment</h4>
+				<p>Simply press enter, and phyloGenerator will align your DNA using MAFFT. However, you have a choice of programs: MUSCLE, MAFFT, or Clustal-Omega. To use any of them, simply enter <em>muscle</em>, <em>mafft</em> or <em>clustalo</em> respectively. To compare the alignments of several programs, enter <em>everything</em>.</p>
+			</div>
+	    <div class="span4">
+			<h4>Alignment Checking</h4>
+				<p>It is strongly recommended that you look at your alignment before using it. Summary statistics for your alignment(s) have been outputted, and you may notice that one alignment has more gaps than another, or that your alignment seems OK. You can write out your alingment(s) by typing <em>output</em>. There are several modes available to you now, depending on what you enter. There are three modes when 'checking' an alignment: <em>edit</em>, <em>align</em> and <em>trim</em>.</p>
+				</div>
+	    <div class="span4">					
+				<dl>
+					<dt>edit</dt>
+					<dd>This takes you back to the DNA editting stage. When you continue through it, you will skip straight to the alignment phase.</dd>
+					<dt>align</dt>
+					<dd>This will take you back to the alignment stage, so you align your sequences again, possiblly with different options.</dd>
+					<dt>trim</dt>
+					<dd>Some areas of your alignment may be filled with gaps, and some phylogeneticists woudl argue these areas should be removed, as they are uninformative. This mode uses 'trimAl' to automatically remove such regions, and will output an HTML file that describes what has been removed.</dd>
+				</dl>
+				</div>
+</section>
+
+
+<!-- Phylogeny Generation
+================================================== -->
+<a name="phylogeny"></a>
+<section id="phylogeny">
+  <div class="page-header">
+    <h1>Phylogeny Generation</h1>
+  </div>
+  <div class="row">
+    <div class="span4">
+		<h4>Constraint Tree</h4>
+			<p>It is <strong>strongly advised</strong> that you use a constraint tree in your analysis. Generating novel phylogenetic hypotheses without a fair amount of knowledge is a tricky thing, so by constraining your tree to fit in with the general consensus of how your group fits together, you're reducingt the likelihood that your results will be untenable.</p>
+			<p>If you already have a constraint tree, type in its file name here. If you want to generate one from GenBank's taxonomy, type <em>genbank taxonomy</em>, or if you want to try the online PlantMiner database, type <em>plantminer</em> (only for plants). The latter will take some time, and requires an Internet connection.</p>
+			<p>An example file here is <i>test_constraint.tre</i>, but it can only be used with the FASTA file <i>test.fasta</i>. Otherwise, simply press enter to continue without a constraint tree.</p>
+	</div>
+    <div class="span4">
+	<h4>RAxML</h4>
+    	<p>This is it! By simply pressing enter, you will make a phylogeny using RAxML default rapid boostrapping methods. To conduct more searches (advisable), simply type the number of times you would like to restart your search, and phyloGenerator will automatically select the best tree for you and annotate it with bootstrap values.</p>
+    </div>
+    <div class="span4">
+	<h4>Rate Smoothing</h4>
+    	<p>RAxML creates phylogenies whose branch lengths are proportional to the number of mutations that have taken places along them. However, for most purposes, you will want a phylogeny whose branch lengths are proportional to time. To use PATHd8 to make such a rate-smoothed phylogeny, simply enter the name of your outgroup species and press enter. Otherwise, press enter to continue without making one.</p>
+    </div>
+</section>
+
+<!-- Output
+================================================== -->
+<a name="output"></a>
+<section id="output">
+  <div class="page-header">
+	  <div class="row">
+	    <div class="span6">
+		<h4>End of the line!</h4>
+	<p>You're now done! phyloGenerator has produced intermediate files (sequences downloaded, aligned sequences, a log of what was done) and your final phylogeny/phylogenies with the stem name you specified at the beginning. In the even that phyloGenerator crashes, it will attempt to write out everything it has collected so far, so hopefully nothing will be lost even if something goes wrong.</p>
+  </div>
+    <div class="span6">
+	    <h4>Feedback</h4>
+	<p>phyloGenerator is very much a work in progress. If there are features you'd like to see in the program, please list them on the feature tracking list (if they're not already there). phyloGenerator does exactly what I want it to do, but you likely want other things. We're happy to give them to you, but we need to know what you need! Thank you!</p>
+    </div>
+</section>
+
+ <!-- Footer
+  ================================================== -->
+  <footer class="footer">
+    <p class="pull-right"><a href="#">Back to top</a></p>
+	<p>(c) <a href="http://imperial.academia.edu/WillPearse">Will Pearse</a> (2012), PhD student in the Purvis Lab at Imperial College London.</p>
+    <p>Website (heavily) based on Twitter's Bootstrap - thank you! Bootstrap was built by <a href="http://twitter.com/mdo" target="_blank">@mdo</a> and <a href="http://twitter.com/fat" target="_blank">@fat</a>, their code licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0" target="_blank">Apache License v2.0</a>.</p>
+  </footer>
+
+</div><!-- /container -->
+
+
+
+    <!-- Le javascript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script type="text/javascript" src="http://platform.twitter.com/widgets.js"></script>
+    <script src="assets/js/jquery.js"></script>
+    <script src="assets/js/google-code-prettify/prettify.js"></script>
+    <script src="assets/js/bootstrap-transition.js"></script>
+    <script src="assets/js/bootstrap-alert.js"></script>
+    <script src="assets/js/bootstrap-modal.js"></script>
+    <script src="assets/js/bootstrap-dropdown.js"></script>
+    <script src="assets/js/bootstrap-scrollspy.js"></script>
+    <script src="assets/js/bootstrap-tab.js"></script>
+    <script src="assets/js/bootstrap-tooltip.js"></script>
+    <script src="assets/js/bootstrap-popover.js"></script>
+    <script src="assets/js/bootstrap-button.js"></script>
+    <script src="assets/js/bootstrap-collapse.js"></script>
+    <script src="assets/js/bootstrap-carousel.js"></script>
+    <script src="assets/js/bootstrap-typeahead.js"></script>
+    <script src="assets/js/application.js"></script>
+
+
+  </body>
+</html>
