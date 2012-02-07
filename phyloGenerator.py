@@ -7,24 +7,13 @@ This version will be funcitonal, i.e. there will be no class definitions
 Created by Will Pearse on 2011-08-24.
 Copyright (c) 2011 Imperial College london. All rights reserved.
 TO-DO:
-* Add these as items on the GitHub bug tracker
-* Progress-bar
-* Dictionary keys for all list return types
 * Doc-strings
 * Unit tests
 * Find relatives
-* Better new sequence download
-* Neaten download wrapper function
-* Speed up download and sort of sequences
-* Custom sequence searches?
-* findGenes should use search history
-* findGenes interactive gene selection
 * TerminationPipe quiet and better controlled
-* Handle multiple genes
 * BEAST
 * 'Execute later' code
 * Options file
-* Constraint tree input
 * Generate constraint tree from GenBank, Phylomatic, web servers, etc.
 * Be able to delete a particular gene from the line-up
 """
@@ -104,15 +93,18 @@ def cladeSpecies(cladeName):
 		return()
 
 def findLineage(spName):
-	handleSpName = Entrez.esearch(db="taxonomy", term=spName)
-	resultsSpName = Entrez.read(handleSpName)
-	handleSpName.close()
-	handleID = Entrez.efetch(db="Taxonomy", id=resultsSpName['IdList'], retmode="xml")
-	resultsSpID = Entrez.read(handleID)
-	lineage = resultsSpID[0]["Lineage"].split("; ")
-	lineage.append(spName)
-	lineage.reverse()
-	return lineage
+	try:
+		handleSpName = Entrez.esearch(db="taxonomy", term=spName)
+		resultsSpName = Entrez.read(handleSpName)
+		handleSpName.close()
+		handleID = Entrez.efetch(db="Taxonomy", id=resultsSpName['IdList'], retmode="xml")
+		resultsSpID = Entrez.read(handleID)
+		lineage = resultsSpID[0]["Lineage"].split("; ")
+		lineage.append(spName)
+		lineage.reverse()
+		return lineage
+	except:
+		return ()
 
 def findRelativeSequence(spName, geneName=None, cladeDepth=0, thorough=False, rettype='gb', titleText=None, noSeqs=1, seqChoice='random', download=True, retStart=0, retMax=20, targetLength=None, trimSeq=False, DNAtype='Standard', gapType='-', includeGenome=True, includePartial=True):
 	#Download a relative's sequence (to be used if one can't be found for that target species)
@@ -1100,7 +1092,7 @@ class PhyloGenerator:
 		def deleteMode(firstTime=True):
 			if firstTime:
 				print "\nYou're in deletion mode. To delete a species, enter its SeqID and press return.\t*One species at a time please!*"
-				print "To change to the 'reload' or 'trim' modes, simply type their names then hit enter."
+				print "To change to the 'reload', 'trim' or 'replace' modes, simply type their names then hit enter."
 			inputSeq = raw_input("DNA Editing (delete): ")
 			if inputSeq:
 				try:
@@ -1117,6 +1109,8 @@ class PhyloGenerator:
 					return "trim", True
 				elif inputSeq == "reload":
 					return "reload", True
+				elif inputSeq == "replace":
+					return "replace", True
 				else:
 					print "Sorry,", inputSeq, "was not recognised. Please try again."
 					return 'delete', False
@@ -1132,7 +1126,7 @@ class PhyloGenerator:
 				print "To reload all sequences above or below 900 bp in length (for example), type '>900' or '<900' respectively."
 				print "\t(to reload everything thoroughly, type 'EVERYTHING' (note the caps))"
 				print "\t*One species/sequence at a time please!*"
-				print "To change to the 'delete' or 'trim' modes, simply type their names then hit enter."
+				print "To change to the 'delete', 'trim' or 'reload' modes, simply type their names then hit enter."
 			inputSeq = raw_input("DNA Editing (reload):")
 			if inputSeq:
 				try:
@@ -1180,6 +1174,8 @@ class PhyloGenerator:
 					return "delete", True
 				elif inputSeq == "trim":
 					return "trim", True
+				elif inputSeq == "replace":
+					return "replace", True
 				else:
 					print "Sorry,", inputSeq, "was not recognised. Please try again."
 					return 'reload', False
@@ -1193,7 +1189,7 @@ class PhyloGenerator:
 				print "\tTo trim all sequences longer than 1000 bp, type '>1000'"
 				print"\t(to trim everything, type 'EVERYTHING' (note the caps))"
 				print "\t*One species/sequence at a time please!*"
-				print "To change to the 'delete' or 'reload' modes, simply type their names then hit enter."
+				print "To change to the 'delete', 'reload' or 'replace' modes, simply type their names then hit enter."
 			inputSeq = raw_input("DNA Editing (trim):")
 			if inputSeq:
 				try:
@@ -1245,6 +1241,8 @@ class PhyloGenerator:
 					return "delete", True
 				elif inputSeq == "reload":
 					return "reload", True
+				elif inputSeq == "replace":
+					return "replace", True
 				elif inputSeq == "EVERYTHING":
 					for i,sp in enumerate(self.sequences):
 						for j,gene in enumerate(sp):
@@ -1259,6 +1257,108 @@ class PhyloGenerator:
 			else:
 				return "EXIT", True
 		
+		def replaceMode(firstTime=True):
+			if not self.email:
+				print "\nPlease enter a valid email address to let Entrez know who you are. It's *your* fault if this is not valid, and you will likely have your IP address barred from using GenBank if you don't enter one"
+				Entrez.email = raw_input("")
+			if firstTime:
+				print "\nYou're in replace mode. To replace a particular species with a congener, simply type its SeqID and press enter."
+				print "\tTo replace all species without any sequences with a congener, type 'EVERYTHING' and press enter."
+				print "To change to the 'delete', 'trim' or 'reload' modes, simply type their names then hit enter."
+			inputSeq = raw_input("DNA Editing (replace):")
+			if inputSeq:
+				try:
+					if int(inputSeq) in range(len(self.sequences)):
+						i = int(inputSeq)
+						lineage = findLineage(self.speciesNames[i])
+						if lineage:
+							replacements = cladeSpecies(lineage[1])
+							print "...looking for alternatives for", self.speciesNames[i], "in clade", lineage[1]
+							for candidate in replacements:
+								temp = []
+								locker = False
+								for j,gene in enumerate(self.genes):
+									temp.append(sequenceDownload(candidate[0], gene))
+									if temp[j]:
+										locker = True
+								if locker:
+									self.sequences[i] = temp
+									print "......alternative found:", candidate[0], "re-caluclating summary statistics..."
+									self.speciesNames[i] = candidate[0] +"(" + self.speciesNames[i] + ")"
+									self.dnaChecking()
+									return 'replace', False
+							else:
+								print "No alternative found."
+								return 'replace', False
+						else:
+							print "...Cannot find any entry in GenBank with that name."
+							if " " in self.speciesNames[i]:
+								newName = self.speciesNames[i].split(' ')[0]
+								print "......Trying to find an entry for...", newName
+								lineage = findLineage(newName[i])
+								if lineage:
+									replacements = cladeSpecies(lineage[1])
+									print "...looking for alternatives for", newName[i], "in clade", lineage[1]
+									for candidate in replacements:
+										name = 'ERROR'
+										locker = False
+										for gene in self.genes:
+											temp.append(sequenceDownload(candidate[0], gene))
+											if temp:
+												locker = True
+										if locker:
+											self.sequences[i] = temp
+											self.speciesNames[i] = candidate[0] +"(" + self.speciesNames[i] + ")"
+											print "......alternative found:", candidate[0], "re-caluclating summary statistics..."
+											self.dnaChecking()
+											return 'replace', False
+									else:
+										print "No alternative found."
+										return 'replace', False
+								else:
+									print "......Cannot find any entry in GenBank with that name."
+							else:
+								print "......Can't auto-detect a suitable generic name to search for."
+								return 'replace', False
+							return 'replace', False
+				except:
+					pass
+				if inputSeq == "EVERYTHING":
+					for i,sp in enumerate(self.sequences):
+						tracker = 0
+						for j,gene in enumerate(sp):
+							if gene:
+								tracker += 1
+						if tracker == 0:
+							lineage = findLineage(self.speciesNames[i])
+							replacements = cladeSpecies(lineage[1])
+							print "...looking for alternatives for", self.speciesNames[i], "in clade", lineage[1]
+							for candidate in replacements:
+								temp = []
+								locker = False
+								for gene in self.genes:
+									temp.append(sequenceDownload(candidate[0], gene))
+									if temp:
+										locker = True
+								if locker:
+									self.sequences[i] = temp
+									print "......alternative found:", candidate[0]
+								break
+					print "Re-calulating summary statistics..."
+					self.dnaChecking()
+					return 'replace', False
+				if inputSeq == "delete":
+					return "delete", True
+				elif inputSeq == "reload":
+					return "reload", True
+				elif inputSeq == "trim":
+					return "trim", True
+				else:
+					print "Sorry,", inputSeq, "was not recognised. Please try again."
+					return 'replace', False
+			else:
+				return "EXIT", True
+		
 		locker = True
 		firstTime = True
 		mode = "delete"
@@ -1269,6 +1369,8 @@ class PhyloGenerator:
 				mode, firstTime = reloadMode(firstTime)
 			elif mode == "trim":
 				mode, firstTime = trimMode(firstTime)
+			elif mode == "replace":
+				mode, firstTime = replaceMode(firstTime)
 			else:
 				raise RuntimeError("Unrecognised DNA Editing mode!")
 			if mode:
