@@ -996,7 +996,8 @@ class PhyloGenerator:
 		self.maxGenBankDownload = 50
 		self.alignmentMethod = []
 		self.alignmentMethodChosen = []
-		self.email = False
+		self.email = ''
+		self.codonModels = []
 	
 	def loadDNAFile(self, inputFile=""):
 		if inputFile:
@@ -1009,6 +1010,7 @@ class PhyloGenerator:
 				if not self.genes:
 					print "DNA loaded; please enter the name of the gene you're using below"
 					self.genes.append(raw_input("Gene name: "))
+				self.codonModels.append('Standard')
 				print "DNA loaded"
 			except IOError:
 				print "\nDNA sequence file not found. Exiting..."
@@ -1028,6 +1030,7 @@ class PhyloGenerator:
 						if not self.genes:
 							print "DNA loaded; please enter the name of the gene you're using below"
 							self.genes.append(raw_input("Gene name: "))
+						self.codonModels.append('Standard')
 						print "DNA loaded"
 						locker = False
 					except IOError:
@@ -1077,6 +1080,7 @@ class PhyloGenerator:
 					inputGene = raw_input("")
 					if inputGene:
 						self.genes.append(inputGene)
+						self.codonModels.append('Standard')
 					else:
 						locker = False
 			if self.genes:
@@ -1120,8 +1124,14 @@ class PhyloGenerator:
 				return "EXIT", True
 		
 		def reloadMode(firstTime=True):
+			if not self.email:
+				print "\nPlease enter a valid email address to let Entrez know who you are. It's *your* fault if this is not valid, and you will likely have your IP address barred from using GenBank if you don't enter one"
+				Entrez.email = raw_input("")
 			if firstTime:
-				print "\nYou're in reload mode. To reload all sequences in a species, enter its SeqID and press return. To reload just one sequence, enter its SeqID and the gene name.\n\t(to reload everything thoroughly, type 'EVERYTHING' (note the caps))\n\t*One species/sequence at a time please!*"
+				print "\nYou're in reload mode. To reload all sequences in a species, enter its SeqID and press return. To reload just one sequence, enter its SeqID and the gene name."
+				print "To reload all sequences above or below 900 bp in length (for example), type '>900' or '<900' respectively."
+				print "\t(to reload everything thoroughly, type 'EVERYTHING' (note the caps))"
+				print "\t*One species/sequence at a time please!*"
 				print "To change to the 'delete' or 'trim' modes, simply type their names then hit enter."
 			inputSeq = raw_input("DNA Editing (reload):")
 			if inputSeq:
@@ -1142,7 +1152,25 @@ class PhyloGenerator:
 							self.sequences[seqID][i] = sequenceDownload(self.speciesNames[seqID], self.genes[i], thorough=True, retMax=self.maxGenBankDownload, seqChoice='targetLength', targetLength=self.dnaCheck['quantileLengths'][i][2])
 							print "Re-calulating summary statistics..."
 							self.dnaChecking()
-							return 'trim', False
+							return 'reload', False
+				if ">" in inputSeq:
+					threshold = int(inputSeq.replace('>', ''))
+					for i,sp in enumerate(self.sequences):
+						for j,gene in enumerate(sp):
+							if len(self.sequences[i][j]) > threshold:
+								self.sequences[i][j] = sequenceDownload(self.speciesNames[i], self.genes[j], thorough=True, retMax=self.maxGenBankDownload, seqChoice='targetLength', targetLength=self.dnaCheck['quantileLengths'][j][2])
+					print "Re-calulating summary statistics..."
+					self.dnaChecking()
+					return 'reload', False
+				if "<" in inputSeq:
+					threshold = int(inputSeq.replace('<', ''))
+					for i,sp in enumerate(self.sequences):
+						for j,gene in enumerate(sp):
+							if len(self.sequences[i][j]) < threshold:
+								self.sequences[i][j] = sequenceDownload(self.speciesNames[j], self.genes[i], thorough=True, retMax=self.maxGenBankDownload, seqChoice='targetLength', targetLength=self.dnaCheck['quantileLengths'][j][2])
+					print "Re-calulating summary statistics..."
+					self.dnaChecking()
+					return 'reload', False
 				if inputSeq == "EVERYTHING":
 					self.sequences = findGenes(self.speciesNames, self.genes, download=True, seqChoice="medianLength", verbose=True, thorough=True, retMax=self.maxGenBankDownload)
 					print "Re-calulating summary statistics..."
@@ -1160,14 +1188,19 @@ class PhyloGenerator:
 		
 		def trimMode(firstTime=True):
 			if firstTime:
-				print "\nYou're in trim mode. To trim all sequences in a species, enter its SeqID and press return. To trim just one sequence, enter its SeqID and the gene name.\n\t(to trim everything, type 'EVERYTHING' (note the caps))\n\t*One species/sequence at a time please!*"
-				print "To change to the 'delete' or 'trim' modes, simply type their names then hit enter."
+				print "\nYou're in trim mode. To trim all sequences in a species, enter its SeqID and press return. To trim just one sequence, enter its SeqID and the gene name."
+				print "The type of gene you've downloaded may affect the kind of trimming that takes places. To change/review the type of gene, type 'type' and press enter."
+				print "\tTo trim all sequences longer than 1000 bp, type '>1000'"
+				print"\t(to trim everything, type 'EVERYTHING' (note the caps))"
+				print "\t*One species/sequence at a time please!*"
+				print "To change to the 'delete' or 'reload' modes, simply type their names then hit enter."
 			inputSeq = raw_input("DNA Editing (trim):")
 			if inputSeq:
 				try:
 					if int(inputSeq) in range(len(self.sequences)):
 						for i,each in enumerate(self.sequences[int(inputSeq)]):
-							self.sequences[int(inputSeq)][i] = trimSequence(self.sequences[int(inputSeq)][i])
+							if self.sequences[int(inputSeq)]:
+								self.sequences[int(inputSeq)][i] = trimSequence(self.sequences[int(inputSeq)][i])
 						print "Re-calulating summary statistics..."
 						self.dnaChecking()
 						return 'trim', False
@@ -1182,6 +1215,32 @@ class PhyloGenerator:
 							print "Re-calulating summary statistics..."
 							self.dnaChecking()
 							return 'trim', False
+				if ">" in inputSeq:
+					threshold = int(inputSeq.replace('>', ''))
+					for i,sp in enumerate(self.sequences):
+						for j,gene in enumerate(sp):
+							if len(self.sequences[i][j]) > threshold:
+								self.sequences[i][j] = trimSequence(self.sequences[i][j])
+					print "Re-calulating summary statistics..."
+					self.dnaChecking()
+					return 'trim', False
+				if inputSeq == 'type':
+					print "Below are the names and IDs of gene-types."
+					print "ID", "Gene Type"
+					for i,x in enumerate(CodonTable.unambiguous_dna_by_name.keys()):
+						print str(i).ljust(2), x
+					print "\nIn the prompt below is the name of a gene. Type the ID number of the codon model for that gene you'd like to use. Note that the standard (default) model is usually number 10."
+					for i,gene in enumerate(self.genes):
+						locker = True
+						while locker:
+							choice = raw_input(gene+": ")
+							if int(choice) in range(len(CodonTable.unambiguous_dna_by_name.keys())):
+								self.codonModels[i] = CodonTable.unambiguous_dna_by_name.keys()[int(choice)]
+								locker = False
+							else:
+								print "Sorry, didn't get that. Try again."
+					print "DNA types changed!"
+					return 'trim', False
 				if inputSeq == "delete":
 					return "delete", True
 				elif inputSeq == "reload":
@@ -1189,7 +1248,8 @@ class PhyloGenerator:
 				elif inputSeq == "EVERYTHING":
 					for i,sp in enumerate(self.sequences):
 						for j,gene in enumerate(sp):
-							self.sequences[i][j] = trimSequence(self.sequences[i][j])
+							if self.sequences[i][j]:
+								self.sequences[i][j] = trimSequence(self.sequences[i][j])
 					print "Re-calulating summary statistics..."
 					self.dnaChecking()
 					return 'trim', False
@@ -1308,24 +1368,31 @@ class PhyloGenerator:
 	
 	def cleanUpSequences(self):
 		cleaned = []
-		for i in reversed(range(len(self.sequences))):
-			if not self.sequences[i]:
-				cleaned.append(self.speciesNames[i])
-				del self.sequences[i]
-				del self.speciesNames[i]
+		for i,sp in reversed(list(enumerate(self.sequences))):
+			foundSequence = False
+			for j,seq in reversed(list(enumerate(sp))):
+				if seq:
+					foundSequence = True
+				else:
+					self.sequences[i][j] = "-"
+			else:
+				if not foundSequence:
+					cleaned.append(self.speciesNames[i])
+					del self.sequences[i]
+					del self.speciesNames[i]
+		
 		if cleaned:
 			print "\nThe following species did not have any DNA associated with them, and so have been excluded:"
 			for each in cleaned:
 				print "\n", each
 	
 	def renameSequences(self):
-		if len(self.genes) > 1:
-			for i in range(len(self.sequences)):
-				tGenBankIDs = []
-				for k in range(len(self.sequences[i])):
-					tGenBankIDs.append(self.sequences[i][k].id)
-					self.sequences[i][k].name = self.speciesNames[i]
-				self.genBankIDs.append(tGenBankIDs)
+		for i in range(len(self.sequences)):
+			tGenBankIDs = []
+			for k in range(len(self.sequences[i])):
+				tGenBankIDs.append(self.sequences[i][k].id)
+				self.sequences[i][k].id = self.speciesNames[i].replace(" ", "_")
+			self.genBankIDs.append(tGenBankIDs)
 	
 	def writeOutput(self):
 		#This is unlikely to work if called at any point during execution (alignment's structure changes, etc.)
@@ -1346,11 +1413,11 @@ class PhyloGenerator:
 		
 		#Sequence info
 		if self.genBankIDs:
-			for i,gene in enumerate(self.genBankIDs):
+			for i,gene in enumerate(self.genes):
 				with open(self.stem+"_"+self.genes[i]+"_sequence_info.txt", 'w') as f:
-					f.write("Sequence ID, Species Name\n")
-					for j,info in enumerate(gene):
-						f.write(info+","+self.speciesNames[j]+"\n")
+					f.write("Species Name, Sequence ID\n")
+					for j,name in enumerate(self.speciesNames):
+						f.write(name + "_" + self.genBankIDs[j][i] + "\n")
 		#Phylogeny
 		if self.phylogeny:
 			Phylo.write(self.phylogeny, self.stem+"_phylogeny.tre", 'newick')
@@ -1414,6 +1481,7 @@ class PhyloGenerator:
 			for i in range(1, len(self.genes)):
 				tempAlignment += self.alignment[i]
 			self.alignment = tempAlignment
+	
 	
 
 def main():
