@@ -901,7 +901,7 @@ def cleanAlignment(align, method='trimAl-automated', tempStem='temp', timeout=No
 	else:
 		raise RuntimeError("Only automated trimAl methods supported at this time.")
 
-def createConstraintTree(spNames):
+def createConstraintTree(spNames, method="phylomaticTaxonomy", fileName='', tempStem='temp'):
 	def recursiveTree(lineageList):
 		#Make the current depth's elements
 		current = [x[1] for x in lineageList]
@@ -924,8 +924,27 @@ def createConstraintTree(spNames):
 		
 			return "(" + ",".join([recursiveTree(x) for x in groupedLists]) + ")"
 	
-	lineages = [findLineage(x) for x in spNames]
-	return recursiveTree(lineages)
+	if method == "phylomaticTaxonomy":
+		phylogenyFile = ' -f ' + fileName
+		with open(tempStem + "taxa.txt", 'w') as taxaFileOutput:
+			for sp in spNames:
+				taxaFileOutput.write(sp + "\n")
+		taxaFile = ' -t ' + tempStem + "taxa.txt"
+		commandLine = 'phylomatic' + phylogenyFile + taxaFile
+		pipe = TerminationPipe(commandLine, timeout)
+		pipe.run(silent=silent)
+		os.remove(tempStem + "taxa.txt")
+		if not pipe.failure:
+			geneOutput.append(AlignIO.read(outputFile, 'fasta'))
+		else:
+			raise RuntimeError("Phylomatic did not run correctly")
+		
+	elif method == "GenBank":
+		print "THIS DOESN'T WORK!!!!!!!!"
+		lineages = [findLineage(x) for x in spNames]
+		return recursiveTree(lineages)
+	else:
+		raise RuntimeError("Unrecognised constraint tree creation method specified")
 
 def createConstraintTreeCaps(spNames):
 	def recursiveTree(lineageList):
@@ -965,17 +984,28 @@ class TerminationPipe(object):
 		self.process = None
 		self.output = None
 		self.failure = False
+		self.stdout = 'EMPTY'
+		self.stderr = 'EMPTY'
 	
 	def run(self, silent=True):
-		def target(silent=True):
-			if silent:
-				pipe_silent  = open('/Users/will/test.txt', 'w')
-				self.process = subprocess.Popen(self.cmd, shell=True, stdout=pipe_silent)
-			else:
-				self.process = subprocess.Popen(self.cmd, shell=True, stdout=subprocess.PIPE)
+		def silentTarget():
+			tStdout  = open('termPipeStdOut.txt', 'w')
+			tStderr  = open('termPipeStdErr.txt', 'w')
+			self.process = subprocess.Popen(self.cmd, shell=True, stdout=tStdout, stderr=tStderr)
+			self.stdout = open('termPipeStdOut.txt', 'r').readlines()
+			self.stderr = open('termPipeStdErr.txt', 'r').readlines()
+			os.remove('termPipeStdOut.txt')
+			os.remove('termPipeStdErr.txt')
 			self.output=self.process.communicate()
 		
-		thread = threading.Thread(target=target)
+		def loudTarget():
+			self.process = subprocess.Popen(self.cmd, shell=True, stdout=subprocess.PIPE)
+			self.output=self.process.communicate()
+		
+		if silent:
+			thread = threading.Thread(target=silentTarget)
+		else:
+			thread = threading.Thread(target=loudTarget)
 		thread.start()
 		thread.join(self.timeout)
 		if thread.is_alive():
