@@ -261,29 +261,20 @@ def sequenceDownload(spName, geneName=None, thorough=False, rettype='gb', titleT
 		return dwnSeq(includeGenome, includePartial)
 
 def findGenes(speciesList, geneNames, download=False, titleText=None, targetNoGenes=None, noSeqs=1, includePartial=True, includeGenome=True, seqChoice='random', verbose=True, thorough=False):
-	#Given a set of species, find the best genes to use to yield complete coverage of the group
-	#Allows you to select the number of genes you want, or just checks all of them for you
-	#OUTPUT: NumPy array of the species/genes matches, in the order each was given
-	#		-OR- the genes you should use
-	#ASSUMES that all these species have been checked for validity beforehand (i.e. that they're worth searching for)
-	#TEST: findGenes(['Quercus robur', 'Quercus ilex', 'Pinus sylvaticus'], ['rbcL', 'ITS1', 'matK', 'ITS2'])
-	#TEST: findGenes(['Quercus robur', 'Quercus ilex', 'Pinus sylvaticus'], ['rbcL', 'ITS1', 'matK', 'ITS2'], targetNoGenes=2)
-	#TEST: findGenes(['Quercus robur', 'Quercus ilex', 'Pinus sylvaticus'], ['rbcL', 'ITS1'], targetNoGenes=2)
+	def findBestGene(foundSeqsArray):
+		geneHits = foundSeqsArray.sum(axis=0)
+		for i in range(len(geneHits)):
+			if geneHits[i] == max(geneHits):
+				return i
+	
 	if type(geneNames) is list:
-		if targetNoGenes is len(geneNames):
-			raise RuntimeError("Number of genes and target number of genes are the same.")
-		def findBestGene(foundSeqsArray):
-			geneHits = foundSeqsArray.sum(axis=0)
-			for i in range(len(geneHits)):
-				if geneHits[i] == max(geneHits):
-					return i
+		if targetNoGenes == len(geneNames):
+			targetNoGenes = None
 		
 		#Download number of genes and histories for each species
 		searchResults = []
-		if download:
-			foundSeqs = []
-		else:
-			foundSeqs = np.zeros((len(speciesList), len(geneNames)), int)
+		foundSeqs = []
+		foundSeqsBool = np.zeros((len(speciesList), len(geneNames)), int)
 		for i in range(len(speciesList)):
 			if verbose: print "Searching for:", speciesList[i]
 			speciesGenes = []
@@ -291,22 +282,27 @@ def findGenes(speciesList, geneNames, download=False, titleText=None, targetNoGe
 				sequence = sequenceDownload(speciesList[i], geneNames[k], titleText=titleText, noSeqs=noSeqs, includePartial=includePartial, includeGenome=includeGenome, seqChoice=seqChoice, download=download, thorough=thorough)
 				if download:
 					speciesGenes.append(sequence)
-				elif sequence:
-					foundSeqs[i,k] = 1
+				foundSeqsBool[i,k] = 1
 			if download:
 				foundSeqs.append(speciesGenes)
 		if targetNoGenes:
-			currentFoundSeqs = foundSeqs
-			currentGeneNames = geneNames
+			currentFoundSeqs = foundSeqsBool
+			currentGeneNames = geneNames[:]
 			bestGenes = []
 			for each in range(targetNoGenes):
 				bestGeneIndex = findBestGene(currentFoundSeqs)
 				bestGenes.append(currentGeneNames[bestGeneIndex])
 				currentFoundSeqs = np.delete(currentFoundSeqs, bestGeneIndex, axis=1)
 				del currentGeneNames[bestGeneIndex]
-			return bestGenes
+			output = []
+			for i,gene in enumerate(bestGenes):
+				currentGene = []
+				for j,sp in enumerate(foundSeqs):
+					currentGene.append(foundSeqs[i][j])
+				output.append(currentGene)
+			return (output, bestGenes)
 		else:
-			return foundSeqs
+			return foundSeqsBool
 	else:
 		output = []
 		for species in speciesList:
@@ -985,6 +981,7 @@ class PhyloGenerator:
 		self.genBankIDs = []
 		self.constraint = False
 		self.genes = []
+		self.nGenes = -999
 		self.maxGenBankDownload = 50
 		self.alignmentMethod = []
 		self.alignmentMethodChosen = []
@@ -1002,6 +999,7 @@ class PhyloGenerator:
 				if not self.genes:
 					print "DNA loaded; please enter the name of the gene you're using below"
 					self.genes.append(raw_input("Gene name: "))
+					self.nGenes = 1
 				self.codonModels.append('Standard')
 				print "DNA loaded"
 			except IOError:
@@ -1022,6 +1020,7 @@ class PhyloGenerator:
 						if not self.genes:
 							print "DNA loaded; please enter the name of the gene you're using below"
 							self.genes.append(raw_input("Gene name: "))
+							self.nGenes = 1
 						self.codonModels.append('Standard')
 						print "DNA loaded"
 						locker = False
@@ -1068,15 +1067,19 @@ class PhyloGenerator:
 			if not self.genes:
 				print"\nPlease enter the name of the gene you want to use, e.g. 'COI' for cytochrome oxidase one. To enter multiple genes, enter each on a separateline. Just hit enter to abort."
 				locker = True
+				self.nGenes = 0
 				while locker:
 					inputGene = raw_input("")
 					if inputGene:
 						self.genes.append(inputGene)
 						self.codonModels.append('Standard')
+						self.nGenes += 1
 					else:
 						locker = False
 			if self.genes:
-				self.sequences = findGenes(self.speciesNames, self.genes, download=True, seqChoice="medianLength", verbose=True, thorough=True)
+				geneOutput = findGenes(self.speciesNames, self.genes, download=True, seqChoice="medianLength", verbose=True, thorough=True, targetNoGenes=self.nGenes)
+				self.sequences = geneOutput[0]
+				self.genes = geneOutput[1]
 	
 	def DNALoaded(self):
 		if not self.sequences:
@@ -1166,7 +1169,9 @@ class PhyloGenerator:
 					self.dnaChecking()
 					return 'reload', False
 				if inputSeq == "EVERYTHING":
-					self.sequences = findGenes(self.speciesNames, self.genes, download=True, seqChoice="medianLength", verbose=True, thorough=True, retMax=self.maxGenBankDownload)
+					geneOutput = findGenes(self.speciesNames, self.genes, download=True, seqChoice="medianLength", verbose=True, thorough=True, retMax=self.maxGenBankDownload, targetNoGenes=self.nGenes)
+					self.sequences = geneOutput[0]
+					self.genes = geneOutput[1]
 					print "Re-calulating summary statistics..."
 					self.dnaChecking()
 					return 'reload', False
@@ -1615,6 +1620,10 @@ def main():
 		if args.gene:
 			currentState.genes = args.gene.split(',')
 		
+		#Gene Number
+		if args.nGenes:
+			currentState.nGenes = int(args.nGenes)
+		
 		#Handle sequence input
 		if args.alignment and args.dna:
 			print "\nERROR: Can't handle an alignment and DNA - suggest you manually strip the alignment and merge the files.\nExiting."
@@ -1640,6 +1649,10 @@ def main():
 			currentState.loadGenBank()
 		"\nDNA CHECKING"
 		currentState.DNALoaded()
+		for i in currentState.sequences:
+			print "!!!!!!!!!!!!!!!!!!!!!!!!"
+			for k in i:
+				print k
 		currentState.dnaChecking()
 		print "\nYou are now able to delete DNA sequences you have loaded.\nEvery time you delete a sequence, your summary statistics will be re-calculated, and displayed to you again.\n*IMPORTANT*: Sequence IDs may change once you delete a sequence."
 		currentState.dnaEditing()
@@ -1682,6 +1695,7 @@ if __name__ == '__main__':
 	parser.add_argument("-name", "-n", help="'Stem' name for all output files.")
 	parser.add_argument("-dna", "-d", help="Unaligned DNA (in FASTA format).")
 	parser.add_argument("-gene", "-g", help="The genes to search for (multiple genes are comma-separated)")
+	parser.add_argument("-nGenes", "-ng", help="The number of genes to search for (if fewer than suggested in 'genes' are required)")
 	parser.add_argument("-species", "-s", help="Binomial names of species, each on a new line")
 	parser.add_argument("-alignment", "-a", help="Aligned DNA (in FASTA format).")
 	parser.add_argument("-constraint", "-c", help="Constraint tree (in newick format).")

@@ -1,17 +1,15 @@
-README Transition Matrix
+README phyloGenerator
 Will Pearse (will.pearse@gmail.com)
-7/12/2011
 
 A way to make phylogenies quickly and easily if you're an ecologist. Think of it as 'Phylomatic 2.0'.
 
 REQUIRES: Python >=2.6; Biopython >=2.5; NumPy.
 
-Very much a work-in-progress.
+For install instructions, just check out the webiste: http://willpearse.github.com/phyloGenerator/
+
 Running it is simple; make sure phyloGenerator.py has permission to execute, then run it. If you use 'test.txt' for species to lookup, and 'test.fasta' as pre-made DNA to include, the whole thing should run through. It's far from perfect, so don't be surprised if you get error messages. I'm still working on it!
 
 However, for the time being, it's a fairly handy set of functions you can use when manipulating DNA sequences in Python. There's no wiki yet, but there will be.
 Email me if you want anything!
 
 Will
-
-PS - If you've no idea what this is, probably best to just move along :p
