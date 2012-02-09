@@ -352,7 +352,7 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
 	finalOutput = []
 	output = []
 	alignedSomething = False
-	if method == 'everything': method = 'muscle-mafft-clustalo'
+	if method == 'everything': method = 'muscle-mafft-clustalo-prank'
 	for i in range(nGenes):
 		geneOutput = []
 		seqs = [x[i] for x in seqList]
@@ -400,11 +400,29 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
 				alignedSomething = True
 			else:
 				raise RuntimeError("Clustal-o alignment not complete in time allowed")
-			
+		
+		if 'prank' in method:
+			inputFile = tempStem + '.fasta'
+			outputFile = tempStem + 'Out.fasta'
+			commandLine = 'prank -d=' + inputFile + " -o=" + outputFile
+			SeqIO.write(seqs, inputFile, "fasta")
+			pipe = TerminationPipe(commandLine, timeout)
+			pipe.run(silent=silent)
+			os.remove(inputFile)
+			if not pipe.failure:
+				geneOutput.append(AlignIO.read(outputFile+".2.fas", 'fasta'))
+				dirList = os.listdir(os.getcwd())
+				for each in dirList:
+					if re.search("("+outputFile+")", each):
+						os.remove(each)
+				alignedSomething = True
+			else:
+				raise RuntimeError("Prank alignment not complete in time allowed")
+		
 		output.append(geneOutput)
 	
 	if not alignedSomething:
-		raise RuntimeError("Alignment method must be 'muscle', 'mafft' or 'clustalo'.")
+		raise RuntimeError("Alignment method must be 'muscle', 'mafft', 'clustalo' or 'prank'.")
 	return output
 
 def checkAlignmentList(alignList, method='length', gapType='-'):
@@ -1420,9 +1438,9 @@ class PhyloGenerator:
 					print "Sorry, didn't get that. Try again."
 	
 	def align(self):
-		print "Enter the name of an alignment method ('muscle', 'mafft', 'clustalo'), 'everything' to do all three and compare their outputs, or simply hit return to align with muscle."
+		print "Enter the name of an alignment method ('muscle', 'mafft', 'clustalo', 'prank'), 'everything' to do all four and compare their outputs, 'quick' to do only the first three (prank can take a while!), or simply hit return to align with muscle."
 		locker = True
-		methods = ['muscle', 'mafft', 'clustalo']
+		methods = ['muscle', 'mafft', 'clustalo', 'prank']
 		while locker:
 			alignInput = raw_input("")
 			if alignInput:
@@ -1440,7 +1458,9 @@ class PhyloGenerator:
 					self.alignment.append(alignSequences(self.sequences, method="mafft", tempStem='temp', timeout=99999999, nGenes=len(self.genes)))
 					print "\n...Clustal-O"
 					self.alignment.append(alignSequences(self.sequences, method="clustalo", tempStem='temp', timeout=99999999, nGenes=len(self.genes)))
-					self.alignmentMethods = ['MUSCLE', 'MAFFT', 'Clustal-O']
+					print "\n...Prank"
+					self.alignment.append(alignSequences(self.sequences, method="prank", tempStem='temp', timeout=99999999, nGenes=len(self.genes)))
+					self.alignmentMethods = ['MUSCLE', 'MAFFT', 'Clustal-O', 'Prank']
 					print "\nAlignments complete!"
 					locker = False
 				else:
