@@ -1,6 +1,0 @@
-parus major
-vulpes vulpes
-phocoena phocoena
-gorilla gorilla
-homo sapiens
-festuca test

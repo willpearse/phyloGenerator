@@ -260,7 +260,7 @@ def sequenceDownload(spName, geneName=None, thorough=False, rettype='gb', titleT
 	else:
 		return dwnSeq(includeGenome, includePartial)
 
-def findGenes(speciesList, geneNames, download=False, titleText=None, targetNoGenes=None, noSeqs=1, includePartial=True, includeGenome=True, seqChoice='random', verbose=True, thorough=False):
+def findGenes(speciesList, geneNames, download=False, titleText=None, targetNoGenes=-1, noSeqs=1, includePartial=True, includeGenome=True, seqChoice='random', verbose=True, thorough=False):
 	def findBestGene(foundSeqsArray):
 		geneHits = foundSeqsArray.sum(axis=0)
 		for i in range(len(geneHits)):
@@ -268,7 +268,7 @@ def findGenes(speciesList, geneNames, download=False, titleText=None, targetNoGe
 				return i
 	
 	if type(geneNames) is list:
-		if targetNoGenes == len(geneNames):
+		if targetNoGenes == -1:
 			targetNoGenes = None
 		
 		#Download number of genes and histories for each species
@@ -298,11 +298,17 @@ def findGenes(speciesList, geneNames, download=False, titleText=None, targetNoGe
 			for i,gene in enumerate(bestGenes):
 				currentGene = []
 				for j,sp in enumerate(foundSeqs):
-					currentGene.append(foundSeqs[i][j])
+					currentGene.append(foundSeqs[j][i])
 				output.append(currentGene)
-			return (output, bestGenes)
+			if download:
+				return (output, bestGenes)
+			else:
+				return (currentFoundSeqs, bestGenes)
 		else:
-			return foundSeqsBool
+			if download:
+				return (foundSeqs, geneNames)
+			else:
+				return (foundSeqsBool, geneNames)
 	else:
 		output = []
 		for species in speciesList:
@@ -649,7 +655,7 @@ def phyloGen(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=
 		#Outgroup(s), assuming they're in the right format for RAxML!
 		if outgroup:
 			options += ' -o ' + outgroup
-		AlignIO.write(alignment, inputFile, "phylip")
+		AlignIO.write(alignment, inputFile, "phylip-relaxed")
 		#Constraint
 		if constraint:
 			if constraint.is_bifurcating():
@@ -657,6 +663,16 @@ def phyloGen(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=
 			else:
 				options += " -g " + tempStem + "_constraint.tre"
 			Phylo.write(constraint, tempStem + "_constraint.tre", 'newick')
+			if constraint.total_branch_length() > 0:
+				output = ''
+				with open(tempStem + "_constraint.tre") as f:
+					for each in f:
+						output += each.strip()
+				output = re.sub('[0-9]', '', output)
+				output = re.sub('\.', '', output)
+				output = re.sub('\:', '', output)
+				with open(tempStem + "_constraint.tre", 'w') as f:
+					f.write(output)
 		commandLine = raxmlVersion + raxmlCompile + fileLine + algorithm + DNAmodel + options
 		if not timeout:
 			return commandLine
@@ -926,16 +942,14 @@ def createConstraintTree(spNames, method="phylomaticTaxonomy", fileName='', temp
 	
 	if method == "phylomaticTaxonomy":
 		phylogenyFile = ' -f ' + fileName
-		with open(tempStem + "taxa.txt", 'w') as taxaFileOutput:
-			for sp in spNames:
-				taxaFileOutput.write(sp + "\n")
-		taxaFile = ' -t ' + tempStem + "taxa.txt"
-		commandLine = 'phylomatic' + phylogenyFile + taxaFile
-		pipe = TerminationPipe(commandLine, timeout)
-		pipe.run(silent=silent)
-		os.remove(tempStem + "taxa.txt")
+		taxaFile = ' -t ' + spNames
+		commandLine = 'phylomatic' + phylogenyFile + taxaFile + " > phylomaticPhyloGenerator" + tempStem
+		pipe = TerminationPipe(commandLine, 999)
+		pipe.run(silent=True)
 		if not pipe.failure:
-			geneOutput.append(AlignIO.read(outputFile, 'fasta'))
+			constraint = Phylo.read("phylomaticPhyloGenerator" + tempStem, 'newick')
+			os.remove("phylomaticPhyloGenerator" + tempStem)
+			return constraint
 		else:
 			raise RuntimeError("Phylomatic did not run correctly")
 		
@@ -945,36 +959,6 @@ def createConstraintTree(spNames, method="phylomaticTaxonomy", fileName='', temp
 		return recursiveTree(lineages)
 	else:
 		raise RuntimeError("Unrecognised constraint tree creation method specified")
-
-def createConstraintTreeCaps(spNames):
-	def recursiveTree(lineageList):
-		#Make the current depth's elements
-		current = [x[1] for x in lineageList]
-		uniqueLevels = list(set(current))
-		groupedLists = []
-		for each in uniqueLevels:
-			groupedLists.append([])
-		for currentLineage in lineageList:
-			for groupedList, uniqueLevel in zip(groupedLists, uniqueLevels):
-				if currentLineage[1] == uniqueLevel:
-					groupedList.append(currentLineage)
-					break
-		#Remove the current taxonomic level (don't pass it on in the recursion)
-		if len(groupedLists) == 1:
-			return "(" + ",".join([x[0] for x in groupedLists[0]]) + ")"
-		else:
-			for gList in groupedLists:
-				for each in gList:
-					del each[1]
-		
-		return "(" + ",".join([recursiveTree(x) for x in groupedLists]) + ")"
-	
-	lineages = [findLineage(x) for x in spNames]
-	for each in lineages:
-		for i in reversed(range(len(each))):
-			if not each[i].istitle():
-				del each[i]
-	return recursiveTree(lineages)
 
 class TerminationPipe(object):
 	#Background process class
@@ -1029,12 +1013,15 @@ class PhyloGenerator:
 		self.genBankIDs = []
 		self.constraint = False
 		self.genes = []
-		self.nGenes = -999
+		self.nGenes = -1
 		self.maxGenBankDownload = 50
 		self.alignmentMethod = []
 		self.alignmentMethodChosen = []
 		self.email = ''
 		self.codonModels = []
+		self.taxonomy = []
+		self.phylomaticTaxonomy = False
+		self.phylomaticPhylogeny = False
 	
 	def loadDNAFile(self, inputFile=""):
 		if inputFile:
@@ -1125,9 +1112,7 @@ class PhyloGenerator:
 					else:
 						locker = False
 			if self.genes:
-				geneOutput = findGenes(self.speciesNames, self.genes, download=True, seqChoice="medianLength", verbose=True, thorough=True, targetNoGenes=self.nGenes)
-				self.sequences = geneOutput[0]
-				self.genes = geneOutput[1]
+				self.sequences, self.genes = findGenes(self.speciesNames, self.genes, download=True, seqChoice="medianLength", verbose=True, thorough=True, targetNoGenes=self.nGenes)
 	
 	def DNALoaded(self):
 		if not self.sequences:
@@ -1547,8 +1532,11 @@ class PhyloGenerator:
 		for i in range(len(self.sequences)):
 			tGenBankIDs = []
 			for k in range(len(self.sequences[i])):
-				tGenBankIDs.append(self.sequences[i][k].id)
-				self.sequences[i][k].id = self.speciesNames[i].replace(" ", "_")
+				if self.sequences[i][k]:
+					tGenBankIDs.append(self.sequences[i][k].name)
+					self.sequences[i][k].name = self.speciesNames[i].replace(" ", "_")
+				else:
+					tGenBankIDs.append("NO_SEQUENCE")
 			self.genBankIDs.append(tGenBankIDs)
 	
 	def writeOutput(self):
@@ -1578,45 +1566,123 @@ class PhyloGenerator:
 		#Phylogeny
 		if self.phylogeny:
 			Phylo.write(self.phylogeny, self.stem+"_phylogeny.tre", 'newick')
+		
 		#Constraint tree
 		if self.constraint:
 			Phylo.write(self.constraint, self.stem+"_constraint.tre", 'newick')
+		
+		#Taxonomy
+		if self.taxonomy:
+			with open(self.stem+"_taxonomy.txt", 'w') as f:
+				f.write("Species Name, Taxonomy...\n")
+				for i,each in enumerate(self.taxonomy):
+					if each:
+						f.write(self.speciesNames[i] + "," + ",".join(each) + "\n")
+					else:
+						f.write(self.speciesNames[i] + ", NOTHING FOUND\n")
+		
 		#Smoothed phylogeny
 		if self.smoothPhylogeny:
 			Phylo.write(self.smoothPhylogeny, self.stem+"_phylogeny_smoothed.tre", 'newick')
 	
 	def getConstraint(self, fileName=""):
-		if not fileName:
-			print "It is *stronlgy* advised that you use a constraint tree with this program."
-			print "Please input the filename of your constraint tree (in newick format), or press enter to continue without one."
+		def newickConstraint():
+			print "\nEnter the filename of your constraint tree (in newick format) below. Just press enter to continue without a constraint tree."
 			locker = True
 			while locker:
-				inputConstraint = raw_input("Constraint Tree: ")
+				inputConstraint = raw_input("Newick Constraint Tree: ")
 				if inputConstraint:
 					try:
 						self.constraint = Phylo.read(inputConstraint, 'newick')
-						locker = False
 					except IOError:
 						print "\nFile not found. Please try again!"
 					if self.checkConstraint():
 						print "Constraint tree loaded!"
 						locker = False
+						return False
 					else:
+						self.constraint = False
 						print "Constraint tree does *not* match the species names you've inputted. Please load another file."
 				else:
 					print "...No constraint tree loaded"
 					locker = False
-		else:
-			try:
-				self.constraint = Phylo.read(fileName, 'newick')
-			except IOError:
-				print "\nFile not found. Exiting..."
-				sys.exit()
-			if self.checkConstraint():
-				print "Constraint tree loaded!"
+					return False
+		
+		def phylomatic():
+			print "\nCreating a constraint tree using Phylomatic."
+			if not self.phylomaticPhylogeny:
+				print " Enter the filename of the reference phylogeny (in newick format) below. Just hit enter to carry on without a constraint tree."
+				locker = True
+				while locker:
+					inputPhylogeny = raw_input("Phylomatic (reference tree): ")
+					if inputPhylogeny:
+						try:
+							open(inputPhylogeny)
+							print "...Reference tree found!"
+							self.phylomaticPhylogeny = inputPhylogeny
+							locker = False
+						except IOError:
+							print "\nFile not found. Please try again!"
+					else:
+						print "...No constraint tree loaded. Continuing."
+						return False
 			else:
-				print "Constraint tree does *not* match the species names you've inputted. Exiting..."
-				sys.exit()
+				print "...Phlyomatic reference tree loaded!"
+			if not self.phylomaticTaxonomy:
+				print "Now enter the taxonomy (in Phylomatic's format) for the species you're using."
+				locker = True
+				while locker:
+					inputTaxonomy = raw_input("Phylomatic (taxonomy): ")
+					if inputTaxonomy:
+						try:
+							open(inputTaxonomy)
+							print "...Reference taxonomy found!"
+							self.phylomaticTaxonomy = inputTaxonomy
+							locker = False
+						except IOError:
+							print "\nFile not found. Please try again!"
+					else:
+						print "...No constraint tree loaded. Continuing."
+						locker = False
+			else:
+				print "...Phylomatic reference taxonomy loaded!"
+			print "Attempting to run Phylomatic..."
+			try:
+				self.constraint = createConstraintTree(self.phylomaticTaxonomy, method="phylomaticTaxonomy", fileName=self.phylomaticPhylogeny, tempStem='temp')
+				return False
+			except:
+				print "...something went wrong with that. Check your taxonomy and your phylogeny"
+		
+		def taxonomy():
+			if not self.email:
+				print "\nPlease enter a valid email address to let Entrez know who you are. It's *your* fault if this is not valid, and you will likely have your IP address barred from using GenBank if you don't enter one"
+				Entrez.email = raw_input("")
+			print "\nCreating a 'taxonomy' for your species from GenBank"
+			print "\tNote: this will be saved as a file, but will not generate a constraint tree (yet...)"
+			for sp in self.speciesNames:
+				self.taxonomy.append(findLineage(sp))
+			print "...lineages found!"
+		
+		if not fileName:
+			print "It is *stronlgy* advised that you use a constraint tree with this program."
+			print "\tTo supply your own constraint tree, type 'newick' and press enter."
+			print "\tTo use Phyomatic to generate a constraint tree, type 'phylomatic' and press enter."
+			print "\tTo generate a taxonomy for your species from GenBank, type 'taxonomy' and press enter."
+			print "Otherwise, press enter to continue without a constraint tree."
+			stopper = True
+			while stopper:
+				constraintInput = raw_input("Constraint Method: ")
+				if constraintInput:
+					if constraintInput == 'newic':
+						stopper = newickConstraint()
+					elif constraintInput == 'phylomatic':
+						stopper = phylomatic()
+					elif constraintInput == 'taxonomy':
+						stopper = taxonomy()
+					else:
+						print "Sorry, I didn't get that. Please try again."
+				else:
+					print "...Continuing without constraint tree"
 	
 	def checkConstraint(self):
 		if self.constraint:
@@ -1638,7 +1704,6 @@ class PhyloGenerator:
 			for i in range(1, len(self.genes)):
 				tempAlignment += self.alignment[i]
 			self.alignment = tempAlignment
-	
 	
 
 def main():
@@ -1699,10 +1764,6 @@ def main():
 			currentState.loadGenBank()
 		"\nDNA CHECKING"
 		currentState.DNALoaded()
-		for i in currentState.sequences:
-			print "!!!!!!!!!!!!!!!!!!!!!!!!"
-			for k in i:
-				print k
 		currentState.dnaChecking()
 		print "\nYou are now able to delete DNA sequences you have loaded.\nEvery time you delete a sequence, your summary statistics will be re-calculated, and displayed to you again.\n*IMPORTANT*: Sequence IDs may change once you delete a sequence."
 		currentState.dnaEditing()
