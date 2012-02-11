@@ -1,0 +1,6 @@
+#phyloGenerator Options
+GenBank.retmax=40
+GenBank.spacer=5
+GenBank.initialSeqChoice=medianLength
+GenBank.replaceSeqChoice=geneMedianLength
+RAxML-localVersion-intergratedBootstrap
