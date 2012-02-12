@@ -9,7 +9,6 @@ TO-DO:
 * 'Execute later' code
 * Be able to delete a particular gene from the line-up
 """
-import pdb
 from Bio import Entrez #Taxonomy lookup
 from Bio.Seq import Seq #Sequence manipulation
 from Bio.SeqRecord import SeqRecord #Sequence manipulation
@@ -29,7 +28,7 @@ import time #For waiting between sequence downloads
 import argparse #For command line arguments
 import webbrowser #Load website on request
 import sys #To exit on errors
-
+import pdb
 def taxonIDLookup(taxonID):
 	handleDownload = Entrez.efetch(db="taxonomy", id=taxonID, retmode="xml")
 	resultsDownload = Entrez.read(handleDownload)
@@ -1138,7 +1137,9 @@ class PhyloGenerator:
 	def dnaEditing(self):
 		def deleteMode(firstTime=True):
 			if firstTime:
-				print "\nYou're in deletion mode. To delete a species, enter its SeqID and press return.\t*One species at a time please!*"
+				print "\nYou're in deletion mode. To delete a species, enter its SeqID and press return."
+				print "\tTo delete an entire gene, type 'gene', press enter, then the name of the gene you want to delete."
+				print "\t*One species at a time please!*"
 				print "To change to the 'reload', 'trim' or 'replace' modes, simply type their names then hit enter."
 			inputSeq = raw_input("DNA Editing (delete): ")
 			if inputSeq:
@@ -1152,7 +1153,33 @@ class PhyloGenerator:
 						return 'delete', False
 				except:
 					pass
-				if inputSeq == "trim":
+				if inputSeq == "gene":
+					geneLocker = True
+					while geneLocker:
+						print "Enter the name of the gene you want to delete, or just hit enter to cancel."
+						geneInput = raw_input("DNA Editing (delete gene): ")
+						if geneInput:
+							if geneInput in self.genes:
+								for i,species in enumerate(self.sequences):
+									for j,gene in enumerate(species):
+										if self.genes[j] == geneInput:
+											del self.sequences[i][j]
+											continue
+								for i,gene in enumerate(self.genes):
+									if gene == geneInput:
+										del self.genes[i]
+										break
+								if self.nGenes != -1:
+									self.nGenes -= 1
+								geneLocker = False
+								print "Gene", geneInput, "successfully deleted. Re-calculating summary statistics..."
+								self.dnaChecking()
+								return 'delete', False
+							else:
+								print "Sorry,", inputSeq, "was not recognised. Please try again."
+						else:
+							return 'delete', False
+				elif inputSeq == "trim":
 					return "trim", True
 				elif inputSeq == "reload":
 					return "reload", True
@@ -1765,7 +1792,6 @@ def main():
 		
 		#DNA Checking
 		"\nDNA CHECKING"
-		pdb.set_trace()
 		currentState.dnaChecking()
 		print "\nYou are now able to delete DNA sequences you have loaded.\nEvery time you delete a sequence, your summary statistics will be re-calculated, and displayed to you again.\n*IMPORTANT*: Sequence IDs may change once you delete a sequence."
 		currentState.dnaEditing()
