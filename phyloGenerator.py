@@ -945,6 +945,8 @@ class PhyloGenerator:
 		self.raxml = 'RAxML-localVersion'
 		self.initialSeqChoice = 'medianLength'
 		self.replaceSeqChoice = 'targetLength'
+		self.uniqueTaxonomy = []
+		self.tracker = 0
 		
 		#Stem name
 		if args.name:
@@ -1206,6 +1208,7 @@ class PhyloGenerator:
 				try:
 					if int(inputSeq) in range(len(self.speciesNames)):
 						for i,each in enumerate(self.sequences[int(inputSeq)]):
+							self.APICheck()
 							self.sequences[int(inputSeq)][i] = sequenceDownload(self.speciesNames[int(inputSeq)], self.genes[i], thorough=True, retMax=self.maxGenBankDownload, seqChoice=self.replaceSeqChoice, targetLength=self.dnaCheck['quantileLengths'][i][2])
 						print "Re-calulating summary statistics..."
 						self.dnaChecking()
@@ -1217,6 +1220,7 @@ class PhyloGenerator:
 						seqID = re.search("[0-9]*", inputSeq).group()
 						if seqID and seqID < len(self.sequences):
 							print "Reloading SeqID", seqID, "gene", gene
+							self.APICheck()
 							self.sequences[seqID][i] = sequenceDownload(self.speciesNames[seqID], self.genes[i], thorough=True, retMax=self.maxGenBankDownload, seqChoice=self.replaceSeqChoice, targetLength=self.dnaCheck['quantileLengths'][i][2])
 							print "Re-calulating summary statistics..."
 							self.dnaChecking()
@@ -1226,6 +1230,7 @@ class PhyloGenerator:
 					for i,sp in enumerate(self.sequences):
 						for j,gene in enumerate(sp):
 							if len(self.sequences[i][j]) > threshold:
+								self.APICheck()
 								self.sequences[i][j] = sequenceDownload(self.speciesNames[i], self.genes[j], thorough=True, retMax=self.maxGenBankDownload, seqChoice=self.replaceSeqChoice, targetLength=self.dnaCheck['quantileLengths'][j][2])
 					print "Re-calulating summary statistics..."
 					self.dnaChecking()
@@ -1235,6 +1240,7 @@ class PhyloGenerator:
 					for i,sp in enumerate(self.sequences):
 						for j,gene in enumerate(sp):
 							if len(self.sequences[i][j]) < threshold:
+								self.APICheck()
 								self.sequences[i][j] = sequenceDownload(self.speciesNames[j], self.genes[i], thorough=True, retMax=self.maxGenBankDownload, seqChoice=self.replaceSChoice, targetLength=self.dnaCheck['quantileLengths'][j][2])
 					print "Re-calulating summary statistics..."
 					self.dnaChecking()
@@ -1340,6 +1346,7 @@ class PhyloGenerator:
 			if firstTime:
 				print "\nYou're in replace mode. To replace a particular species with a congener, simply type its SeqID and press enter."
 				print "\tTo replace all species without any sequences with a congener, type 'EVERYTHING' and press enter."
+				print "\tTo replace all species without any sequences with a relative it is more related to than any other species according to the GenBank taxonomy, type 'THOROUGH' and press enter."
 				print "To change to the 'delete', 'trim' or 'reload' modes, simply type their names then hit enter."
 			inputSeq = raw_input("DNA Editing (replace):")
 			if inputSeq:
@@ -1354,6 +1361,7 @@ class PhyloGenerator:
 								temp = []
 								locker = False
 								for j,gene in enumerate(self.genes):
+									self.APICheck()
 									temp.append(sequenceDownload(candidate[0], gene))
 									if temp[j]:
 										locker = True
@@ -1371,6 +1379,7 @@ class PhyloGenerator:
 							if " " in self.speciesNames[i]:
 								newName = self.speciesNames[i].split(' ')[0]
 								print "......Trying to find an entry for...", newName
+								self.APICheck()
 								lineage = findLineage(newName[i])
 								if lineage:
 									replacements = cladeSpecies(lineage[1])
@@ -1407,12 +1416,14 @@ class PhyloGenerator:
 								tracker += 1
 						if tracker == 0:
 							lineage = findLineage(self.speciesNames[i])
+							self.APICheck()
 							replacements = cladeSpecies(lineage[1])
 							print "...looking for alternatives for", self.speciesNames[i], "in clade", lineage[1]
 							for candidate in replacements:
 								temp = []
 								locker = False
 								for gene in self.genes:
+									self.APICheck()
 									temp.append(sequenceDownload(candidate[0], gene))
 									if temp:
 										locker = True
@@ -1423,7 +1434,56 @@ class PhyloGenerator:
 					print "Re-calulating summary statistics..."
 					self.dnaChecking()
 					return 'replace', False
-				if inputSeq == "delete":
+				elif inputSeq == "THOROUGH":
+					#Find taxonomy
+					for i,sp in enumerate(self.speciesNames):
+						self.taxonomy.append(findLineage(sp))
+					
+					print "...Taxonomy downloaded"
+					#Find highest unique level for each species
+					for i,sp in enumerate(self.speciesNames):
+						uniqueLineage = []
+						finished = False
+						for currLevel in self.taxonomy[i]:
+							for j,spp in enumerate(self.speciesNames):
+								if i!=j:
+									if currLevel in self.taxonomy[j]:
+										break
+							else:
+								uniqueLineage.append(currLevel)
+						self.uniqueTaxonomy.append(uniqueLineage)
+					
+					print "...Taxonomy unique to each species found\n"
+					
+					#Find any replacements, if necessary, using the taxonomy
+					for i,sp in enumerate(self.speciesNames):
+						tracker = 0
+						for j,gene in enumerate(self.genes):
+							if self.sequences[i][j]:
+								tracker += 1
+						if tracker == 0:
+							print "...looking for alternative for", sp
+							if len(self.uniqueTaxonomy[i]) > 1:
+								pdb.set_trace()
+								for candidate in self.uniqueTaxonomy[i][1:]:
+									geneList = []
+									locker = False
+									for gene in self.genes:
+										self.APICheck()
+										temp = sequenceDownload(candidate, gene)
+										geneList.append(temp)
+										if temp:
+											self.speciesNames[i] = candidate[0] +"(" + self.speciesNames[i] + ")"
+											locker = True
+									if locker:
+										self.sequences[i] = geneList
+										print "......alternative found:", candidate
+										break
+							print "......can't find one"
+					print "Re-calulating summary statistics..."
+					self.dnaChecking()
+					return 'replace', False
+				elif inputSeq == "delete":
 					return "delete", True
 				elif inputSeq == "reload":
 					return "reload", True
@@ -1703,6 +1763,7 @@ class PhyloGenerator:
 			print "\nCreating a 'taxonomy' for your species from GenBank"
 			print "\tNote: this will be saved as a file, but will not generate a constraint tree (yet...)"
 			for sp in self.speciesNames:
+				self.APICheck()
 				self.taxonomy.append(findLineage(sp))
 			print "...lineages found!"
 		
@@ -1759,6 +1820,13 @@ class PhyloGenerator:
 			self.alignment = tempAlignment
 			for i,x in enumerate(self.speciesNames):
 				self.alignment[i].id = self.speciesNames[i].replace(' ', '_')
+	
+	def APICheck(self):
+		if self.tracker == self.spacer:
+			time.sleep(self.delay)
+			self.tracker = 0
+		else:
+			self.tracker += 1
 	
 
 def main():

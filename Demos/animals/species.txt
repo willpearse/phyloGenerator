@@ -5,3 +5,4 @@ Vulpes vulpes
 Homo sapiens
 Gallus domesticus
 Canis familiaris
+Hexaprotodon liberiensis
