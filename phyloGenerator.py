@@ -558,7 +558,7 @@ def alignmentDisplay(alignments, alignMethods, geneNames, alignDetect=None):
 			for i in range(len(alignList)):
 				print str(i).ljust(len("ID")), alignMethods[i].ljust(len("Alignment")), str(alignList[i].get_alignment_length()).ljust(len("Length"))
 
-def RAxML(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=999999999, cladeList=None,  DNAmodel='GTR+G', constraint=None, cleanup=True, runNow=True):
+def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, timeout=999999999, cladeList=None,  DNAmodel='GTR+G', constraint=None, cleanup=True, runNow=True):
 	if 'SSE3' in method and 'PTHREADS' in method:
 		raxmlCompile = '-PTHREADS-SSE3'
 	elif 'SSE3' in method:
@@ -634,7 +634,8 @@ def RAxML(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=999
 	else:
 		raise RuntimeError("Either phylogeny building program failed, or ran out of time")
 
-def BEAST(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=None, cladeList=None,  DNAmodel='GTR+G', constraint=None, cleanup=True, runNow=True):
+def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, constraint=None, cleanup=True, runNow=True, chainLength=1000000, logRate=1000, screenRate=1000):
+	completeConstraint = False
 	with open(tempStem+"_BEAST.xml", 'w') as f:
 		f.write('<?xml version="1.0" standalone="yes"?>\n')
 		f.write('<beast>\n')
@@ -643,6 +644,19 @@ def BEAST(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=Non
 		for each in alignment:
 			f.write('		<taxon id="'+each.id+'"/>\n')
 		f.write('	</taxa>\n')
+		if constraint:
+			clades = []
+			for clade in constraint.find_clades():
+				temp = [x.name for x in clade.get_terminals()]
+				if len(temp) > 1:
+					clades.append(temp)
+			if len(set([item for sublist in clades for item in sublist])) == len(constraint.get_terminals()):
+				completeConstraint = True
+			for i,clade in enumerate(clades):
+				f.write('	<taxa id="cladeNo' + str(i) + '">\n')
+				for sp in clade:
+					f.write('		<taxon idref="' + sp + '"/>\n')
+				f.write('	</taxa>')
 		f.write('	<!-- The sequence alignment (each sequence refers to a taxon above).		 -->\n')
 		f.write('	<alignment id="alignment" dataType="nucleotide">\n')
 		for each in alignment:
@@ -669,14 +683,26 @@ def BEAST(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=Non
 		f.write('			<parameter id="initialDemo.popSize" value="100.0"/>\n')
 		f.write('		</populationSize>\n')
 		f.write('	</constantSize>\n')
-		f.write('	<!-- Generate a random starting tree under the coalescent process			 -->\n')
-		f.write('	<coalescentTree id="startingTree" rootHeight="0.092">\n')
-		f.write('		<taxa idref="taxa"/>\n')
-		f.write('		<constantSize idref="initialDemo"/>\n')
-		f.write('	</coalescentTree>\n')
+		if completeConstraint:
+			f.write('	<newick id="startingTree">')
+			Phylo.write(constraint, 'tempStem'+'_TREE.tre', 'newick')
+			with open('tempStem'+'_TREE.tre') as tF:
+				treeFormat = tF.readlines()[0]
+			os.remove()
+			f.write('		'+treeFormat)
+			f.write('	</newick>')
+		else:
+			f.write('	<!-- Generate a random starting tree under the coalescent process			 -->\n')
+			f.write('	<coalescentTree id="startingTree" rootHeight="0.092">\n')
+			f.write('		<taxa idref="taxa"/>\n')
+			f.write('		<constantSize idref="initialDemo"/>\n')
+			f.write('	</coalescentTree>\n')
 		f.write('	<!-- Generate a tree model													 -->\n')
 		f.write('	<treeModel id="treeModel">\n')
-		f.write('		<coalescentTree idref="startingTree"/>\n')
+		if completeConstraint:
+			f.write('		<newick idref="startingTree"/>')
+		else:
+			f.write('		<coalescentTree idref="startingTree"/>\n')
 		f.write('		<rootHeight>\n')
 		f.write('			<parameter id="treeModel.rootHeight"/>\n')
 		f.write('		</rootHeight>\n')
@@ -725,36 +751,65 @@ def BEAST(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=Non
 		f.write('		<treeModel idref="treeModel"/>\n')
 		f.write('		<discretizedBranchRates idref="branchRates"/>\n')
 		f.write('	</rateCovarianceStatistic>\n')
-		f.write('	<!-- The general time reversible (GTR) substitution model					 -->\n')
-		f.write('	<gtrModel id="gtr">\n')
-		f.write('		<frequencies>\n')
-		f.write('			<frequencyModel dataType="nucleotide">\n')
-		f.write('				<frequencies>\n')
-		f.write('					<parameter id="frequencies" value="0.25 0.25 0.25 0.25"/>\n')
-		f.write('				</frequencies>\n')
-		f.write('			</frequencyModel>\n')
-		f.write('		</frequencies>\n')
-		f.write('		<rateAC>\n')
-		f.write('			<parameter id="ac" value="1.0" lower="0.0" upper="Infinity"/>\n')
-		f.write('		</rateAC>\n')
-		f.write('		<rateAG>\n')
-		f.write('			<parameter id="ag" value="1.0" lower="0.0" upper="Infinity"/>\n')
-		f.write('		</rateAG>\n')
-		f.write('		<rateAT>\n')
-		f.write('			<parameter id="at" value="1.0" lower="0.0" upper="Infinity"/>\n')
-		f.write('		</rateAT>\n')
-		f.write('		<rateCG>\n')
-		f.write('			<parameter id="cg" value="1.0" lower="0.0" upper="Infinity"/>\n')
-		f.write('		</rateCG>\n')
-		f.write('		<rateGT>\n')
-		f.write('			<parameter id="gt" value="1.0" lower="0.0" upper="Infinity"/>\n')
-		f.write('		</rateGT>\n')
-		f.write('	</gtrModel>\n')
+		if 'GTR' in method:
+			f.write('	<!-- The general time reversible (GTR) substitution model					 -->\n')
+			f.write('	<gtrModel id="gtr">\n')
+			f.write('		<frequencies>\n')
+			f.write('			<frequencyModel dataType="nucleotide">\n')
+			f.write('				<frequencies>\n')
+			if 'base=empirical' in method:
+				f.write('					<parameter id="frequencies" dimension="4"/>\n')
+			else:
+				f.write('					<parameter id="frequencies" value="0.25 0.25 0.25 0.25"/>\n')
+			f.write('				</frequencies>\n')
+			f.write('			</frequencyModel>\n')
+			f.write('		</frequencies>\n')
+			f.write('		<rateAC>\n')
+			f.write('			<parameter id="ac" value="1.0" lower="0.0" upper="Infinity"/>\n')
+			f.write('		</rateAC>\n')
+			f.write('		<rateAG>\n')
+			f.write('			<parameter id="ag" value="1.0" lower="0.0" upper="Infinity"/>\n')
+			f.write('		</rateAG>\n')
+			f.write('		<rateAT>\n')
+			f.write('			<parameter id="at" value="1.0" lower="0.0" upper="Infinity"/>\n')
+			f.write('		</rateAT>\n')
+			f.write('		<rateCG>\n')
+			f.write('			<parameter id="cg" value="1.0" lower="0.0" upper="Infinity"/>\n')
+			f.write('		</rateCG>\n')
+			f.write('		<rateGT>\n')
+			f.write('			<parameter id="gt" value="1.0" lower="0.0" upper="Infinity"/>\n')
+			f.write('		</rateGT>\n')
+			f.write('	</gtrModel>\n')
+		elif 'HKY' in method:
+			f.write('	<!-- The HKY substitution model (Hasegawa, Kishino & Yano, 1985)             -->')
+			f.write('	<HKYModel id="hky">')
+			f.write('		<frequencies>')
+			f.write('			<frequencyModel dataType="nucleotide">')
+			f.write('				<frequencies>')
+			f.write('					<parameter id="frequencies" value="0.25 0.25 0.25 0.25"/>')
+			f.write('				</frequencies>')
+			f.write('			</frequencyModel>')
+			f.write('		</frequencies>')
+			f.write('		<kappa>')
+			f.write('			<parameter id="kappa" value="2.0" lower="0.0" upper="Infinity"/>')
+			f.write('		</kappa>')
+			f.write('	</HKYModel>')
+		else:
+			raise RuntimeError("No valid DNA substituion model specified for BEAST.")
 		f.write('	<!-- site model																 -->\n')
 		f.write('	<siteModel id="siteModel">\n')
 		f.write('		<substitutionModel>\n')
-		f.write('			<gtrModel idref="gtr"/>\n')
+		if 'GTR' in method:
+			f.write('			<gtrModel idref="gtr"/>\n')
+		elif 'HKY' in method:
+			f.write('			<HKYModel idref="hky"/>')
+		else:
+			raise RuntimeError("No valid DNA substituion model specified for BEAST.")
 		f.write('		</substitutionModel>\n')
+		if 'GAMMA' in method:
+			f.write('		<gammaShape gammaCategories="4">')
+			f.write('			<parameter id="alpha" value="0.5" lower="0.0" upper="1000.0"/>')
+			f.write('		</gammaShape>')
 		f.write('	</siteModel>\n')
 		f.write('	<treeLikelihood id="treeLikelihood" useAmbiguities="false">\n')
 		f.write('		<patterns idref="patterns"/>\n')
@@ -764,42 +819,51 @@ def BEAST(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=Non
 		f.write('	</treeLikelihood>\n')
 		f.write('	<!-- Define operators														 -->\n')
 		f.write('	<operators id="operators">\n')
-		f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
-		f.write('			<parameter idref="ac"/>\n')
-		f.write('		</scaleOperator>\n')
-		f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
-		f.write('			<parameter idref="ag"/>\n')
-		f.write('		</scaleOperator>\n')
-		f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
-		f.write('			<parameter idref="at"/>\n')
-		f.write('		</scaleOperator>\n')
-		f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
-		f.write('			<parameter idref="cg"/>\n')
-		f.write('		</scaleOperator>\n')
-		f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
-		f.write('			<parameter idref="gt"/>\n')
-		f.write('		</scaleOperator>\n')
-		f.write('		<deltaExchange delta="0.01" weight="0.1">\n')
-		f.write('			<parameter idref="frequencies"/>\n')
-		f.write('		</deltaExchange>\n')
+		if 'GTR' in method:
+			f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
+			f.write('			<parameter idref="ac"/>\n')
+			f.write('		</scaleOperator>\n')
+			f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
+			f.write('			<parameter idref="ag"/>\n')
+			f.write('		</scaleOperator>\n')
+			f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
+			f.write('			<parameter idref="at"/>\n')
+			f.write('		</scaleOperator>\n')
+			f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
+			f.write('			<parameter idref="cg"/>\n')
+			f.write('		</scaleOperator>\n')
+			f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
+			f.write('			<parameter idref="gt"/>\n')
+			f.write('		</scaleOperator>\n')
+		elif 'HKY' in method:
+			f.write('		<deltaExchange delta="0.01" weight="0.1">\n')
+			f.write('			<parameter idref="frequencies"/>\n')
+			f.write('		</deltaExchange>\n')
+		else:
+			raise RuntimeError("No valid DNA substituion model specified for BEAST.")
+		if 'GAMMA' in method:
+			f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">')
+			f.write('			<parameter idref="alpha"/>')
+			f.write('		</scaleOperator>')
 		f.write('		<scaleOperator scaleFactor="0.75" weight="3">\n')
 		f.write('			<parameter idref="ucld.stdev"/>\n')
 		f.write('		</scaleOperator>\n')
-		f.write('		<subtreeSlide size="0.0092" gaussian="true" weight="15">\n')
-		f.write('			<treeModel idref="treeModel"/>\n')
-		f.write('		</subtreeSlide>\n')
-		f.write('		<narrowExchange weight="15">\n')
-		f.write('			<treeModel idref="treeModel"/>\n')
-		f.write('		</narrowExchange>\n')
-		f.write('		<wideExchange weight="3">\n')
-		f.write('			<treeModel idref="treeModel"/>\n')
-		f.write('		</wideExchange>\n')
-		f.write('		<wilsonBalding weight="3">\n')
-		f.write('			<treeModel idref="treeModel"/>\n')
-		f.write('		</wilsonBalding>\n')
-		f.write('		<scaleOperator scaleFactor="0.75" weight="3">\n')
-		f.write('			<parameter idref="treeModel.rootHeight"/>\n')
-		f.write('		</scaleOperator>\n')
+		if not completeConstraint:
+			f.write('		<subtreeSlide size="0.0092" gaussian="true" weight="15">\n')
+			f.write('			<treeModel idref="treeModel"/>\n')
+			f.write('		</subtreeSlide>\n')
+			f.write('		<narrowExchange weight="15">\n')
+			f.write('			<treeModel idref="treeModel"/>\n')
+			f.write('		</narrowExchange>\n')
+			f.write('		<wideExchange weight="3">\n')
+			f.write('			<treeModel idref="treeModel"/>\n')
+			f.write('		</wideExchange>\n')
+			f.write('		<wilsonBalding weight="3">\n')
+			f.write('			<treeModel idref="treeModel"/>\n')
+			f.write('		</wilsonBalding>\n')
+			f.write('		<scaleOperator scaleFactor="0.75" weight="3">\n')
+			f.write('			<parameter idref="treeModel.rootHeight"/>\n')
+			f.write('		</scaleOperator>\n')
 		f.write('		<uniformOperator weight="30">\n')
 		f.write('			<parameter idref="treeModel.internalNodeHeights"/>\n')
 		f.write('		</uniformOperator>\n')
@@ -824,24 +888,25 @@ def BEAST(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=Non
 		f.write('		</uniformIntegerOperator>\n')
 		f.write('	</operators>\n')
 		f.write('	<!-- Define MCMC															 -->\n')
-		f.write('	<mcmc id="mcmc" chainLength="10000000" autoOptimize="true">\n')
+		f.write('	<mcmc id="mcmc" chainLength="' + str(chainLength) + '" autoOptimize="true">\n')
 		f.write('		<posterior id="posterior">\n')
 		f.write('			<prior id="prior">\n')
-		f.write('				<gammaPrior shape="0.05" scale="10.0" offset="0.0">\n')
-		f.write('					<parameter idref="ac"/>\n')
-		f.write('				</gammaPrior>\n')
-		f.write('				<gammaPrior shape="0.05" scale="20.0" offset="0.0">\n')
-		f.write('					<parameter idref="ag"/>\n')
-		f.write('				</gammaPrior>\n')
-		f.write('				<gammaPrior shape="0.05" scale="10.0" offset="0.0">\n')
-		f.write('					<parameter idref="at"/>\n')
-		f.write('				</gammaPrior>\n')
-		f.write('				<gammaPrior shape="0.05" scale="10.0" offset="0.0">\n')
-		f.write('					<parameter idref="cg"/>\n')
-		f.write('				</gammaPrior>\n')
-		f.write('				<gammaPrior shape="0.05" scale="10.0" offset="0.0">\n')
-		f.write('					<parameter idref="gt"/>\n')
-		f.write('				</gammaPrior>\n')
+		if 'GTR' in method:
+			f.write('				<gammaPrior shape="0.05" scale="10.0" offset="0.0">\n')
+			f.write('					<parameter idref="ac"/>\n')
+			f.write('				</gammaPrior>\n')
+			f.write('				<gammaPrior shape="0.05" scale="20.0" offset="0.0">\n')
+			f.write('					<parameter idref="ag"/>\n')
+			f.write('				</gammaPrior>\n')
+			f.write('				<gammaPrior shape="0.05" scale="10.0" offset="0.0">\n')
+			f.write('					<parameter idref="at"/>\n')
+			f.write('				</gammaPrior>\n')
+			f.write('				<gammaPrior shape="0.05" scale="10.0" offset="0.0">\n')
+			f.write('					<parameter idref="cg"/>\n')
+			f.write('				</gammaPrior>\n')
+			f.write('				<gammaPrior shape="0.05" scale="10.0" offset="0.0">\n')
+			f.write('					<parameter idref="gt"/>\n')
+			f.write('				</gammaPrior>\n')
 		f.write('				<exponentialPrior mean="0.3333333333333333" offset="0.0">\n')
 		f.write('					<parameter idref="ucld.stdev"/>\n')
 		f.write('				</exponentialPrior>\n')
@@ -852,9 +917,8 @@ def BEAST(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=Non
 		f.write('			</likelihood>\n')
 		f.write('		</posterior>\n')
 		f.write('		<operators idref="operators"/>\n')
-		f.write('\n')
 		f.write('		<!-- write log to screen													 -->\n')
-		f.write('		<log id="screenLog" logEvery="1000">\n')
+		f.write('		<log id="screenLog" logEvery="' + str(screenRate) + '">\n')
 		f.write('			<column label="Posterior" dp="4" width="12">\n')
 		f.write('				<posterior idref="posterior"/>\n')
 		f.write('			</column>\n')
@@ -872,18 +936,25 @@ def BEAST(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=Non
 		f.write('			</column>\n')
 		f.write('		</log>\n')
 		f.write('		<!-- write log to file														 -->\n')
-		f.write('		<log id="fileLog" logEvery="1000" fileName="'+tempStem+'.log" overwrite="false">\n')
+		f.write('		<log id="fileLog" logEvery="' + str(logRate) + '" fileName="'+tempStem+'.log" overwrite="false">\n')
 		f.write('			<posterior idref="posterior"/>\n')
 		f.write('			<prior idref="prior"/>\n')
 		f.write('			<likelihood idref="likelihood"/>\n')
 		f.write('			<parameter idref="treeModel.rootHeight"/>\n')
 		f.write('			<parameter idref="yule.birthRate"/>\n')
-		f.write('			<parameter idref="ac"/>\n')
-		f.write('			<parameter idref="ag"/>\n')
-		f.write('			<parameter idref="at"/>\n')
-		f.write('			<parameter idref="cg"/>\n')
-		f.write('			<parameter idref="gt"/>\n')
-		f.write('			<parameter idref="frequencies"/>\n')
+		if 'GTR' in method:
+			f.write('			<parameter idref="ac"/>\n')
+			f.write('			<parameter idref="ag"/>\n')
+			f.write('			<parameter idref="at"/>\n')
+			f.write('			<parameter idref="cg"/>\n')
+			f.write('			<parameter idref="gt"/>\n')
+			f.write('			<parameter idref="frequencies"/>\n')
+		elif 'HKY' in method:
+			f.write('			<parameter idref="kappa"/>')
+		else:
+			raise RuntimeError("No valid DNA substituion model specified for BEAST.")
+		if 'GAMMA' in method:
+			f.write('			<parameter idref="alpha"/>')
 		f.write('			<parameter idref="ucld.mean"/>\n')
 		f.write('			<parameter idref="ucld.stdev"/>\n')
 		f.write('			<rateStatistic idref="meanRate"/>\n')
@@ -893,7 +964,7 @@ def BEAST(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=Non
 		f.write('			<speciationLikelihood idref="speciation"/>\n')
 		f.write('		</log>\n')
 		f.write('		<!-- write tree log to file													 -->\n')
-		f.write('		<logTree id="treeFileLog" logEvery="1000" nexusFormat="true" fileName="'+tempStem+'.trees" sortTranslationTable="true">\n')
+		f.write('		<logTree id="treeFileLog" logEvery="' + str(logRate) + '" nexusFormat="true" fileName="'+tempStem+'.trees" sortTranslationTable="true">\n')
 		f.write('			<treeModel idref="treeModel"/>\n')
 		f.write('			<discretizedBranchRates idref="branchRates"/>\n')
 		f.write('			<posterior idref="posterior"/>\n')
@@ -905,27 +976,30 @@ def BEAST(alignment, method='RAxML', tempStem='temp', outgroup=None, timeout=Non
 		f.write('		</property>\n')
 		f.write('	</report>\n')
 		f.write('</beast>\n')
-		
-		commandLine = "beast " + tempStem + "_BEAST.xml"
-		
-		if not runNow:
-			return commandLine
-		pipe = TerminationPipe(commandLine, timeout)
-		pipe.run()
-		if not pipe.failure:
-			tree = Phylo.read('RAxML_bestTree.' + outputFile, "newick")
+	
+	commandLine = "beast " + tempStem + "_BEAST.xml"
+	
+	if not runNow:
+		return commandLine
+	
+	pipe = TerminationPipe(commandLine, timeout)
+	pipe.run(silent=False)
+	pdb.set_trace()
+	if not pipe.failure:
+		print "...removing burn-in of 10%..."
+		commandLine = 'treeannotator -burnin 1000 -height median ' + tempStem + ".trees" + tempStem + "Final.tre"
+		pipeAnotate = TerminationPipe(commandLine, timeout)
+		pipeAnotate.run()
+		if not pipeAnotate.failure:
+			tree = Phylo.read(tempStem + "Final.tre", "newick")
 			if cleanup:
-				os.remove(inputFile)
-				dirList = os.listdir(os.getcwd())
-				for each in dirList:
-					if re.search("(RAxML)", each):
-						os.remove(each)
-					if tempStem+"In.phylip.reduced"==each:
-						os.remove(each)
+				os.remove(tempStem + ".trees")
+				os.remove(tempStem + ".log")
 			return tree
-
 		else:
-			raise RuntimeError("Either phylogeny building program failed, or ran out of time")
+			raise RuntimeError("Either tree annotation failed, or ran out of time")
+	else:
+		raise RuntimeError("Either phylogeny building program failed, or ran out of time")
 
 def trimSequence(seq, DNAtype='Standard', gapType='-'):
 	stop = CodonTable.unambiguous_dna_by_name[DNAtype].stop_codons
@@ -1207,7 +1281,7 @@ class PhyloGenerator:
 		if args.alignment:
 			self.alignmentMethod = args.alignment
 		
-		#Contraint tree
+		#Constraint tree
 		self.constraintMethod = ''
 		#Phylomatic
 		if args.consPhylomat:
