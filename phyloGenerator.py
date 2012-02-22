@@ -5,9 +5,7 @@ phyloGenerator.py
 Created by Will Pearse on 2011-08-24.
 Copyright (c) 2011 Imperial College london. All rights reserved.
 TO-DO:
-* BEAST
 * 'Execute later' code
-* Be able to delete a particular gene from the line-up
 """
 from Bio import Entrez #Taxonomy lookup
 from Bio.Seq import Seq #Sequence manipulation
@@ -999,7 +997,7 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 	if not pipe.failure:
 		print "...removing burn-in of ", str(burnin*100), "%..."
 		burnin = int(burnin * (chainLength / logRate))
-		commandLine = 'treeannotator -burnin ", str(burnin), " -heights median ' + tempStem + ".trees " + tempStem + "Final.tre"
+		commandLine = 'treeannotator -burnin ' + str(burnin) + ' -heights median ' + tempStem + '.trees ' + tempStem + 'Final.tre'
 		pipeAnotate = TerminationPipe(commandLine, timeout)
 		pipeAnotate.run()
 		if not pipeAnotate.failure:
@@ -1220,7 +1218,7 @@ class PhyloGenerator:
 		self.dnaCheck = []
 		self.phylogeny = []
 		self.alignment = []
-		self.smoothPhylogeny = False
+		self.smoothPhylogeny = []
 		self.root = False
 		self.genBankIDs = []
 		self.constraint = False
@@ -1236,6 +1234,7 @@ class PhyloGenerator:
 		self.replaceSeqChoice = 'targetLength'
 		self.uniqueTaxonomy = []
 		self.tracker = 0
+		self.rateSmoothMethods = ''
 		
 		#Stem name
 		if args.name:
@@ -1916,7 +1915,7 @@ class PhyloGenerator:
 			print "\t 'logRate=X' - log output every 'X' steps"
 			print "\t 'screenRate=X' - report ouptut to the screen every 'X' steps"
 			print "\t 'overwriteBlock' - causes BEAST to halt if there are any files from previous attempts in your working directory"
-			print "...to specify multiple options, type them all separated by hyphens (e.g. 'accelBootstrap-localVersion')"
+			print "...to specify multiple options, type them all separated by hyphens (e.g. 'GTR-GAMMA')"
 			print "...the options with '(!)' after them cannot be used in conjunction with each other"
 			print "...or... just hit enter to use the defaults!"
 			beastLock = True
@@ -1954,6 +1953,7 @@ class PhyloGenerator:
 						temp = beastInput.split('-')
 						for each in temp:
 							if 'screenRate' in each:
+								screenRate = int(each.replace('screenRate=', ''))
 								screenRate += '-screenRate='+str(screenRate)
 								break
 					if methods:
@@ -1991,20 +1991,114 @@ class PhyloGenerator:
 				locker= False
 	
 	def rateSmooth(self):
-		print "\nIf you require a rate-smoothed version of your phylogeny, type the name of the outgroup below.\nOtherwise, hit enter to continue without rate smoothing."
-		spNames = [x.name for x in self.phylogeny[0].get_terminals()]
+		def PATHd8():
+			print "\nPlease enter an outgroup for your phylogeny, 'species' to see the tips in your phylogeny, or just hit enter to cancel and continue."
+			pathd8Locker = True
+			spNames = [x.name for x in self.phylogeny[0].get_terminals()]
+			while pathd8Locker:
+				inputPathd8 = raw_input("Rate-Smoothing (PATHd8): ")
+				if inputPathd8:
+					if inputPathd8 == 'species':
+						print "\nSpecies names:"
+						for each in spNames:
+							print each
+					elif inputPathd8 in spNames:
+						for i,phylo in enumerate(self.phylogeny):
+							phylo.root_with_outgroup(inputPathd8)
+							self.smoothPhylogeny.append(rateSmooth(phylo, sequenceLength=self.alignment[i].get_alignment_length()))
+						pathd8Locker = False
+						print "...phylogeny rate-smoothed! Continuing..."
+					else:
+						print "Sorry, I couldn't find", inputSmooth, " in your phylogeny - try again"
+				else:
+					print "...cancelling rate-smoothing and continuing..."
+					pathd8Locker = False
+		
+		def smoothBEAST():
+			print "You're about to perform a BEAST search with the topology constrained to that of your best phylogen(y/ies)."
+			print "This means you have a choice of BEAST options:"
+			print "\t 'GTR' - conduct search with a GTR model (!)"
+			print "\t 'HKY' - conduct search with an HKY model (!)"
+			print "\t 'GAMMA' - conduct search with four gamma rate categories"
+			print "\t 'chainLength=X' - conduct search with chain length 'X'"
+			print "\t 'logRate=X' - log output every 'X' steps"
+			print "\t 'screenRate=X' - report ouptut to the screen every 'X' steps"
+			print "\t 'overwriteBlock' - causes BEAST to halt if there are any files from previous attempts in your working directory"
+			print "...to specify multiple options, type them all separated by hyphens (e.g. 'GTR-GAMMA')"
+			print "...the options with '(!)' after them cannot be used in conjunction with each other"
+			print "...or... just hit enter to use the defaults!"
+			beastLock = True
+			while beastLock:
+				beastInput = raw_input("Rate-Smoothing (BEAST): ")
+				methods = ''
+				chainLength = 1000000
+				logRate = 1000
+				screenRate = 1000
+				overwrite = True
+				if beastInput:
+					if 'GTR' in beastInput:
+						methods +=	'-GTR'
+					if 'HKY' in beastInput:
+						methods += '-HKY'
+					if 'GAMMA' in beastInput:
+						methods +=	'-GAMMA'
+					if 'overwriteBlock' in beastInput:
+						overwrite = False
+					if 'chainLength' in beastInput:
+						temp = beastInput.split('-')
+						for each in temp:
+							if 'chainLength' in each:
+								chainLength = int(each.replace('chainLength=', ''))
+								methods += '-chainLength='+str(chainLength)
+								break
+					if 'logRate' in beastInput:
+						temp = beastInput.split('-')
+						for each in temp:
+							if 'logRate' in each:
+								logRate = int(each.replace('logRate=', ''))
+								methods += '-logRate='+str(logRate)
+								break
+					if 'screenRate' in beastInput:
+						temp = beastInput.split('-')
+						for each in temp:
+							if 'screenRate' in each:
+								screenRate = int(each.replace('screenRate=', ''))
+								methods += '-screenRate='+str(screenRate)
+								break
+					if methods:
+						self.rateSmoothMethods = 'BEAST' + methods
+						print "...running BEAST with options ", self.rateSmoothMethods
+						for phylo,align in zip(self.phylogeny, self.alignment):
+							self.smoothPhylogeny.append(BEAST(align, method=self.rateSmoothMethods, constraint=phylo, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, tempStem='beast_smooth'))
+						beastLock = False
+					else:
+						print "Sorry, I don't understand", beastInput, "- please try again."
+				else:
+					print "...running BEAST with default options"
+					for i,align in enumerate(self.alignment):
+						self.rateSmoothMethods = 'BEAST-GTR-GAMMA'
+						for phylo,align in zip(self.phylogeny, self.alignment):
+							self.smoothPhylogeny.append(BEAST(align, method=self.rateSmoothMethods, constraint=phylo, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, tempStem='beast_smooth'))
+					beastLock = False
+					
+		
+		print "\nYou can now rate-smooth your phylogeny (i.e., make its branch lengths proportional to evolutionary time)."
+		print "\t'pathd8' - rate-smooth using PATHd8 (fastest!)"
+		print "\t'beast' - rate-smooth using BEAST (doesn't require you to specify an outgroup)"
 		locker = True
 		while locker:
-			inputSmooth = raw_input("")
+			inputSmooth = raw_input("Rate-Smoothing: ")
 			if inputSmooth:
-				if inputSmooth in spNames:
-					self.phylogeny.root_with_outgroup(inputSmooth)
-					for i,phylo in enumerate(self.phylogeny):
-						self.smoothPhylogeny.append(rateSmooth(phylo, sequenceLength=self.alignment.get_alignment_length()))
+				if inputSmooth == 'pathd8':
+					PATHd8()
+					locker = False
+				elif inputSmooth == 'beast':
+					smoothBEAST()
 					locker = False
 				else:
-					print "Sorry, I couldn't find", inputSmooth, " in your phylogeny - try again"
+					print "Sorry, I can't ", inputSmooth, " - try again."
 			else:
+				print "...continuing without rate-smoothing"
 				locker = False
 	
 	def cleanUpSequences(self):
@@ -2083,7 +2177,12 @@ class PhyloGenerator:
 		
 		#Smoothed phylogeny
 		if self.smoothPhylogeny:
-			Phylo.write(self.smoothPhylogeny, self.stem+"_phylogeny_smoothed.tre", 'newick')
+			if 'BEAST' in self.rateSmoothMethods:
+				for i,phylo in enumerate(self.smoothPhylogeny):
+					os.rename(phylo, self.stem+"_"+self.genes[i]+"_smoothed_phylogeny.nex")
+			else:
+				for i,phylo in enumerate(self.smoothPhylogeny):
+					Phylo.write(phylo, self.stem+"_"+self.genes[i]+"_smoothed_phylogeny.tre", 'newick')
 	
 	def getConstraint(self, fileName=""):
 		def newickConstraint():
