@@ -22,7 +22,6 @@ from Bio import AlignIO #Handle alignments
 import os #Remove temporary files
 import re #Search for files to delete
 from Bio import Phylo #Load constructed phylogeny
-import xml.etree.ElementTree as ET #XML parsing for BEAST
 from Bio.Data import CodonTable #Codon positions for trimming sequences
 import time #For waiting between sequence downloads
 import argparse #For command line arguments
@@ -558,7 +557,7 @@ def alignmentDisplay(alignments, alignMethods, geneNames, alignDetect=None):
 			for i in range(len(alignList)):
 				print str(i).ljust(len("ID")), alignMethods[i].ljust(len("Alignment")), str(alignList[i].get_alignment_length()).ljust(len("Length"))
 
-def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, timeout=999999999, cladeList=None,  DNAmodel='GTR+G', constraint=None, cleanup=True, runNow=True):
+def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, timeout=999999999, cladeList=None,	DNAmodel='GTR+G', constraint=None, cleanup=True, runNow=True):
 	if 'SSE3' in method and 'PTHREADS' in method:
 		raxmlCompile = '-PTHREADS-SSE3'
 	elif 'SSE3' in method:
@@ -582,8 +581,18 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
 		DNAmodel = ' -m GTRCATI'
 	else:
 		DNAmodel = ' -m GTRCAT'
+	#Restarts
+	if 'restarts' in method:
+		temp = method.split('-')
+		for each in temp:
+			if 'restarts' in each:
+				number = each.replace('restarts=', '')
+				options += ' -N ' + number
+				break
 	#Algorithm
 	if 'intergratedBootstrap' in method:
+		if 'restarts' in method:
+			raise RuntimeError("RAxML cannot do the accelerated bootstrap multiple times (at least not the way I'm using it).")
 		algorithm = ' -f a'
 		options += ' -b $RANDOM '
 	else:
@@ -634,7 +643,7 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
 	else:
 		raise RuntimeError("Either phylogeny building program failed, or ran out of time")
 
-def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, constraint=None, cleanup=True, runNow=True, chainLength=1000000, logRate=1000, screenRate=1000):
+def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, constraint=None, cleanup=True, runNow=True, chainLength=1000000, logRate=1000, screenRate=1000, overwrite=True, burnin=0.1):
 	completeConstraint = False
 	with open(tempStem+"_BEAST.xml", 'w') as f:
 		f.write('<?xml version="1.0" standalone="yes"?>\n')
@@ -688,7 +697,7 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 			Phylo.write(constraint, 'tempStem'+'_TREE.tre', 'newick')
 			with open('tempStem'+'_TREE.tre') as tF:
 				treeFormat = tF.readlines()[0]
-			os.remove()
+			os.remove('tempStem'+'_TREE.tre')
 			f.write('		'+treeFormat)
 			f.write('	</newick>')
 		else:
@@ -781,7 +790,7 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 			f.write('		</rateGT>\n')
 			f.write('	</gtrModel>\n')
 		elif 'HKY' in method:
-			f.write('	<!-- The HKY substitution model (Hasegawa, Kishino & Yano, 1985)             -->')
+			f.write('	<!-- The HKY substitution model (Hasegawa, Kishino & Yano, 1985)			 -->')
 			f.write('	<HKYModel id="hky">')
 			f.write('		<frequencies>')
 			f.write('			<frequencyModel dataType="nucleotide">')
@@ -977,25 +986,27 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 		f.write('	</report>\n')
 		f.write('</beast>\n')
 	
-	commandLine = "beast " + tempStem + "_BEAST.xml"
+	if overwrite:
+		commandLine = "beast -overwrite " + tempStem + "_BEAST.xml"
+	else:
+		commandLine = "beast -overwrite " + tempStem + "_BEAST.xml"
 	
 	if not runNow:
 		return commandLine
 	
 	pipe = TerminationPipe(commandLine, timeout)
 	pipe.run(silent=False)
-	pdb.set_trace()
 	if not pipe.failure:
-		print "...removing burn-in of 10%..."
-		commandLine = 'treeannotator -burnin 1000 -height median ' + tempStem + ".trees" + tempStem + "Final.tre"
+		print "...removing burn-in of ", str(burnin*100), "%..."
+		burnin = int(burnin * (chainLength / logRate))
+		commandLine = 'treeannotator -burnin ", str(burnin), " -heights median ' + tempStem + ".trees " + tempStem + "Final.tre"
 		pipeAnotate = TerminationPipe(commandLine, timeout)
 		pipeAnotate.run()
 		if not pipeAnotate.failure:
-			tree = Phylo.read(tempStem + "Final.tre", "newick")
 			if cleanup:
 				os.remove(tempStem + ".trees")
 				os.remove(tempStem + ".log")
-			return tree
+			return tempStem + "Final.tre"
 		else:
 			raise RuntimeError("Either tree annotation failed, or ran out of time")
 	else:
@@ -1207,7 +1218,7 @@ class PhyloGenerator:
 		self.sequences = []
 		self.speciesNames = []
 		self.dnaCheck = []
-		self.phylogeny = False
+		self.phylogeny = []
 		self.alignment = []
 		self.smoothPhylogeny = False
 		self.root = False
@@ -1220,7 +1231,7 @@ class PhyloGenerator:
 		self.email = ''
 		self.codonModels = []
 		self.taxonomy = []
-		self.raxml = 'RAxML-localVersion'
+		self.phylogenyMethods = 'RAxML-localVersion'
 		self.initialSeqChoice = 'medianLength'
 		self.replaceSeqChoice = 'targetLength'
 		self.uniqueTaxonomy = []
@@ -1742,7 +1753,6 @@ class PhyloGenerator:
 						if tracker == 0:
 							print "...looking for alternative for", sp
 							if len(self.uniqueTaxonomy[i]) > 1:
-								pdb.set_trace()
 								for candidate in self.uniqueTaxonomy[i][1:]:
 									geneList = []
 									locker = False
@@ -1858,20 +1868,139 @@ class PhyloGenerator:
 			self.alignmentMethods = [self.alignmentMethod]
 	
 	def phylogen(self, method="RAxML-localVersion"):
-		print"\n Running with options:", method
-		self.phylogeny = RAxML(self.alignment, method=self.raxml, constraint=self.constraint, timeout=999)
-		print"\nRun complete!"
+		def raxmlSetup(default=False):
+			print "RAXML:"
+			print "You have a choice of RAxML options:"
+			print "\t 'accelBootstrap' - conduct 'rapid bootstrap' and ML-search in one run (!)"
+			print "\t 'restart=X' - conduct X number of ML searches (!)"
+			print "\t 'localVersion' - the version of RAxML we're running is called 'raxml', not any of the other variants"
+			print "...to specify multiple options, type them all separated by hyphens (e.g. 'accelBootstrap-localVersion')"
+			print "...the options with '(!)' after them cannot be used in conjunction with each other"
+			print "...or... just hit enter to use the defaults!"
+			raxmlLock = True
+			while raxmlLock:
+				raxmlInput = raw_input("Phylogeny Building (RAxML): ")
+				if raxmlInput:
+					methods = ''
+					if 'accelBootstrap' in raxmlInput:
+						methods +=	'intergratedBootstrap-'
+					if 'restart=X' in raxmlInput:
+						temp = raxmlInput.split('-')
+						for each in temp:
+							if 'restart' in each:
+								methods += each + '-'
+								break
+					if 'localVersion' in raxmlInput:
+						methods +=	'localVersion-'
+					if methods:
+						print "...running RAxML with options ", methods
+						self.phylogenyMethods = methods
+						for i,align in enumerate(self.alignment):
+							self.phylogeny.append(RAxML(align, method=self.phylogenyMethods, constraint=self.constraint, timeout=999999))
+							raxmlLock = False
+					else:
+						print "Sorry, I don't understand", raxmlInput, "- please try again."
+				else:
+					print "...running RAxML with default options"
+					for i,align in enumerate(self.alignment):
+						self.phylogeny.append(RAxML(align, method=self.phylogenyMethods, constraint=self.constraint, timeout=999999))
+					raxmlLock = False
+		
+		def beastSetup(default=False):
+			print "BEAST:"
+			print "You have a choice of BEAST options:"
+			print "\t 'GTR' - conduct search with a GTR model (!)"
+			print "\t 'HKY' - conduct search with an HKY model (!)"
+			print "\t 'GAMMA' - conduct search with four gamma rate categories"
+			print "\t 'chainLength=X' - conduct search with chain length 'X'"
+			print "\t 'logRate=X' - log output every 'X' steps"
+			print "\t 'screenRate=X' - report ouptut to the screen every 'X' steps"
+			print "\t 'overwriteBlock' - causes BEAST to halt if there are any files from previous attempts in your working directory"
+			print "...to specify multiple options, type them all separated by hyphens (e.g. 'accelBootstrap-localVersion')"
+			print "...the options with '(!)' after them cannot be used in conjunction with each other"
+			print "...or... just hit enter to use the defaults!"
+			beastLock = True
+			while beastLock:
+				beastInput = raw_input("Phylogeny Building (BEAST): ")
+				methods = ''
+				chainLength = 1000000
+				logRate = 1000
+				screenRate = 1000
+				overwrite = True
+				if beastInput:
+					if 'GTR' in beastInput:
+						methods +=	'-GTR'
+					if 'HKY' in beastInput:
+						methods += '-HKY'
+					if 'GAMMA' in beastInput:
+						methods +=	'-GAMMA'
+					if 'overwriteBlock' in beastInput:
+						overwrite = False
+					if 'chainLength' in beastInput:
+						temp = beastInput.split('-')
+						for each in temp:
+							if 'chainLength' in each:
+								chainLength = int(each.replace('chainLength=', ''))
+								methods += '-chainLength='+str(chainLength)
+								break
+					if 'logRate' in beastInput:
+						temp = beastInput.split('-')
+						for each in temp:
+							if 'logRate' in each:
+								logRate = int(each.replace('logRate=', ''))
+								methods += '-logRate='+str(logRate)
+								break
+					if 'screenRate' in beastInput:
+						temp = beastInput.split('-')
+						for each in temp:
+							if 'screenRate' in each:
+								screenRate += '-screenRate='+str(screenRate)
+								break
+					if methods:
+						self.phylogenyMethods = 'BEAST' + methods
+						print "...running BEAST with options ", phylogenyMethods
+						for i,align in enumerate(self.alignment):
+							self.phylogeny.append(BEAST(align, method=self.phylogenyMethods, constraint=self.constraint, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999))
+						beastLock = False
+					else:
+						print "Sorry, I don't understand", beastInput, "- please try again."
+				else:
+					print "...running BEAST with default options"
+					for i,align in enumerate(self.alignment):
+						self.phylogenyMethods = 'BEAST-GTR-GAMMA'
+						self.phylogeny.append(BEAST(align, method=self.phylogenyMethods, constraint=self.constraint, overwrite=overwrite, timeout=999999))
+					self.phylogenyMethods = 'BEAST-GTR-GAMMA'
+					beastLock = False
+		
+		print "You can either build a maximum likelihood tree ('raxml') or a Bayesian tree ('beast'). If unsure what to do, just hit enter to build a RAxML tree with default options."
+		locker = True
+		while locker:
+			phyloInput = raw_input("Phylogeny Building: ")
+			if phyloInput:
+				if phyloInput == 'raxml':
+					raxmlSetup()
+					locker = False
+				elif phyloInput == 'beast':
+					beastSetup()
+					locker = False
+				else:
+					print "Sorry, I don't understand", phyloInput, "- please try again."
+			else:
+				print "...using RAxML with default options..."
+				raxmlSetup(default=True)
+				locker= False
 	
 	def rateSmooth(self):
 		print "\nIf you require a rate-smoothed version of your phylogeny, type the name of the outgroup below.\nOtherwise, hit enter to continue without rate smoothing."
-		spNames = [x.name for x in self.phylogeny.get_terminals()]
+		spNames = [x.name for x in self.phylogeny[0].get_terminals()]
 		locker = True
 		while locker:
 			inputSmooth = raw_input("")
 			if inputSmooth:
 				if inputSmooth in spNames:
 					self.phylogeny.root_with_outgroup(inputSmooth)
-					self.smoothPhylogeny = rateSmooth(self.phylogeny, sequenceLength=self.alignment.get_alignment_length())
+					for i,phylo in enumerate(self.phylogeny):
+						self.smoothPhylogeny.append(rateSmooth(phylo, sequenceLength=self.alignment.get_alignment_length()))
 					locker = False
 				else:
 					print "Sorry, I couldn't find", inputSmooth, " in your phylogeny - try again"
@@ -1931,7 +2060,12 @@ class PhyloGenerator:
 						f.write(name + "_" + self.genBankIDs[j][i] + "\n")
 		#Phylogeny
 		if self.phylogeny:
-			Phylo.write(self.phylogeny, self.stem+"_phylogeny.tre", 'newick')
+			if 'BEAST' in self.phylogenyMethods:
+				for i,phylo in enumerate(self.phylogeny):
+					os.rename(phylo, self.stem+"_"+self.genes[i]+"_phylogeny.nex")
+			else:
+				for i,phylo in enumerate(self.phylogeny):
+					Phylo.write(phylo, self.stem+"_"+self.genes[i]+"_phylogeny.tre", 'newick')
 		
 		#Constraint tree
 		if self.constraint:
@@ -2159,10 +2293,16 @@ def main():
 		currentState.getConstraint()
 		
 		#Phylogeny building
+		print "\nPHYLOGENY BUILDING"
 		currentState.phylogen()
 		
 		#Rate smoothing
-		currentState.rateSmooth()
+		if 'BEAST' in currentState.phylogenyMethods:
+			print "\nSKIPPING RATE SMOOTHING STEP"
+			print "\t(unecessary with BEAST phylogeny)"
+		else:
+			print "\nRATE SMOOTHING"
+			currentState.rateSmooth()
 		
 		#Output
 		currentState.writeOutput()
