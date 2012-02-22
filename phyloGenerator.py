@@ -442,15 +442,15 @@ def checkSequenceList(seqList, method='length', tolerance=None):
 		seqLengths = seqLength(seqList)
 		output = {'seqLengths':[], 'maxLength':[], 'minLength':[], 'quantileLengths':[], 'lowerQuantile':[], 'upperQuantile':[]}
 		for i,each in enumerate(seqLengths):
-			output['quantileLengths'].append(sp.percentile(each, [5, 25, 5, 75, 95]))
+			output['quantileLengths'].append(sp.percentile(each, [5, 25, 50, 75, 95]))
 			output['maxLength'].append(max(each))
 			output['minLength'].append(min(each))
 			output['upperQuantile'].append([False] * len(each))
 			output['lowerQuantile'].append([False] * len(each))
 			for k in range(len(each)):
-				if each[k] <= output['quantileLengths'][0]:
+				if each[k] <= output['quantileLengths'][i][0]:
 					output['lowerQuantile'][i][k] = True
-				elif each[i] >= output['quantileLengths'][4]:
+				elif each[k] >= output['quantileLengths'][i][4]:
 					output['upperQuantile'][i][k] = True
 		return output
 	
@@ -549,7 +549,7 @@ def alignmentDisplay(alignments, alignMethods, geneNames, alignDetect=None):
 		if alignDetect:
 			print "ID", "Alignment".ljust(12), "Length".ljust(10), "Med. Gaps".ljust(15), "SD Gaps".ljust(15), "Min-Max Gaps".ljust(15), "Med. Gap Frac.".ljust(15), "Max Gap Frac.".ljust(15)
 			for i in range(len(alignList)):
-				print  '{ID:3}{alignment:<12}{length:<10}{medGaps:<16.1f}{sdGaps:<16.2f}{minMaxGaps:15}{medGapsFrac:<16.2f}{minMaxGapsFrac:15}'.format(ID=str(i), alignment=alignMethods[i], length=alignDetect['length'][alignNo][i], medGaps=alignDetect['noGaps'][alignNo]['median'][i], sdGaps=alignDetect['noGaps'][alignNo]['sd'][i], minMaxGaps=str(str(round(alignDetect['noGaps'][alignNo]['min'][i],3))+" - "+str(round(alignDetect['noGaps'][alignNo]['max'][i],3))), medGapsFrac=alignDetect['gapFraction'][alignNo]['median'][i], minMaxGapsFrac=str(str(round(alignDetect['gapFraction'][alignNo]['min'][i],3))+"-"+str(round(alignDetect['gapFraction'][alignNo]['max'][i],3))))
+				print  '{ID:3}{alignment:<13}{length:<11}{medGaps:<16.1f}{sdGaps:<16.2f}{minMaxGaps:16}{medGapsFrac:<16.2f}{minMaxGapsFrac:15}'.format(ID=str(i), alignment=alignMethods[i], length=alignDetect['length'][alignNo][i], medGaps=alignDetect['noGaps'][alignNo]['median'][i], sdGaps=alignDetect['noGaps'][alignNo]['sd'][i], minMaxGaps=str(str(round(alignDetect['noGaps'][alignNo]['min'][i],3))+" - "+str(round(alignDetect['noGaps'][alignNo]['max'][i],3))), medGapsFrac=alignDetect['gapFraction'][alignNo]['median'][i], minMaxGapsFrac=str(str(round(alignDetect['gapFraction'][alignNo]['min'][i],3))+"-"+str(round(alignDetect['gapFraction'][alignNo]['max'][i],3))))
 		else:
 			print "ID", "Alignment", "Length"
 			for i in range(len(alignList)):
@@ -1235,6 +1235,7 @@ class PhyloGenerator:
 		self.uniqueTaxonomy = []
 		self.tracker = 0
 		self.rateSmoothMethods = ''
+		self.allAlignments = False
 		
 		#Stem name
 		if args.name:
@@ -1802,18 +1803,21 @@ class PhyloGenerator:
 	
 	def alignmentEditing(self):
 		alignmentDisplay(self.alignment, self.alignmentMethods, self.genes, checkAlignmentList(self.alignment, method='everything'))
-		print "\nIt's *strongly* recommended that you take a look at your alignment before continuing; the summary statistics above are unlikely to be sufficient to spot big problems!"
-		print "To print out your alignments, type 'output'. To return to the DNA editting stage, type 'DNA', and to align the sequences differently type 'align'."
-		print "\t, To automatically trim your sequences using trimAl, type 'trim'"
-		print "\nYou *cannot* continue without a chosen alignment for each gene you are using. To choose an alignment, just hit enter"
+		print "\nIt's *strongly* recommended that you take a look at your alignment before continuing."
+		print "the summary statistics above are unlikely to be sufficient to spot big problems!"
+		print "\t'output' - write current alignments to your working directory."
+		print "\t'DNA' - return to DNA editting stage"
+		print "\t'align' - align the sequences differently"
+		print "\t,'trim' - automatically trim your sequences using trimAl"
+		print "To pick a single alignment for each gene, just hit enter. To use all alignments, enter 'EVERYTHING'"
 		locker = True
 		while locker:
 			inputAlign = raw_input("Alignment Checking:")
 			if inputAlign:
 				if inputAlign == 'output':
 					for i,gene in enumerate(self.genes):
-						for j,method in enumerate(self.methods):
-							AlignIO.write(self.alignments[i][k], self.stem+"_"+gene+"_"+method, 'fasta')
+						for j,method in enumerate(self.alignmentMethod):
+							AlignIO.write(self.alignment[i][k], self.stem+"_"+gene+"_"+method, 'fasta')
 				elif inputAlign == 'DNA':
 					self.dnaChecking()
 				elif inputAlign == 'align':
@@ -1821,24 +1825,29 @@ class PhyloGenerator:
 				elif inputAlign == 'trim':
 					self.alignment = trimAlignment(self.alignment)
 					alignmentDisplay(self.alignment)
+				elif inputAlign == 'EVERYTHING':
+					print "...continuing with all alignments..."
+					locker = False
+					self.allAlignments = True
 				else:
 					print "Sorry, I don't understand", inputAlign, "- please try again."
 			else:
 				locker = False
-		print "\nIn the prompt below is the name of a gene. Type the ID number of the alignment you'd like to use for that gene below."
-		for i,gene in enumerate(self.genes):
-			locker = True
-			while locker:
-				choice = raw_input(gene+": ")
-				try:
-					if int(choice) in range(len(self.alignmentMethods)):
-						self.alignment[i] = self.alignment[i][int(choice)]
-						self.alignmentMethodChosen.append(self.alignmentMethod[int(choice)])
-						locker = False
-					else:
+		if not self.allAlignments:
+			print "\nIn the prompt below is the name of a gene. Type the ID number of the alignment you'd like to use for that gene."
+			for i,gene in enumerate(self.genes):
+				locker = True
+				while locker:
+					choice = raw_input(gene+": ")
+					try:
+						if int(choice) in range(len(self.alignmentMethods)):
+							self.alignment[i] = self.alignment[i][int(choice)]
+							self.alignmentMethodChosen.append(self.alignmentMethod[int(choice)])
+							locker = False
+						else:
+							print "Sorry, didn't get that. Try again."
+					except:
 						print "Sorry, didn't get that. Try again."
-				except:
-					print "Sorry, didn't get that. Try again."
 	
 	def align(self):
 		methods = ['muscle', 'mafft', 'clustalo', 'prank', 'everything', 'quick']
