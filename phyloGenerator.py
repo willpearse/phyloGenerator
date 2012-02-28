@@ -25,7 +25,9 @@ import time #For waiting between sequence downloads
 import argparse #For command line arguments
 import webbrowser #Load website on request
 import sys #To exit on errors
-import pdb
+import random #Random seeds for RAxML
+import pdb #Debugging
+import warnings
 def taxonIDLookup(taxonID):
 	handleDownload = Entrez.efetch(db="taxonomy", id=taxonID, retmode="xml")
 	resultsDownload = Entrez.read(handleDownload)
@@ -100,25 +102,25 @@ def findRelativeSequence(spName, geneName=None, cladeDepth=0, thorough=False, re
 			return (None, namesTried)
 
 def eSearch(term, retStart=0, retMax=20, usehistory="y"):
-	handle = Entrez.esearch(db="nucleotide",term=term, usehistory=usehistory, retStart=retStart, retMax=retMax)
+	handle = Entrez.esearch(db="nucleotide",term=term, usehistory=usehistory, retStart=retStart, retMax=retMax, retmode="text")
 	results = Entrez.read(handle)
 	handle.close()
 	return results
 
 def eFetchSeqID(seqID, rettype='gb'):
-	handle = Entrez.efetch(db="nucleotide", rettype=rettype, id=seqID)
+	handle = Entrez.efetch(db="nucleotide", rettype=rettype, retmode="text", id=seqID)
 	results = SeqIO.read(handle,rettype)
 	handle.close()
 	return results
 
 def eFetchESearch(eSearchOutput, rettype='gb'):
-	handle = Entrez.efetch(db="nucleotide", rettype=rettype, webenv=eSearchOutput['WebEnv'], query_key=eSearchOutput['QueryKey'])
+	handle = Entrez.efetch(db="nucleotide", rettype=rettype, retmode="text", webenv=eSearchOutput['WebEnv'], query_key=eSearchOutput['QueryKey'])
 	results = SeqIO.read(handle, rettype)
 	handle.close()
 	return results
 
 def eSummary(seqID):
-	handle = Entrez.esummary(db="nucleotide", id=seqID)
+	handle = Entrez.esummary(db="nucleotide", id=seqID, retmode="text")
 	results = Entrez.read(handle)
 	handle.close()
 	return results[0]
@@ -275,31 +277,6 @@ def findGenes(speciesList, geneNames, download=False, titleText=None, targetNoGe
 			else:
 				output.append(download is SeqRecord)
 		return output
-
-class TerminationPipe(object):
-	#Background process class
-	def __init__(self, cmd, timeout):
-		self.cmd = cmd
-		self.timeout = timeout
-		self.process = None
-		self.output = None
-		self.failure = False
-	
-	def run(self, silent=False):
-		def target():
-			if silent:
-				self.process = subprocess.Popen(self.cmd, shell=True)
-			else:
-				self.process = subprocess.Popen(self.cmd, shell=True, stdout=subprocess.PIPE)
-			self.output=self.process.communicate()
-		
-		thread = threading.Thread(target=target)
-		thread.start()
-		thread.join(self.timeout)
-		if thread.is_alive():
-			self.process.terminate()
-			thread.join()
-			self.failure = True
 
 def argsCheck(arguments, parameter, argSplit='-', paramSplit=' '):
 	parameters = arguments.split(argSplit)
@@ -555,9 +532,43 @@ def alignmentDisplay(alignments, alignMethods, geneNames, alignDetect=None):
 			for i in range(len(alignList)):
 				print str(i).ljust(len("ID")), alignMethods[i].ljust(len("Alignment")), str(alignList[i].get_alignment_length()).ljust(len("Length"))
 
-def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, timeout=999999999, cladeList=None,	DNAmodel='GTR+G', constraint=None, cleanup=True, runNow=True):
+def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, timeout=999999999, cladeList=None,	DNAmodel='GTR+G', partitions=None, constraint=None, cleanup=True, runNow=True, startingTree=None):
+	inputFile = tempStem + 'In.phylip'
+	outputFile = tempStem + 'Out'
+	fileLine = ' -s ' + inputFile + ' -n ' + outputFile
+	options = ' -p ' + str(random.randint(0,10000000)) + ''
+	#Outgroup(s), assuming they're in the right format for RAxML!
+	if outgroup:
+		options += ' -o ' + outgroup
+	AlignIO.write(alignment, inputFile, "phylip-relaxed")
+	if 'startingOnly' in method:
+		algorithm = ''
+		DNAmodel = ''
+		options += ' -y'
+	else:
+		#Restarts
+		if 'restarts' in method:
+			temp = method.split('-')
+			for each in temp:
+				if 'restarts' in each:
+					number = each.replace('restarts=', '')
+					options += ' -N ' + number
+					break
+		#Algorithm
+		if 'intergratedBootstrap' in method:
+			if 'restarts' in method:
+				raise RuntimeError("RAxML cannot do the accelerated bootstrap multiple times (at least not the way I'm using it).")
+			algorithm = ' -f a'
+			options += ' -b ' + str(random.randint(0,10000000)) + ' '
+		else:
+			algorithm = ' -f d'
+		#Starting tree
+		if startingTree:
+			Phylo.write(startingTree, tempStem + 'startingTree.tre', 'newick')
+			options += ' -t ' + tempStem + 'startingTree.tre'
+	#RAxML Flavour
 	if 'SSE3' in method and 'PTHREADS' in method:
-		raxmlCompile = '-PTHREADS-SSE3'
+			raxmlCompile = '-PTHREADS-SSE3'
 	elif 'SSE3' in method:
 		raxmlCompile = '-SSE3'
 	elif 'PTHREADS' in method:
@@ -579,30 +590,13 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
 		DNAmodel = ' -m GTRCATI'
 	else:
 		DNAmodel = ' -m GTRCAT'
-	#Restarts
-	if 'restarts' in method:
-		temp = method.split('-')
-		for each in temp:
-			if 'restarts' in each:
-				number = each.replace('restarts=', '')
-				options += ' -N ' + number
-				break
-	#Algorithm
-	if 'intergratedBootstrap' in method:
-		if 'restarts' in method:
-			raise RuntimeError("RAxML cannot do the accelerated bootstrap multiple times (at least not the way I'm using it).")
-		algorithm = ' -f a'
-		options += ' -b $RANDOM '
-	else:
-		algorithm = ' -f d'
-	inputFile = tempStem + 'In.phylip'
-	outputFile = tempStem + 'Out'
-	fileLine = ' -s ' + inputFile + ' -n ' + outputFile
-	options = ' -p $RANDOM'
-	#Outgroup(s), assuming they're in the right format for RAxML!
-	if outgroup:
-		options += ' -o ' + outgroup
-	AlignIO.write(alignment, inputFile, "phylip-relaxed")
+	#Partitions
+	if partitions:
+		with open(tempStem+"_partitions.txt", 'w') as f:
+			for i in range(0, len(partitions)-1):
+				f.write("DNA, position" + str(partitions[i]) + " = " + str(partitions[i]+1) + "-" + str(partitions[i+1]) + "\n")
+		options += " -q " + tempStem + "_partitions.txt"
+	
 	#Constraint
 	if constraint:
 		if constraint.is_bifurcating():
@@ -627,8 +621,13 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
 	pipe = TerminationPipe(commandLine, timeout)
 	pipe.run()
 	if not pipe.failure:
-		tree = Phylo.read('RAxML_bestTree.' + outputFile, "newick")
+		if 'startingOnly' in method:
+			tree = Phylo.read('RAxML_parsimonyTree.' + outputFile, "newick")
+		else:
+			tree = Phylo.read('RAxML_bestTree.' + outputFile, "newick")
 		if cleanup:
+			if startingTree:
+				os.remove(tempStem + 'startingTree.tre')
 			os.remove(inputFile)
 			dirList = os.listdir(os.getcwd())
 			for each in dirList:
@@ -636,20 +635,23 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
 					os.remove(each)
 				if tempStem+"In.phylip.reduced"==each:
 					os.remove(each)
-		return tree
-			
+		return tree			
 	else:
 		raise RuntimeError("Either phylogeny building program failed, or ran out of time")
 
-def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, constraint=None, cleanup=True, runNow=True, chainLength=1000000, logRate=1000, screenRate=1000, overwrite=True, burnin=0.1):
+def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, constraint=None, cleanup=True, runNow=True, chainLength=1000000, logRate=1000, screenRate=1000, overwrite=True, burnin=0.1, restart=None):
 	completeConstraint = False
 	with open(tempStem+"_BEAST.xml", 'w') as f:
 		f.write('<?xml version="1.0" standalone="yes"?>\n')
 		f.write('<beast>\n')
 		f.write('	<!-- The list of taxa analyse (can also include dates/ages).				 -->\n')
 		f.write('	<taxa id="taxa">\n')
-		for each in alignment:
-			f.write('		<taxon id="'+each.id+'"/>\n')
+		if type(alignment) is list:
+			for each in alignment[0]:
+				f.write('		<taxon id="'+each.id+'"/>\n')
+		else:
+			for each in alignment:
+				f.write('		<taxon id="'+each.id+'"/>\n')
 		f.write('	</taxa>\n')
 		if constraint:
 			clades = []
@@ -665,17 +667,33 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 					f.write('		<taxon idref="' + sp + '"/>\n')
 				f.write('	</taxa>')
 		f.write('	<!-- The sequence alignment (each sequence refers to a taxon above).		 -->\n')
-		f.write('	<alignment id="alignment" dataType="nucleotide">\n')
-		for each in alignment:
-			f.write('		<sequence>\n')
-			f.write('			<taxon idref="'+each.id+'"/>\n')
-			f.write(each.seq.tostring()+'\n')
-			f.write('		</sequence>\n')
-		f.write('	</alignment>\n')
+		if type(alignment) is list:
+			for i,align in enumerate(alignment):
+				f.write('	<alignment id="alignment'+str(i)+'" dataType="nucleotide">\n')
+				for seq in align:
+					f.write('		<sequence>\n')
+					f.write('			<taxon idref="'+seq.id+'"/>\n')
+					f.write(seq.seq.tostring()+'\n')
+					f.write('		</sequence>\n')
+				f.write('	</alignment>\n')
+		else:
+			f.write('	<alignment id="alignment" dataType="nucleotide">\n')
+			for each in alignment:
+				f.write('		<sequence>\n')
+				f.write('			<taxon idref="'+each.id+'"/>\n')
+				f.write(each.seq.tostring()+'\n')
+				f.write('		</sequence>\n')
+			f.write('	</alignment>\n')
 		f.write('	<!-- The unique patterns from 1 to end										 -->\n')
-		f.write('	<patterns id="patterns" from="1">\n')
-		f.write('		<alignment idref="alignment"/>\n')
-		f.write('	</patterns>\n')
+		if type(alignment) is list:
+			for i,align in enumerate(alignment):
+				f.write('	<patterns id="patterns' + str(i) + '" from="1">\n')
+				f.write('		<alignment idref="alignment' + str(i) + '"/>\n')
+				f.write('	</patterns>\n')
+		else:
+			f.write('	<patterns id="patterns" from="1">\n')
+			f.write('		<alignment idref="alignment"/>\n')
+			f.write('	</patterns>\n')
 		f.write('	<!-- A prior on the distribution node heights defined given					 -->\n')
 		f.write('	<!-- a Yule speciation process (a pure birth process).						 -->\n')
 		f.write('	<yuleModel id="yule" units="substitutions">\n')
@@ -691,13 +709,14 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 		f.write('		</populationSize>\n')
 		f.write('	</constantSize>\n')
 		if completeConstraint:
-			f.write('	<newick id="startingTree">')
 			Phylo.write(constraint, 'tempStem'+'_TREE.tre', 'newick')
 			with open('tempStem'+'_TREE.tre') as tF:
 				treeFormat = tF.readlines()[0]
-			os.remove('tempStem'+'_TREE.tre')
-			f.write('		'+treeFormat)
-			f.write('	</newick>')
+				os.remove('tempStem'+'_TREE.tre')
+				f.write('	<newick id="startingTree">')
+				os.remove('tempStem'+'_TREE.tre')
+				f.write('		'+treeFormat)
+				f.write('	</newick>')
 		else:
 			f.write('	<!-- Generate a random starting tree under the coalescent process			 -->\n')
 			f.write('	<coalescentTree id="startingTree" rootHeight="0.092">\n')
@@ -705,7 +724,7 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 			f.write('		<constantSize idref="initialDemo"/>\n')
 			f.write('	</coalescentTree>\n')
 		f.write('	<!-- Generate a tree model													 -->\n')
-		f.write('	<treeModel id="treeModel">\n')
+		f.write('	<treeModel id="treeModel">')
 		if completeConstraint:
 			f.write('		<newick idref="startingTree"/>')
 		else:
@@ -729,132 +748,266 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 		f.write('			<treeModel idref="treeModel"/>\n')
 		f.write('		</speciesTree>\n')
 		f.write('	</speciationLikelihood>\n')
-		f.write('	<!-- The uncorrelated relaxed clock (Drummond, Ho, Phillips & Rambaut, 2006) -->\n')
-		f.write('	<discretizedBranchRates id="branchRates">\n')
-		f.write('		<treeModel idref="treeModel"/>\n')
-		f.write('		<distribution>\n')
-		f.write('			<logNormalDistributionModel meanInRealSpace="true">\n')
-		f.write('				<mean>\n')
-		f.write('					<parameter id="ucld.mean" value="1.0"/>\n')
-		f.write('				</mean>\n')
-		f.write('				<stdev>\n')
-		f.write('					<parameter id="ucld.stdev" value="0.3333333333333333" lower="0.0" upper="Infinity"/>\n')
-		f.write('				</stdev>\n')
-		f.write('			</logNormalDistributionModel>\n')
-		f.write('		</distribution>\n')
-		f.write('		<rateCategories>\n')
-		f.write('			<parameter id="branchRates.categories" dimension="18"/>\n')
-		f.write('		</rateCategories>\n')
-		f.write('	</discretizedBranchRates>\n')
-		f.write('	<rateStatistic id="meanRate" name="meanRate" mode="mean" internal="true" external="true">\n')
-		f.write('		<treeModel idref="treeModel"/>\n')
-		f.write('		<discretizedBranchRates idref="branchRates"/>\n')
-		f.write('	</rateStatistic>\n')
-		f.write('	<rateStatistic id="coefficientOfVariation" name="coefficientOfVariation" mode="coefficientOfVariation" internal="true" external="true">\n')
-		f.write('		<treeModel idref="treeModel"/>\n')
-		f.write('		<discretizedBranchRates idref="branchRates"/>\n')
-		f.write('	</rateStatistic>\n')
-		f.write('	<rateCovarianceStatistic id="covariance" name="covariance">\n')
-		f.write('		<treeModel idref="treeModel"/>\n')
-		f.write('		<discretizedBranchRates idref="branchRates"/>\n')
-		f.write('	</rateCovarianceStatistic>\n')
-		if 'GTR' in method:
-			f.write('	<!-- The general time reversible (GTR) substitution model					 -->\n')
-			f.write('	<gtrModel id="gtr">\n')
-			f.write('		<frequencies>\n')
-			f.write('			<frequencyModel dataType="nucleotide">\n')
-			f.write('				<frequencies>\n')
-			if 'base=empirical' in method:
-				f.write('					<parameter id="frequencies" dimension="4"/>\n')
+		f.write('	<!-- Uncorrelated relaxed clock models (Drummond, Ho, Phillips & Rambaut, 2006) -->\n')
+		if type(alignment) is list:
+			for i,align in enumerate(alignment):
+				f.write('	<discretizedBranchRates id="branchRates' + str(i) + '">\n')
+				f.write('		<treeModel idref="treeModel"/>\n')
+				f.write('		<distribution>\n')
+				f.write('			<logNormalDistributionModel meanInRealSpace="true">\n')
+				f.write('				<mean>\n')
+				f.write('					<parameter id="ucld.mean' + str(i) + '" value="1.0"/>\n')
+				f.write('				</mean>\n')
+				f.write('				<stdev>\n')
+				f.write('					<parameter id="ucld.stdev' + str(i) + '" value="0.3333333333333333" lower="0.0" upper="Infinity"/>\n')
+				f.write('				</stdev>\n')
+				f.write('			</logNormalDistributionModel>\n')
+				f.write('		</distribution>\n')
+				f.write('		<rateCategories>\n')
+				f.write('			<parameter id="branchRates' + str(i) + '.categories" dimension="18"/>\n')
+				f.write('		</rateCategories>\n')
+				f.write('	</discretizedBranchRates>\n')
+				
+				f.write('	<rateStatistic id="meanRate' + str(i) + '" name="meanRate" mode="mean" internal="true" external="true">\n')
+				f.write('		<treeModel idref="treeModel"/>\n')
+				f.write('		<discretizedBranchRates idref="branchRates' + str(i) + '"/>\n')
+				f.write('	</rateStatistic>\n')
+				
+				f.write('	<rateStatistic id="coefficientOfVariation' + str(i) + '" name="coefficientOfVariation" mode="coefficientOfVariation" internal="true" external="true">\n')
+				f.write('		<treeModel idref="treeModel"/>\n')
+				f.write('		<discretizedBranchRates idref="branchRates' + str(i) + '"/>\n')
+				f.write('	</rateStatistic>\n')
+				
+				f.write('	<rateCovarianceStatistic id="covariance' + str(i) + '" name="covariance">\n')
+				f.write('		<treeModel idref="treeModel"/>\n')
+				f.write('		<discretizedBranchRates idref="branchRates' + str(i) + '"/>\n')
+				f.write('	</rateCovarianceStatistic>\n')
+		else:
+			f.write('	<discretizedBranchRates id="branchRates">\n')
+			f.write('		<treeModel idref="treeModel"/>\n')
+			f.write('		<distribution>\n')
+			f.write('			<logNormalDistributionModel meanInRealSpace="true">\n')
+			f.write('				<mean>\n')
+			f.write('					<parameter id="ucld.mean" value="1.0"/>\n')
+			f.write('				</mean>\n')
+			f.write('				<stdev>\n')
+			f.write('					<parameter id="ucld.stdev" value="0.3333333333333333" lower="0.0" upper="Infinity"/>\n')
+			f.write('				</stdev>\n')
+			f.write('			</logNormalDistributionModel>\n')
+			f.write('		</distribution>\n')
+			f.write('		<rateCategories>\n')
+			f.write('			<parameter id="branchRates.categories" dimension="18"/>\n')
+			f.write('		</rateCategories>\n')
+			f.write('	</discretizedBranchRates>\n')
+			
+			f.write('	<rateStatistic id="meanRate" name="meanRate" mode="mean" internal="true" external="true">\n')
+			f.write('		<treeModel idref="treeModel"/>\n')
+			f.write('		<discretizedBranchRates idref="branchRates"/>\n')
+			f.write('	</rateStatistic>\n')
+			
+			f.write('	<rateStatistic id="coefficientOfVariation" name="coefficientOfVariation" mode="coefficientOfVariation" internal="true" external="true">\n')
+			f.write('		<treeModel idref="treeModel"/>\n')
+			f.write('		<discretizedBranchRates idref="branchRates"/>\n')
+			f.write('	</rateStatistic>\n')
+			
+			f.write('	<rateCovarianceStatistic id="covariance" name="covariance">\n')
+			f.write('		<treeModel idref="treeModel"/>\n')
+			f.write('		<discretizedBranchRates idref="branchRates"/>\n')
+			f.write('	</rateCovarianceStatistic>\n')
+		if type(alignment) is list:
+			for i,align in enumerate(alignment):
+				if 'GTR' in method:
+					f.write('	<!-- The general time reversible (GTR) substitution model					 -->\n')
+					f.write('	<gtrModel id="gtr' + str(i) + '">\n')
+					f.write('		<frequencies>\n')
+					f.write('			<frequencyModel dataType="nucleotide">\n')
+					f.write('				<frequencies>\n')
+					if 'base=empirical' in method:
+						f.write('					<parameter id="frequencies' + str(i) + '" dimension="4"/>\n')
+					else:
+						f.write('					<parameter id="frequencies' + str(i) + '" value="0.25 0.25 0.25 0.25"/>\n')
+					f.write('				</frequencies>\n')
+					f.write('			</frequencyModel>\n')
+					f.write('		</frequencies>\n')
+					f.write('		<rateAC>\n')
+					f.write('			<parameter id="ac' + str(i) + '" value="1.0" lower="0.0" upper="Infinity"/>\n')
+					f.write('		</rateAC>\n')
+					f.write('		<rateAG>\n')
+					f.write('			<parameter id="ag' + str(i) + '" value="1.0" lower="0.0" upper="Infinity"/>\n')
+					f.write('		</rateAG>\n')
+					f.write('		<rateAT>\n')
+					f.write('			<parameter id="at' + str(i) + '" value="1.0" lower="0.0" upper="Infinity"/>\n')
+					f.write('		</rateAT>\n')
+					f.write('		<rateCG>\n')
+					f.write('			<parameter id="cg' + str(i) + '" value="1.0" lower="0.0" upper="Infinity"/>\n')
+					f.write('		</rateCG>\n')
+					f.write('		<rateGT>\n')
+					f.write('			<parameter id="gt' + str(i) + '" value="1.0" lower="0.0" upper="Infinity"/>\n')
+					f.write('		</rateGT>\n')
+					f.write('	</gtrModel>\n')
+				elif 'HKY' in method:
+					f.write('	<!-- The HKY substitution model (Hasegawa, Kishino & Yano, 1985)			 -->')
+					f.write('	<HKYModel id="hky' + str(i) + '">')
+					f.write('		<frequencies>')
+					f.write('			<frequencyModel dataType="nucleotide">')
+					f.write('				<frequencies>')
+					f.write('					<parameter id="frequencies' + str(i) + '" value="0.25 0.25 0.25 0.25"/>')
+					f.write('				</frequencies>')
+					f.write('			</frequencyModel>')
+					f.write('		</frequencies>')
+					f.write('		<kappa>')
+					f.write('			<parameter id="kappa' + str(i) + '" value="2.0" lower="0.0" upper="Infinity"/>')
+					f.write('		</kappa>')
+					f.write('	</HKYModel>')
+				else:
+					raise RuntimeError("No valid DNA substituion model specified for BEAST.")
+		else:
+			if 'GTR' in method:
+				f.write('	<!-- The general time reversible (GTR) substitution model					 -->\n')
+				f.write('	<gtrModel id="gtr">\n')
+				f.write('		<frequencies>\n')
+				f.write('			<frequencyModel dataType="nucleotide">\n')
+				f.write('				<frequencies>\n')
+				if 'base=empirical' in method:
+					f.write('					<parameter id="frequencies" dimension="4"/>\n')
+				else:
+					f.write('					<parameter id="frequencies" value="0.25 0.25 0.25 0.25"/>\n')
+				f.write('				</frequencies>\n')
+				f.write('			</frequencyModel>\n')
+				f.write('		</frequencies>\n')
+				f.write('		<rateAC>\n')
+				f.write('			<parameter id="ac" value="1.0" lower="0.0" upper="Infinity"/>\n')
+				f.write('		</rateAC>\n')
+				f.write('		<rateAG>\n')
+				f.write('			<parameter id="ag" value="1.0" lower="0.0" upper="Infinity"/>\n')
+				f.write('		</rateAG>\n')
+				f.write('		<rateAT>\n')
+				f.write('			<parameter id="at" value="1.0" lower="0.0" upper="Infinity"/>\n')
+				f.write('		</rateAT>\n')
+				f.write('		<rateCG>\n')
+				f.write('			<parameter id="cg" value="1.0" lower="0.0" upper="Infinity"/>\n')
+				f.write('		</rateCG>\n')
+				f.write('		<rateGT>\n')
+				f.write('			<parameter id="gt" value="1.0" lower="0.0" upper="Infinity"/>\n')
+				f.write('		</rateGT>\n')
+				f.write('	</gtrModel>\n')
+			elif 'HKY' in method:
+				f.write('	<!-- The HKY substitution model (Hasegawa, Kishino & Yano, 1985)			 -->')
+				f.write('	<HKYModel id="hky">')
+				f.write('		<frequencies>')
+				f.write('			<frequencyModel dataType="nucleotide">')
+				f.write('				<frequencies>')
+				f.write('					<parameter id="frequencies" value="0.25 0.25 0.25 0.25"/>')
+				f.write('				</frequencies>')
+				f.write('			</frequencyModel>')
+				f.write('		</frequencies>')
+				f.write('		<kappa>')
+				f.write('			<parameter id="kappa" value="2.0" lower="0.0" upper="Infinity"/>')
+				f.write('		</kappa>')
+				f.write('	</HKYModel>')
 			else:
-				f.write('					<parameter id="frequencies" value="0.25 0.25 0.25 0.25"/>\n')
-			f.write('				</frequencies>\n')
-			f.write('			</frequencyModel>\n')
-			f.write('		</frequencies>\n')
-			f.write('		<rateAC>\n')
-			f.write('			<parameter id="ac" value="1.0" lower="0.0" upper="Infinity"/>\n')
-			f.write('		</rateAC>\n')
-			f.write('		<rateAG>\n')
-			f.write('			<parameter id="ag" value="1.0" lower="0.0" upper="Infinity"/>\n')
-			f.write('		</rateAG>\n')
-			f.write('		<rateAT>\n')
-			f.write('			<parameter id="at" value="1.0" lower="0.0" upper="Infinity"/>\n')
-			f.write('		</rateAT>\n')
-			f.write('		<rateCG>\n')
-			f.write('			<parameter id="cg" value="1.0" lower="0.0" upper="Infinity"/>\n')
-			f.write('		</rateCG>\n')
-			f.write('		<rateGT>\n')
-			f.write('			<parameter id="gt" value="1.0" lower="0.0" upper="Infinity"/>\n')
-			f.write('		</rateGT>\n')
-			f.write('	</gtrModel>\n')
-		elif 'HKY' in method:
-			f.write('	<!-- The HKY substitution model (Hasegawa, Kishino & Yano, 1985)			 -->')
-			f.write('	<HKYModel id="hky">')
-			f.write('		<frequencies>')
-			f.write('			<frequencyModel dataType="nucleotide">')
-			f.write('				<frequencies>')
-			f.write('					<parameter id="frequencies" value="0.25 0.25 0.25 0.25"/>')
-			f.write('				</frequencies>')
-			f.write('			</frequencyModel>')
-			f.write('		</frequencies>')
-			f.write('		<kappa>')
-			f.write('			<parameter id="kappa" value="2.0" lower="0.0" upper="Infinity"/>')
-			f.write('		</kappa>')
-			f.write('	</HKYModel>')
+				raise RuntimeError("No valid DNA substituion model specified for BEAST.")
+		if type(alignment) is list:
+			for i,align in enumerate(alignment):
+				f.write('	<!-- site model																 -->\n')
+				f.write('	<siteModel id="siteModel' + str(i) + '">\n')
+				f.write('		<substitutionModel>\n')
+				if 'GTR' in method:
+					f.write('			<gtrModel idref="gtr' + str(i) + '"/>\n')
+				elif 'HKY' in method:
+					f.write('			<HKYModel idref="hky' + str(i) + '"/>')
+				else:
+					raise RuntimeError("No valid DNA substituion model specified for BEAST.")
+				f.write('		</substitutionModel>\n')
 		else:
-			raise RuntimeError("No valid DNA substituion model specified for BEAST.")
-		f.write('	<!-- site model																 -->\n')
-		f.write('	<siteModel id="siteModel">\n')
-		f.write('		<substitutionModel>\n')
-		if 'GTR' in method:
-			f.write('			<gtrModel idref="gtr"/>\n')
-		elif 'HKY' in method:
-			f.write('			<HKYModel idref="hky"/>')
-		else:
-			raise RuntimeError("No valid DNA substituion model specified for BEAST.")
-		f.write('		</substitutionModel>\n')
+			f.write('	<!-- site model																 -->\n')
+			f.write('	<siteModel id="siteModel">\n')
+			f.write('		<substitutionModel>\n')
+			if 'GTR' in method:
+				f.write('			<gtrModel idref="gtr"/>\n')
+			elif 'HKY' in method:
+				f.write('			<HKYModel idref="hky"/>')
+			else:
+				raise RuntimeError("No valid DNA substituion model specified for BEAST.")
+			f.write('		</substitutionModel>\n')
 		if 'GAMMA' in method:
 			f.write('		<gammaShape gammaCategories="4">')
 			f.write('			<parameter id="alpha" value="0.5" lower="0.0" upper="1000.0"/>')
 			f.write('		</gammaShape>')
 		f.write('	</siteModel>\n')
-		f.write('	<treeLikelihood id="treeLikelihood" useAmbiguities="false">\n')
-		f.write('		<patterns idref="patterns"/>\n')
-		f.write('		<treeModel idref="treeModel"/>\n')
-		f.write('		<siteModel idref="siteModel"/>\n')
-		f.write('		<discretizedBranchRates idref="branchRates"/>\n')
-		f.write('	</treeLikelihood>\n')
+		if type(alignment) is list:
+			f.write('	<treeLikelihood id="treeLikelihood' + str(i) + '" useAmbiguities="false">\n')
+			f.write('		<patterns idref="patterns' + str(i) + '"/>\n')
+			f.write('		<treeModel idref="treeModel"/>\n')
+			f.write('		<siteModel idref="siteModel' + str(i) + '"/>\n')
+			f.write('		<discretizedBranchRates idref="branchRates' + str(i) + '"/>\n')
+			f.write('	</treeLikelihood>\n')
+		else:
+			f.write('	<treeLikelihood id="treeLikelihood" useAmbiguities="false">\n')
+			f.write('		<patterns idref="patterns"/>\n')
+			f.write('		<treeModel idref="treeModel"/>\n')
+			f.write('		<siteModel idref="siteModel"/>\n')
+			f.write('		<discretizedBranchRates idref="branchRates"/>\n')
+			f.write('	</treeLikelihood>\n')
 		f.write('	<!-- Define operators														 -->\n')
 		f.write('	<operators id="operators">\n')
-		if 'GTR' in method:
-			f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
-			f.write('			<parameter idref="ac"/>\n')
-			f.write('		</scaleOperator>\n')
-			f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
-			f.write('			<parameter idref="ag"/>\n')
-			f.write('		</scaleOperator>\n')
-			f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
-			f.write('			<parameter idref="at"/>\n')
-			f.write('		</scaleOperator>\n')
-			f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
-			f.write('			<parameter idref="cg"/>\n')
-			f.write('		</scaleOperator>\n')
-			f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
-			f.write('			<parameter idref="gt"/>\n')
-			f.write('		</scaleOperator>\n')
-		elif 'HKY' in method:
-			f.write('		<deltaExchange delta="0.01" weight="0.1">\n')
-			f.write('			<parameter idref="frequencies"/>\n')
-			f.write('		</deltaExchange>\n')
+		if type(alignment) is list:
+			for i,align in enumerate(alignment):
+				if 'GTR' in method:
+					f.write('		<scaleOperator scaleFactor="0.75" weight="3">\n')
+					f.write('			<parameter idref="ucld.stdev' + str(i) + '"/>\n')
+					f.write('		</scaleOperator>\n')
+					f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
+					f.write('			<parameter idref="ac' + str(i) + '"/>\n')
+					f.write('		</scaleOperator>\n')
+					f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
+					f.write('			<parameter idref="ag' + str(i) + '"/>\n')
+					f.write('		</scaleOperator>\n')
+					f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
+					f.write('			<parameter idref="at' + str(i) + '"/>\n')
+					f.write('		</scaleOperator>\n')
+					f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
+					f.write('			<parameter idref="cg' + str(i) + '"/>\n')
+					f.write('		</scaleOperator>\n')
+					f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
+					f.write('			<parameter idref="gt' + str(i) + '"/>\n')
+					f.write('		</scaleOperator>\n')
+				elif 'HKY' in method:
+					f.write('		<deltaExchange delta="0.01" weight="0.1">\n')
+					f.write('			<parameter idref="frequencies' + str(i) + '"/>\n')
+					f.write('		</deltaExchange>\n')
+				else:
+					raise RuntimeError("No valid DNA substituion model specified for BEAST.")
 		else:
-			raise RuntimeError("No valid DNA substituion model specified for BEAST.")
+			f.write('		<scaleOperator scaleFactor="0.75" weight="3">\n')
+			f.write('			<parameter idref="ucld.stdev"/>\n')
+			f.write('		</scaleOperator>\n')
+			if 'GTR' in method:
+				f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
+				f.write('			<parameter idref="ac"/>\n')
+				f.write('		</scaleOperator>\n')
+				f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
+				f.write('			<parameter idref="ag"/>\n')
+				f.write('		</scaleOperator>\n')
+				f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
+				f.write('			<parameter idref="at"/>\n')
+				f.write('		</scaleOperator>\n')
+				f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
+				f.write('			<parameter idref="cg"/>\n')
+				f.write('		</scaleOperator>\n')
+				f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
+				f.write('			<parameter idref="gt"/>\n')
+				f.write('		</scaleOperator>\n')
+			elif 'HKY' in method:
+				f.write('		<deltaExchange delta="0.01" weight="0.1">\n')
+				f.write('			<parameter idref="frequencies"/>\n')
+				f.write('		</deltaExchange>\n')
+			else:
+				raise RuntimeError("No valid DNA substituion model specified for BEAST.")
 		if 'GAMMA' in method:
 			f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">')
 			f.write('			<parameter idref="alpha"/>')
 			f.write('		</scaleOperator>')
-		f.write('		<scaleOperator scaleFactor="0.75" weight="3">\n')
-		f.write('			<parameter idref="ucld.stdev"/>\n')
-		f.write('		</scaleOperator>\n')
 		if not completeConstraint:
 			f.write('		<subtreeSlide size="0.0092" gaussian="true" weight="15">\n')
 			f.write('			<treeModel idref="treeModel"/>\n')
@@ -884,43 +1037,80 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 		f.write('				<parameter idref="treeModel.allInternalNodeHeights"/>\n')
 		f.write('			</down>\n')
 		f.write('		</upDownOperator>\n')
-		f.write('		<swapOperator size="1" weight="10" autoOptimize="false">\n')
-		f.write('			<parameter idref="branchRates.categories"/>\n')
-		f.write('		</swapOperator>\n')
-		f.write('		<randomWalkIntegerOperator windowSize="1" weight="10">\n')
-		f.write('			<parameter idref="branchRates.categories"/>\n')
-		f.write('		</randomWalkIntegerOperator>\n')
-		f.write('		<uniformIntegerOperator weight="10">\n')
-		f.write('			<parameter idref="branchRates.categories"/>\n')
-		f.write('		</uniformIntegerOperator>\n')
+		if type(alignment) is list:
+			for i,aling in enumerate(alignment):
+				f.write('		<swapOperator size="1" weight="10" autoOptimize="false">\n')
+				f.write('			<parameter idref="branchRates' + str(i) + '.categories"/>\n')
+				f.write('		</swapOperator>\n')
+				f.write('		<randomWalkIntegerOperator windowSize="1" weight="10">\n')
+				f.write('			<parameter idref="branchRates' + str(i) + '.categories"/>\n')
+				f.write('		</randomWalkIntegerOperator>\n')
+				f.write('		<uniformIntegerOperator weight="10">\n')
+				f.write('			<parameter idref="branchRates' + str(i) + '.categories"/>\n')
+				f.write('		</uniformIntegerOperator>\n')
+		else:
+			f.write('		<swapOperator size="1" weight="10" autoOptimize="false">\n')
+			f.write('			<parameter idref="branchRates.categories"/>\n')
+			f.write('		</swapOperator>\n')
+			f.write('		<randomWalkIntegerOperator windowSize="1" weight="10">\n')
+			f.write('			<parameter idref="branchRates.categories"/>\n')
+			f.write('		</randomWalkIntegerOperator>\n')
+			f.write('		<uniformIntegerOperator weight="10">\n')
+			f.write('			<parameter idref="branchRates.categories"/>\n')
+			f.write('		</uniformIntegerOperator>\n')
 		f.write('	</operators>\n')
 		f.write('	<!-- Define MCMC															 -->\n')
 		f.write('	<mcmc id="mcmc" chainLength="' + str(chainLength) + '" autoOptimize="true">\n')
 		f.write('		<posterior id="posterior">\n')
 		f.write('			<prior id="prior">\n')
 		if 'GTR' in method:
-			f.write('				<gammaPrior shape="0.05" scale="10.0" offset="0.0">\n')
-			f.write('					<parameter idref="ac"/>\n')
-			f.write('				</gammaPrior>\n')
-			f.write('				<gammaPrior shape="0.05" scale="20.0" offset="0.0">\n')
-			f.write('					<parameter idref="ag"/>\n')
-			f.write('				</gammaPrior>\n')
-			f.write('				<gammaPrior shape="0.05" scale="10.0" offset="0.0">\n')
-			f.write('					<parameter idref="at"/>\n')
-			f.write('				</gammaPrior>\n')
-			f.write('				<gammaPrior shape="0.05" scale="10.0" offset="0.0">\n')
-			f.write('					<parameter idref="cg"/>\n')
-			f.write('				</gammaPrior>\n')
-			f.write('				<gammaPrior shape="0.05" scale="10.0" offset="0.0">\n')
-			f.write('					<parameter idref="gt"/>\n')
-			f.write('				</gammaPrior>\n')
-		f.write('				<exponentialPrior mean="0.3333333333333333" offset="0.0">\n')
-		f.write('					<parameter idref="ucld.stdev"/>\n')
-		f.write('				</exponentialPrior>\n')
+			if type (alignment) is list:
+				for i,align in enumerate(alignment):
+					f.write('				<gammaPrior shape="0.05" scale="10.0" offset="0.0">\n')
+					f.write('					<parameter idref="ac' + str(i) + '"/>\n')
+					f.write('				</gammaPrior>\n')
+					f.write('				<gammaPrior shape="0.05" scale="20.0" offset="0.0">\n')
+					f.write('					<parameter idref="ag' + str(i) + '"/>\n')
+					f.write('				</gammaPrior>\n')
+					f.write('				<gammaPrior shape="0.05" scale="10.0" offset="0.0">\n')
+					f.write('					<parameter idref="at' + str(i) + '"/>\n')
+					f.write('				</gammaPrior>\n')
+					f.write('				<gammaPrior shape="0.05" scale="10.0" offset="0.0">\n')
+					f.write('					<parameter idref="cg' + str(i) + '"/>\n')
+					f.write('				</gammaPrior>\n')
+					f.write('				<gammaPrior shape="0.05" scale="10.0" offset="0.0">\n')
+					f.write('					<parameter idref="gt' + str(i) + '"/>\n')
+					f.write('				</gammaPrior>\n')
+					f.write('				<exponentialPrior mean="0.3333333333333333" offset="0.0">\n')
+					f.write('					<parameter idref="ucld.stdev' + str(i) + '"/>\n')
+					f.write('				</exponentialPrior>\n')
+			else:
+				f.write('				<gammaPrior shape="0.05" scale="10.0" offset="0.0">\n')
+				f.write('					<parameter idref="ac"/>\n')
+				f.write('				</gammaPrior>\n')
+				f.write('				<gammaPrior shape="0.05" scale="20.0" offset="0.0">\n')
+				f.write('					<parameter idref="ag"/>\n')
+				f.write('				</gammaPrior>\n')
+				f.write('				<gammaPrior shape="0.05" scale="10.0" offset="0.0">\n')
+				f.write('					<parameter idref="at"/>\n')
+				f.write('				</gammaPrior>\n')
+				f.write('				<gammaPrior shape="0.05" scale="10.0" offset="0.0">\n')
+				f.write('					<parameter idref="cg"/>\n')
+				f.write('				</gammaPrior>\n')
+				f.write('				<gammaPrior shape="0.05" scale="10.0" offset="0.0">\n')
+				f.write('					<parameter idref="gt"/>\n')
+				f.write('				</gammaPrior>\n')
+				f.write('				<exponentialPrior mean="0.3333333333333333" offset="0.0">\n')
+				f.write('					<parameter idref="ucld.stdev"/>\n')
+				f.write('				</exponentialPrior>\n')
 		f.write('				<speciationLikelihood idref="speciation"/>\n')
 		f.write('			</prior>\n')
 		f.write('			<likelihood id="likelihood">\n')
-		f.write('				<treeLikelihood idref="treeLikelihood"/>\n')
+		if type(alignment) is list:
+			for i,align in enumerate(alignment):
+				f.write('				<treeLikelihood idref="treeLikelihood' + str(i) + '"/>\n')
+		else:
+			f.write('				<treeLikelihood idref="treeLikelihood"/>\n')
 		f.write('			</likelihood>\n')
 		f.write('		</posterior>\n')
 		f.write('		<operators idref="operators"/>\n')
@@ -938,9 +1128,15 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 		f.write('			<column label="rootHeight" sf="6" width="12">\n')
 		f.write('				<parameter idref="treeModel.rootHeight"/>\n')
 		f.write('			</column>\n')
-		f.write('			<column label="ucld.mean" sf="6" width="12">\n')
-		f.write('				<parameter idref="ucld.mean"/>\n')
-		f.write('			</column>\n')
+		if type(alignment) is list:
+				for i,align in enumerate(alignment):
+					f.write('			<column label="ucld.mean' + str(i) + '" sf="6" width="12">\n')
+					f.write('				<parameter idref="ucld.mean' + str(i) + '"/>\n')
+					f.write('			</column>\n')
+		else:
+			f.write('			<column label="ucld.mean" sf="6" width="12">\n')
+			f.write('				<parameter idref="ucld.mean"/>\n')
+			f.write('			</column>\n')
 		f.write('		</log>\n')
 		f.write('		<!-- write log to file														 -->\n')
 		f.write('		<log id="fileLog" logEvery="' + str(logRate) + '" fileName="'+tempStem+'.log" overwrite="false">\n')
@@ -950,30 +1146,59 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 		f.write('			<parameter idref="treeModel.rootHeight"/>\n')
 		f.write('			<parameter idref="yule.birthRate"/>\n')
 		if 'GTR' in method:
-			f.write('			<parameter idref="ac"/>\n')
-			f.write('			<parameter idref="ag"/>\n')
-			f.write('			<parameter idref="at"/>\n')
-			f.write('			<parameter idref="cg"/>\n')
-			f.write('			<parameter idref="gt"/>\n')
-			f.write('			<parameter idref="frequencies"/>\n')
+			if type(alignment) is list:
+				for i,align in enumerate(alignment):
+					f.write('			<parameter idref="ac' + str(i) + '"/>\n')
+					f.write('			<parameter idref="ag' + str(i) + '"/>\n')
+					f.write('			<parameter idref="at' + str(i) + '"/>\n')
+					f.write('			<parameter idref="cg' + str(i) + '"/>\n')
+					f.write('			<parameter idref="gt' + str(i) + '"/>\n')
+					f.write('			<parameter idref="frequencies' + str(i) + '"/>\n')
+			else:
+				f.write('			<parameter idref="ac"/>\n')
+				f.write('			<parameter idref="ag"/>\n')
+				f.write('			<parameter idref="at"/>\n')
+				f.write('			<parameter idref="cg"/>\n')
+				f.write('			<parameter idref="gt"/>\n')
+				f.write('			<parameter idref="frequencies"/>\n')
 		elif 'HKY' in method:
-			f.write('			<parameter idref="kappa"/>')
+			if type(alignment) is list:
+				for i,align in enumerate(alignment):
+					f.write('			<parameter idref="kappa' + str(i) + '"/>')
+			else:
+				f.write('			<parameter idref="kappa"/>')
 		else:
 			raise RuntimeError("No valid DNA substituion model specified for BEAST.")
 		if 'GAMMA' in method:
 			f.write('			<parameter idref="alpha"/>')
-		f.write('			<parameter idref="ucld.mean"/>\n')
-		f.write('			<parameter idref="ucld.stdev"/>\n')
-		f.write('			<rateStatistic idref="meanRate"/>\n')
-		f.write('			<rateStatistic idref="coefficientOfVariation"/>\n')
-		f.write('			<rateCovarianceStatistic idref="covariance"/>\n')
-		f.write('			<treeLikelihood idref="treeLikelihood"/>\n')
+		if type(alignment) is list:
+			for i,align in enumerate(alignment):
+				f.write('			<parameter idref="ucld.mean' + str(i) + '"/>\n')
+				f.write('			<parameter idref="ucld.stdev' + str(i) + '"/>\n')
+				f.write('			<rateStatistic idref="meanRate' + str(i) + '"/>\n')
+				f.write('			<rateStatistic idref="coefficientOfVariation' + str(i) + '"/>\n')
+				f.write('			<rateCovarianceStatistic idref="covariance' + str(i) + '"/>\n')
+		else:
+			f.write('			<parameter idref="ucld.mean"/>\n')
+			f.write('			<parameter idref="ucld.stdev"/>\n')
+			f.write('			<rateStatistic idref="meanRate"/>\n')
+			f.write('			<rateStatistic idref="coefficientOfVariation"/>\n')
+			f.write('			<rateCovarianceStatistic idref="covariance"/>\n')
+		if type(alignment) is list:
+				for i,align in enumerate(alignment):
+					f.write('			<treeLikelihood idref="treeLikelihood' + str(i) + '"/>\n')
+		else:
+			f.write('			<treeLikelihood idref="treeLikelihood"/>\n')
 		f.write('			<speciationLikelihood idref="speciation"/>\n')
 		f.write('		</log>\n')
 		f.write('		<!-- write tree log to file													 -->\n')
 		f.write('		<logTree id="treeFileLog" logEvery="' + str(logRate) + '" nexusFormat="true" fileName="'+tempStem+'.trees" sortTranslationTable="true">\n')
 		f.write('			<treeModel idref="treeModel"/>\n')
-		f.write('			<discretizedBranchRates idref="branchRates"/>\n')
+		if type(alignment) is list:
+			for i,align in enumerate(alignment):
+				f.write('			<discretizedBranchRates idref="branchRates' + str(i) + '"/>\n')
+		else:
+			f.write('			<discretizedBranchRates idref="branchRates"/>\n')
 		f.write('			<posterior idref="posterior"/>\n')
 		f.write('		</logTree>\n')
 		f.write('	</mcmc>\n')
@@ -1052,7 +1277,8 @@ def findGeneInSeq(seq, gene, trimSeq=False, DNAtype='Standard', gapType='-'):
 					else:
 						return foundSeq
 		else:
-			raise RuntimeError('Gene not found in sequence')
+			warnings.warn("Gene '" + gene + "' not found in sequence")
+			return ()
 	else:
 		raise RuntimeError('No sequence features found: are you using a GenBank record?')
 
@@ -1236,6 +1462,8 @@ class PhyloGenerator:
 		self.tracker = 0
 		self.rateSmoothMethods = ''
 		self.allAlignments = False
+		self.partitions = None
+		self.alignRF = []
 		
 		#Stem name
 		if args.name:
@@ -1418,7 +1646,7 @@ class PhyloGenerator:
 					else:
 						locker = False
 			if self.genes:
-				self.sequences, self.genes = findGenes(self.speciesNames, self.genes, seqChoice=self.initialSeqChoice, verbose=True, download=True, thorough=True, targetNoGenes=self.nGenes, spacer=self.spacer, delay=self.delay)
+				self.sequenceces, self.genes = findGenes(self.speciesNames, self.genes, seqChoice=self.initialSeqChoice, verbose=True, download=True, thorough=True, targetNoGenes=self.nGenes, spacer=self.spacer, delay=self.delay)
 	
 	def dnaChecking(self, tolerance=0.1):
 		self.tolerance = tolerance
@@ -1808,16 +2036,18 @@ class PhyloGenerator:
 		print "\t'output' - write current alignments to your working directory."
 		print "\t'DNA' - return to DNA editting stage"
 		print "\t'align' - align the sequences differently"
-		print "\t,'trim' - automatically trim your sequences using trimAl"
-		print "To pick a single alignment for each gene, just hit enter. To use all alignments, enter 'EVERYTHING'"
+		print "\t'trim' - automatically trim your sequences using trimAl"
+		print "\t'THOROUGH=X' - run X RAxML runs for each alignment, and calculate the R-F distances between the trees and alignments"
+		print "To carry on and pick a single alignment for each gene, just hit enter."
 		locker = True
 		while locker:
 			inputAlign = raw_input("Alignment Checking:")
 			if inputAlign:
 				if inputAlign == 'output':
 					for i,gene in enumerate(self.genes):
-						for j,method in enumerate(self.alignmentMethod):
-							AlignIO.write(self.alignment[i][k], self.stem+"_"+gene+"_"+method, 'fasta')
+						for j,method in enumerate(self.alignmentMethods):
+							AlignIO.write(self.alignment[i][j], self.stem+"_"+gene+"_"+method+".fasta", 'fasta')
+					print "...output written!"
 				elif inputAlign == 'DNA':
 					self.dnaChecking()
 				elif inputAlign == 'align':
@@ -1825,10 +2055,66 @@ class PhyloGenerator:
 				elif inputAlign == 'trim':
 					self.alignment = trimAlignment(self.alignment)
 					alignmentDisplay(self.alignment)
-				elif inputAlign == 'EVERYTHING':
-					print "...continuing with all alignments..."
-					locker = False
-					self.allAlignments = True
+				elif 'THOROUGH' in inputAlign:
+					try:
+						noTrees = int(inputAlign.replace('THOROUGH=', ''))
+					except:
+						print "Please specify the number of searches you want to perform."
+					#Make starting trees and random seeds
+					#startingTrees = []
+					#for i in range(noTrees):
+					#	startingTrees.append(RAxML(self.alignment[0][0], method='localVersion-startingOnly'))
+					
+					#Find trees from this search
+					# - if you start with the same tree for each, it tends to be shit...
+					trees = []
+					for i,gene	in enumerate(self.alignment):
+						for k,method in enumerate(gene):
+							for tree in range(noTrees):
+								trees.append(RAxML(method, 'localVersion'))
+					
+					#Calculate mean R-F distances
+					#...between alignment methods
+					Phylo.write(trees, 'alignCheckTemp.tre', 'newick')
+					pipe = TerminationPipe('raxml -f r -z alignCheckTemp.tre -n alignCheckTemp -m GTRGAMMA', 999999)
+					pipe.run()
+					if not pipe.failure:
+						self.alignRF = []
+						with open('RAxML_RF-Distances.alignCheckTemp') as f:
+							for line in f:
+								temp = line.strip()
+								self.alignRF.append(re.search("[0-9]{1}\.[0-9]+", temp).group())
+						
+						os.remove('alignCheckTemp.tre')
+						os.remove('RAxML_RF-Distances.alignCheckTemp')
+						os.remove('RAxML_info.alignCheckTemp')
+						print "\nMean Robinson-Folds distances between genes and alignment:"
+						header = []
+						for i,gene in enumerate(self.genes):
+							if len(gene) > 4:
+								gene = gene[0:4]
+							for j,method in enumerate(self.alignmentMethods):
+								header.append(gene + "_" + method[0:4])
+						header.insert(0, "        ")
+						print " ".join(header)
+						colToWrite = len(self.genes) * len(self.alignmentMethods) -1
+						x = 0
+						spacer = 1
+						for row in range((len(self.genes) * len(self.alignmentMethods))-1):
+							currRow = []
+							for col in range(colToWrite):
+								temp = []
+								for rep in range(noTrees):
+									temp.append(float(self.alignRF[x]))
+									x += 1
+								currRow.append(str(round(sum(temp)/len(temp), 3)).ljust(8))
+							for i in range(spacer):
+								currRow.insert(0, "        ")
+							print header[row+1], " ".join(currRow)
+							colToWrite -= 1
+							spacer += 1
+					else:
+						print "!!!Something went wrong with the RAxML runs. Sorry!"
 				else:
 					print "Sorry, I don't understand", inputAlign, "- please try again."
 			else:
@@ -1882,6 +2168,7 @@ class PhyloGenerator:
 			print "\t 'accelBootstrap' - conduct 'rapid bootstrap' and ML-search in one run (!)"
 			print "\t 'restart=X' - conduct X number of ML searches (!)"
 			print "\t 'localVersion' - the version of RAxML we're running is called 'raxml', not any of the other variants"
+			print "\t ''noPartitions' - *do not* split genes into separate partitions"
 			print "...to specify multiple options, type them all separated by hyphens (e.g. 'accelBootstrap-localVersion')"
 			print "...the options with '(!)' after them cannot be used in conjunction with each other"
 			print "...or... just hit enter to use the defaults!"
@@ -1924,6 +2211,7 @@ class PhyloGenerator:
 			print "\t 'logRate=X' - log output every 'X' steps"
 			print "\t 'screenRate=X' - report ouptut to the screen every 'X' steps"
 			print "\t 'overwriteBlock' - causes BEAST to halt if there are any files from previous attempts in your working directory"
+			#print "\t 'restart=X' - conduct X independent searches"
 			print "...to specify multiple options, type them all separated by hyphens (e.g. 'GTR-GAMMA')"
 			print "...the options with '(!)' after them cannot be used in conjunction with each other"
 			print "...or... just hit enter to use the defaults!"
@@ -1935,6 +2223,7 @@ class PhyloGenerator:
 				logRate = 1000
 				screenRate = 1000
 				overwrite = True
+				restart = 0
 				if beastInput:
 					if 'GTR' in beastInput:
 						methods +=	'-GTR'
@@ -1944,6 +2233,7 @@ class PhyloGenerator:
 						methods +=	'-GAMMA'
 					if 'overwriteBlock' in beastInput:
 						overwrite = False
+					#Oh my god make this simpler, it's absurd!!!
 					if 'chainLength' in beastInput:
 						temp = beastInput.split('-')
 						for each in temp:
@@ -1963,7 +2253,14 @@ class PhyloGenerator:
 						for each in temp:
 							if 'screenRate' in each:
 								screenRate = int(each.replace('screenRate=', ''))
-								screenRate += '-screenRate='+str(screenRate)
+								methods += '-screenRate='+str(screenRate)
+								break
+					if 'restart' in beastInput:
+						temp = beastInput.split('-')
+						for each in temp:
+							if 'restart' in each:
+								restart = int(each.replace('restart=', ''))
+								methods += '-restart='+str(screenRate)
 								break
 					if methods:
 						self.phylogenyMethods = 'BEAST' + methods
@@ -2334,9 +2631,11 @@ class PhyloGenerator:
 	
 	def concatenateSequences(self):
 		if len(self.genes) > 1:
+			self.partitions = [0, self.alignment[0].get_alignment_length()]
 			tempAlignment = self.alignment[0]
 			for i in range(1, (len(self.genes)-1)):
 				tempAlignment += self.alignment[i]
+				self.partitions.append(lengths[-1] + self.alignment[i])
 			self.alignment = tempAlignment
 			for i,x in enumerate(self.speciesNames):
 				self.alignment[i].id = self.speciesNames[i].replace(' ', '_')
@@ -2415,7 +2714,6 @@ def main():
 		#Output
 		currentState.writeOutput()
 		print "\nCongratulations! Exiting phyloGenerator."
-
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description="phyloGenerator - phylogeny generation for ecologists.", epilog="Help at http://willpearse.github.com/phyloGenerator - written by Will Pearse")
