@@ -1646,7 +1646,7 @@ class PhyloGenerator:
 					else:
 						locker = False
 			if self.genes:
-				self.sequenceces, self.genes = findGenes(self.speciesNames, self.genes, seqChoice=self.initialSeqChoice, verbose=True, download=True, thorough=True, targetNoGenes=self.nGenes, spacer=self.spacer, delay=self.delay)
+				self.sequences, self.genes = findGenes(self.speciesNames, self.genes, seqChoice=self.initialSeqChoice, verbose=True, download=True, thorough=True, targetNoGenes=self.nGenes, spacer=self.spacer, delay=self.delay)
 	
 	def dnaChecking(self, tolerance=0.1):
 		self.tolerance = tolerance
@@ -1899,7 +1899,7 @@ class PhyloGenerator:
 								self.APICheck()
 								lineage = findLineage(newName[i])
 								if lineage:
-									replacements = cladeSpecies(lineage[1])
+									replacements = cladeSpecies(lineage[0])
 									print "...looking for alternatives for", newName[i], "in clade", lineage[1]
 									for candidate in replacements:
 										name = 'ERROR'
