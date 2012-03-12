@@ -1340,21 +1340,25 @@ def cleanAlignment(align, method='trimAl-automated', tempStem='temp', timeout=No
 		options = ""
 		if 'automated' in method:
 			options += " -automated1"
-		fileLine = " -in " + tempStem + "Input.fasta -out " + tempStem + "Output.fasta -fasta"
-		trimalVersion = "trimal"
-		commandLine = trimalVersion + fileLine + options
-		if timeout:
-			pipe = TerminationPipe(commandLine, timeout)
-			pipe.run()
-			if not pipe.failure:
-				align = AlignIO.read(tempStem + "Output.fasta", "fasta")
-				os.remove(tempStem + "Output.fasta")
-				os.remove(tempStem + "Input.fasta")
-				return align
-			else:
-				raise RuntimeError("Either trimAl failed, or it ran out of time")
-		else:
-			return commandLine
+		output = []
+		for i,gene in enumerate(align):
+			geneOutput = []
+			for j,method in enumerate(gene):
+				AlignIO.write(method, tempStem+"Input.fasta", "fasta")
+				fileLine = " -in " + tempStem + "Input.fasta -out " + tempStem + "Output.fasta -fasta"
+				trimalVersion = "trimal"
+				commandLine = trimalVersion + fileLine + options
+				if timeout:
+					pipe = TerminationPipe(commandLine, timeout)
+					pipe.run()
+					if not pipe.failure:
+						geneOutput.append(AlignIO.read(tempStem + "Output.fasta", "fasta"))
+						os.remove(tempStem + "Output.fasta")
+						os.remove(tempStem + "Input.fasta")
+					else:
+						raise RuntimeError("Either trimAl failed, or it ran out of time")
+			output.append(geneOutput)
+		return output
 	else:
 		raise RuntimeError("Only automated trimAl methods supported at this time.")
 
@@ -1420,6 +1424,8 @@ def metal(alignList, tempStem='tempMetal', timeout=100):
 			temp = 'float(' + temp.replace(' /', ') /')
 			currDist.append(eval(temp))
 		if len(currDist) > 0: distances.append(currDist)
+	for i,location in enumerate(alignLocations):
+		os.remove(location)
 	return distances
 
 class TerminationPipe(object):
@@ -2059,7 +2065,7 @@ class PhyloGenerator:
 		print "\t'output' - write current alignments to your working directory."
 		print "\t'DNA' - return to DNA editting stage"
 		print "\t'align' - align the sequences differently"
-		print "\t'trim' - automatically trim your sequences using trimAl"
+		print "\t'trimAl' - automatically trim your sequences using trimAl"
 		print "\t'raxml=X' - run X RAxML runs for each alignment, and calculate the R-F distances between the trees and alignments"
 		print "\t'metal' - calculate SSP distances between genes and alignments using metal"
 		print "To carry on and pick a single alignment for each gene, just hit enter."
@@ -2076,9 +2082,9 @@ class PhyloGenerator:
 					self.dnaChecking()
 				elif inputAlign == 'align':
 					self.align()
-				elif inputAlign == 'trim':
-					self.alignment = trimAlignment(self.alignment)
-					alignmentDisplay(self.alignment)
+				elif inputAlign == 'trimAl':
+					self.alignment = cleanAlignment(self.alignment, timeout=99999)
+					alignmentDisplay(self.alignment, self.alignmentMethods, self.genes, checkAlignmentList(self.alignment, method='everything'))
 				elif inputAlign == 'metal':
 					self.metal = metal(self.alignment)
 					print "\nSSP distances between genes and alignments:"
