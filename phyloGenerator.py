@@ -25,7 +25,6 @@ import time #For waiting between sequence downloads
 import argparse #For command line arguments
 import webbrowser #Load website on request
 import sys #To exit on errors
-import random #Random seeds for RAxML
 import pdb #Debugging
 import warnings
 def taxonIDLookup(taxonID):
@@ -296,6 +295,7 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
 		geneOutput = []
 		seqs = [x[i] for x in seqList]
 		if 'muscle' in method:
+			print "...aligning with MUSCLE"
 			inputFile = tempStem + '.fasta'
 			outputFile = tempStem + 'Out.fasta'
 			commandLine = 'muscle -in ' + inputFile + " -out " + outputFile
@@ -311,6 +311,7 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
 				raise RuntimeError("MUSCLE alignment not complete in time allowed")
 		
 		if 'mafft' in method:
+			print "...aligning with MAFFT"
 			inputFile = tempStem + '.fasta'
 			outputFile = tempStem + 'Out.fasta'
 			commandLine = 'mafft --auto ' + inputFile + " > " + outputFile
@@ -326,6 +327,7 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
 				raise RuntimeError("Mafft alignment not complete in time allowed")
 		
 		if 'clustalo' in method:
+			print "...aligning with Clustal-o"
 			inputFile = tempStem + '.fasta'
 			outputFile = tempStem + 'Out.fasta'
 			commandLine = 'clustalo -i ' + inputFile + " -o " + outputFile + " -v"
@@ -341,6 +343,7 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
 				raise RuntimeError("Clustal-o alignment not complete in time allowed")
 		
 		if 'prank' in method:
+			print "...aligning with Prank"
 			inputFile = tempStem + '.fasta'
 			outputFile = tempStem + 'Out.fasta'
 			commandLine = 'prank -d=' + inputFile + " -o=" + outputFile
@@ -1398,33 +1401,53 @@ def createConstraintTree(spNames, method="phylomaticTaxonomy", fileName='', temp
 	else:
 		raise RuntimeError("Unrecognised constraint tree creation method specified")
 
+def metal(alignList, tempStem='tempMetal', timeout=100):
+	#Write out alignments
+	alignLocations = []
+	for i,gene in enumerate(alignList):
+		for j,method in enumerate(gene):
+			AlignIO.write(method, str(i)+"_"+str(j)+"_"+tempStem+".fasta", "fasta")
+			alignLocations.append(str(i)+"_"+str(j)+"_"+tempStem+".fasta")
+	
+	#Use each alignment and print it out
+	distances = []
+	for i,currAlign in enumerate(alignLocations):
+		currDist = []
+		for j,nextAlign in enumerate(alignLocations[(i+1):]):
+			pipe = TerminationPipe("metal "+currAlign+" "+nextAlign, timeout=timeout)
+			pipe.run()
+			temp = re.search('[0-9]*\ /\ [0-9]*', pipe.output[0]).group()
+			temp = 'float(' + temp.replace(' /', ') /')
+			currDist.append(eval(temp))
+		if len(currDist) > 0: distances.append(currDist)
+	return distances
+
 class TerminationPipe(object):
 	#Background process class
-	def __init__(self, cmd, timeout):
+	def __init__(self, cmd, timeout, silent=True):
 		self.cmd = cmd
 		self.timeout = timeout
 		self.process = None
 		self.output = None
 		self.failure = False
-		self.stdout = 'EMPTY'
 		self.stderr = 'EMPTY'
+		self.stdout = 'EMPTY'
+		self.silent = silent
 	
-	def run(self, silent=True):
+	def run(self, silent=None):
 		def silentTarget():
-			tStdout	 = open('termPipeStdOut.txt', 'w')
-			tStderr	 = open('termPipeStdErr.txt', 'w')
-			self.process = subprocess.Popen(self.cmd, shell=True, stdout=tStdout, stderr=tStderr)
-			self.stdout = open('termPipeStdOut.txt', 'r').readlines()
+			tStdout	 = open('termPipeStdErr.txt', 'w')
+			self.process = subprocess.Popen(self.cmd, stdout=subprocess.PIPE, shell=True, stderr=subprocess.PIPE)
+			self.output = self.process.communicate()
 			self.stderr = open('termPipeStdErr.txt', 'r').readlines()
-			os.remove('termPipeStdOut.txt')
 			os.remove('termPipeStdErr.txt')
-			self.output=self.process.communicate()
 		
 		def loudTarget():
-			self.process = subprocess.Popen(self.cmd, shell=True, stdout=subprocess.PIPE)
+			self.process = subprocess.Popen(self.cmd, shell=False)
 			self.output=self.process.communicate()
 		
-		if silent:
+		if silent: self.silent = silent
+		if self.silent:
 			thread = threading.Thread(target=silentTarget)
 		else:
 			thread = threading.Thread(target=loudTarget)
@@ -2037,7 +2060,8 @@ class PhyloGenerator:
 		print "\t'DNA' - return to DNA editting stage"
 		print "\t'align' - align the sequences differently"
 		print "\t'trim' - automatically trim your sequences using trimAl"
-		print "\t'THOROUGH=X' - run X RAxML runs for each alignment, and calculate the R-F distances between the trees and alignments"
+		print "\t'raxml=X' - run X RAxML runs for each alignment, and calculate the R-F distances between the trees and alignments"
+		print "\t'metal' - calculate SSP distances between genes and alignments using metal"
 		print "To carry on and pick a single alignment for each gene, just hit enter."
 		locker = True
 		while locker:
@@ -2055,9 +2079,28 @@ class PhyloGenerator:
 				elif inputAlign == 'trim':
 					self.alignment = trimAlignment(self.alignment)
 					alignmentDisplay(self.alignment)
-				elif 'THOROUGH' in inputAlign:
+				elif inputAlign == 'metal':
+					self.metal = metal(self.alignment)
+					print "\nSSP distances between genes and alignments:"
+					header = []
+					for i,gene in enumerate(self.genes):
+						if len(gene) > 4:
+							gene = gene[0:4]
+						else:
+							gene = gene.ljust(4)
+						for j,method in enumerate(self.alignmentMethods):
+							header.append(gene + "_" + method[0:4])
+					print " ".join(header)
+					x = 1
+					for i,gene in enumerate(self.metal):
+						curRow = ["        "]
+						x += 1
+						for k,method in enumerate(gene):
+							curRow.append(str(round(method, 4)).ljust(9))
+						print " ".join(curRow)
+				elif 'raxml' in inputAlign:
 					try:
-						noTrees = int(inputAlign.replace('THOROUGH=', ''))
+						noTrees = int(inputAlign.replace('raxml=', ''))
 					except:
 						print "Please specify the number of searches you want to perform."
 					#Make starting trees and random seeds
@@ -2088,14 +2131,16 @@ class PhyloGenerator:
 						os.remove('alignCheckTemp.tre')
 						os.remove('RAxML_RF-Distances.alignCheckTemp')
 						os.remove('RAxML_info.alignCheckTemp')
-						print "\nMean Robinson-Folds distances between genes and alignment:"
+						print "\nMean Robinson-Folds distances between genes and alignments:"
 						header = []
 						for i,gene in enumerate(self.genes):
 							if len(gene) > 4:
 								gene = gene[0:4]
+							else:
+								gene = gene.ljust(4)
 							for j,method in enumerate(self.alignmentMethods):
 								header.append(gene + "_" + method[0:4])
-						header.insert(0, "        ")
+						header.insert(0, "         ")
 						print " ".join(header)
 						colToWrite = len(self.genes) * len(self.alignmentMethods) -1
 						x = 0
@@ -2107,9 +2152,9 @@ class PhyloGenerator:
 								for rep in range(noTrees):
 									temp.append(float(self.alignRF[x]))
 									x += 1
-								currRow.append(str(round(sum(temp)/len(temp), 3)).ljust(8))
+								currRow.append(str(round(sum(temp)/len(temp), 3)).ljust(9))
 							for i in range(spacer):
-								currRow.insert(0, "        ")
+								currRow.insert(0, "         ")
 							print header[row+1], " ".join(currRow)
 							colToWrite -= 1
 							spacer += 1
