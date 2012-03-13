@@ -285,17 +285,18 @@ def argsCheck(arguments, parameter, argSplit='-', paramSplit=' '):
 		else:
 			raise RuntimeError("A match value for '" + paramter + "' was not found in the call '" + arguments + "'")
 
-def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, silent=False, nGenes=1):
+def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, silent=False, nGenes=1, verbose=True):
 	finalOutput = []
 	output = []
 	alignedSomething = False
 	if method == 'everything': method = 'muscle-mafft-clustalo-prank'
 	if method == 'quick': method = 'muscle-mafft-clustalo'
 	for i in range(nGenes):
+		if verbose: print "...aligning gene no.", i+1
 		geneOutput = []
 		seqs = [x[i] for x in seqList]
 		if 'muscle' in method:
-			print "...aligning with MUSCLE"
+			print "......with MUSCLE"
 			inputFile = tempStem + '.fasta'
 			outputFile = tempStem + 'Out.fasta'
 			commandLine = 'muscle -in ' + inputFile + " -out " + outputFile
@@ -311,7 +312,7 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
 				raise RuntimeError("MUSCLE alignment not complete in time allowed")
 		
 		if 'mafft' in method:
-			print "...aligning with MAFFT"
+			print "......with MAFFT"
 			inputFile = tempStem + '.fasta'
 			outputFile = tempStem + 'Out.fasta'
 			commandLine = 'mafft --auto ' + inputFile + " > " + outputFile
@@ -327,7 +328,7 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
 				raise RuntimeError("Mafft alignment not complete in time allowed")
 		
 		if 'clustalo' in method:
-			print "...aligning with Clustal-o"
+			print "......with Clustal-o"
 			inputFile = tempStem + '.fasta'
 			outputFile = tempStem + 'Out.fasta'
 			commandLine = 'clustalo -i ' + inputFile + " -o " + outputFile + " -v"
@@ -343,7 +344,7 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
 				raise RuntimeError("Clustal-o alignment not complete in time allowed")
 		
 		if 'prank' in method:
-			print "...aligning with Prank"
+			print "......with Prank"
 			inputFile = tempStem + '.fasta'
 			outputFile = tempStem + 'Out.fasta'
 			commandLine = 'prank -d=' + inputFile + " -o=" + outputFile
@@ -917,11 +918,20 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 				f.write('		<substitutionModel>\n')
 				if 'GTR' in method:
 					f.write('			<gtrModel idref="gtr' + str(i) + '"/>\n')
+					if 'GAMMA' in method:
+						f.write('		<gammaShape gammaCategories="4">')
+						f.write('			<parameter id="alpha' + str(i) + '" value="0.5" lower="0.0" upper="1000.0"/>')
+						f.write('		</gammaShape>')
 				elif 'HKY' in method:
 					f.write('			<HKYModel idref="hky' + str(i) + '"/>')
+					if 'GAMMA' in method:
+						f.write('		<gammaShape gammaCategories="4">')
+						f.write('			<parameter id="alpha' + str(i) + '" value="0.5" lower="0.0" upper="1000.0"/>')
+						f.write('		</gammaShape>')
 				else:
 					raise RuntimeError("No valid DNA substituion model specified for BEAST.")
 				f.write('		</substitutionModel>\n')
+			f.write('	</siteModel>\n')
 		else:
 			f.write('	<!-- site model																 -->\n')
 			f.write('	<siteModel id="siteModel">\n')
@@ -939,12 +949,13 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 			f.write('		</gammaShape>')
 		f.write('	</siteModel>\n')
 		if type(alignment) is list:
-			f.write('	<treeLikelihood id="treeLikelihood' + str(i) + '" useAmbiguities="false">\n')
-			f.write('		<patterns idref="patterns' + str(i) + '"/>\n')
-			f.write('		<treeModel idref="treeModel"/>\n')
-			f.write('		<siteModel idref="siteModel' + str(i) + '"/>\n')
-			f.write('		<discretizedBranchRates idref="branchRates' + str(i) + '"/>\n')
-			f.write('	</treeLikelihood>\n')
+			for i,align in enumerate(alignment):
+				f.write('	<treeLikelihood id="treeLikelihood' + str(i) + '" useAmbiguities="false">\n')
+				f.write('		<patterns idref="patterns' + str(i) + '"/>\n')
+				f.write('		<treeModel idref="treeModel"/>\n')
+				f.write('		<siteModel idref="siteModel' + str(i) + '"/>\n')
+				f.write('		<discretizedBranchRates idref="branchRates' + str(i) + '"/>\n')
+				f.write('	</treeLikelihood>\n')
 		else:
 			f.write('	<treeLikelihood id="treeLikelihood" useAmbiguities="false">\n')
 			f.write('		<patterns idref="patterns"/>\n')
@@ -1230,8 +1241,10 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 		pipeAnotate.run()
 		if not pipeAnotate.failure:
 			if cleanup:
+				os.remove(tempStem + "_BEAST.xml")
 				os.remove(tempStem + ".trees")
 				os.remove(tempStem + ".log")
+				os.remove("mcmc.operators")
 			return tempStem + "Final.tre"
 		else:
 			raise RuntimeError("Either tree annotation failed, or ran out of time")
@@ -2229,6 +2242,7 @@ class PhyloGenerator:
 			print "...the options with '(!)' after them cannot be used in conjunction with each other"
 			print "...or... just hit enter to use the defaults!"
 			raxmlLock = True
+			self.concatenateSequences()
 			while raxmlLock:
 				raxmlInput = raw_input("Phylogeny Building (RAxML): ")
 				if raxmlInput:
@@ -2319,10 +2333,11 @@ class PhyloGenerator:
 								methods += '-restart='+str(screenRate)
 								break
 					if methods:
+						if not 'GTR' in methods or not 'HKY' in methods:
+							methods += '-GTR-GAMMA'
 						self.phylogenyMethods = 'BEAST' + methods
-						print "...running BEAST with options ", phylogenyMethods
-						for i,align in enumerate(self.alignment):
-							self.phylogeny.append(BEAST(align, method=self.phylogenyMethods, constraint=self.constraint, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999))
+						print "...running BEAST with options ", self.phylogenyMethods
+						self.phylogeny.append(BEAST(self.alignment, method=self.phylogenyMethods, constraint=self.constraint, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999))
 						beastLock = False
 					else:
 						print "Sorry, I don't understand", beastInput, "- please try again."
@@ -2488,8 +2503,8 @@ class PhyloGenerator:
 			tGenBankIDs = []
 			for k in range(len(self.genes)):
 				if self.sequences[i][k]:
-					tGenBankIDs.append(self.sequences[i][k].name)
-					self.sequences[i][k].name = self.speciesNames[i].replace(" ", "_")
+					tGenBankIDs.append(self.sequences[i][k].id)
+					self.sequences[i][k].id = self.speciesNames[i].replace(" ", "_")
 				else:
 					tGenBankIDs.append("NO_SEQUENCE")
 			self.genBankIDs.append(tGenBankIDs)
@@ -2514,11 +2529,11 @@ class PhyloGenerator:
 					f.write("Species Name, Sequence ID\n")
 					for j,name in enumerate(self.speciesNames):
 						f.write(name + "_" + self.genBankIDs[j][i] + "\n")
+		
 		#Phylogeny
 		if self.phylogeny:
 			if 'BEAST' in self.phylogenyMethods:
-				for i,phylo in enumerate(self.phylogeny):
-					os.rename(phylo, self.stem+"_"+self.genes[i]+"_phylogeny.nex")
+				os.rename(self.phylogeny[0], self.stem+"_"+self.genes[i]+"_phylogeny.nex")
 			else:
 				for i,phylo in enumerate(self.phylogeny):
 					Phylo.write(phylo, self.stem+"_"+self.genes[i]+"_phylogeny.tre", 'newick')
@@ -2727,7 +2742,6 @@ class PhyloGenerator:
 			else:
 				checkerLocker = False
 	
-	
 	def checkConstraint(self):
 		if self.constraint:
 			tipLabels = [x.name for x in self.constraint.get_terminals()]
@@ -2805,7 +2819,6 @@ def main():
 		currentState.align()
 		print "\nALIGNMENT CHECKING"
 		currentState.alignmentEditing()
-		currentState.concatenateSequences()
 		
 		#Constraint tree
 		print "\nCONSTRAINT TREE"
