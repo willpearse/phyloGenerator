@@ -1484,7 +1484,7 @@ class PhyloGenerator:
 		self.sequences = []
 		self.speciesNames = []
 		self.dnaCheck = []
-		self.phylogeny = []
+		self.phylogeny = False
 		self.alignment = []
 		self.smoothPhylogeny = []
 		self.root = False
@@ -1506,7 +1506,7 @@ class PhyloGenerator:
 		self.allAlignments = False
 		self.partitions = None
 		self.alignRF = []
-		
+		self.mergedSpp = []
 		#Stem name
 		if args.name:
 			self.stem = args.name
@@ -1562,6 +1562,9 @@ class PhyloGenerator:
 		if args.alignment:
 			self.alignmentMethod = args.alignment
 		
+		if args.phylogen:
+			self.phylogenyMethods = args.phylogen
+		
 		#Constraint tree
 		self.constraintMethod = ''
 		#Phylomatic
@@ -1580,10 +1583,10 @@ class PhyloGenerator:
 			self.constraintMethod = 'newick'
 		
 		#Options file
-		if args.parameters:
+		if args.options:
 			options = []
 			try:
-				with open(args.parameters) as f:
+				with open(args.options) as f:
 					for each in f:
 						options.append(each.strip())
 			except:
@@ -1706,7 +1709,7 @@ class PhyloGenerator:
 				print "\nYou're in deletion mode. To delete a species, enter its SeqID and press return."
 				print "\tTo delete an entire gene, type 'gene', press enter, then the name of the gene you want to delete."
 				print "\t*One species at a time please!*"
-				print "To change to the 'reload', 'trim' or 'replace' modes, simply type their names then hit enter."
+				print "To change to the 'reload', 'trim', 'replace' or 'merge' modes, simply type their names then hit enter."
 			inputSeq = raw_input("DNA Editing (delete): ")
 			if inputSeq:
 				try:
@@ -1751,6 +1754,8 @@ class PhyloGenerator:
 					return "reload", True
 				elif inputSeq == "replace":
 					return "replace", True
+				elif inputSeq == "merge":
+					return "merge", True
 				else:
 					print "Sorry,", inputSeq, "was not recognised. Please try again."
 					return 'delete', False
@@ -1766,7 +1771,7 @@ class PhyloGenerator:
 				print "To reload all sequences above or below 900 bp in length (for example), type '>900' or '<900' respectively."
 				print "\t(to reload everything thoroughly, type 'EVERYTHING' (note the caps))"
 				print "\t*One species/sequence at a time please!*"
-				print "To change to the 'delete', 'trim' or 'reload' modes, simply type their names then hit enter."
+				print "To change to the 'delete', 'trim', 'reload' or 'merge' modes, simply type their names then hit enter."
 			inputSeq = raw_input("DNA Editing (reload):")
 			if inputSeq:
 				try:
@@ -1822,6 +1827,8 @@ class PhyloGenerator:
 					return "trim", True
 				elif inputSeq == "replace":
 					return "replace", True
+				elif inputSeq == "merge":
+					return "merge", True
 				else:
 					print "Sorry,", inputSeq, "was not recognised. Please try again."
 					return 'reload', False
@@ -1835,7 +1842,7 @@ class PhyloGenerator:
 				print "\tTo trim all sequences longer than 1000 bp, type '>1000'"
 				print"\t(to trim everything, type 'EVERYTHING' (note the caps))"
 				print "\t*One species/sequence at a time please!*"
-				print "To change to the 'delete', 'reload' or 'replace' modes, simply type their names then hit enter."
+				print "To change to the 'delete', 'reload', 'replace' or 'merge' modes, simply type their names then hit enter."
 			inputSeq = raw_input("DNA Editing (trim):")
 			if inputSeq:
 				try:
@@ -1889,6 +1896,8 @@ class PhyloGenerator:
 					return "reload", True
 				elif inputSeq == "replace":
 					return "replace", True
+				elif inputSeq == "merge":
+					return "merge", True
 				elif inputSeq == "EVERYTHING":
 					for i,sp in enumerate(self.sequences):
 						for j,gene in enumerate(sp):
@@ -1911,7 +1920,7 @@ class PhyloGenerator:
 				print "\nYou're in replace mode. To replace a particular species with a congener, simply type its SeqID and press enter."
 				print "\tTo replace all species without any sequences with a congener, type 'EVERYTHING' and press enter."
 				print "\tTo replace all species without any sequences with a relative it is more related to than any other species according to the GenBank taxonomy, type 'THOROUGH' and press enter."
-				print "To change to the 'delete', 'trim' or 'reload' modes, simply type their names then hit enter."
+				print "To change to the 'delete', 'trim', 'reload' or 'merge' modes, simply type their names then hit enter."
 			inputSeq = raw_input("DNA Editing (replace):")
 			if inputSeq:
 				try:
@@ -2052,11 +2061,71 @@ class PhyloGenerator:
 					return "reload", True
 				elif inputSeq == "trim":
 					return "trim", True
+				elif inputSeq == "merge":
+					return "merge", True
 				else:
 					print "Sorry,", inputSeq, "was not recognised. Please try again."
 					return 'replace', False
 			else:
 				return "EXIT", True
+		
+		def mergeMode(firstTime=True):
+			if firstTime:
+				print "\nYou're in merge mode. To merge species into a group, enter their SeqIDs, separated by commas, and press enter."
+				print "\tYou cannot merge two already-merged groups, and you're likely to *horribly* crash the program if you try it."
+				print "\t*Merging is permenant!*"
+				print "To change to the 'delete', 'reload', 'trim', or 'replace' modes, simply type their names then hit enter."
+			inputSeq = raw_input("DNA Editing (merge): ")
+			if inputSeq:
+				try:
+					spp = [int(x) for x in inputSeq.split(',')]
+					spp.sort()
+				except:
+					print "Sorry,", inputSeq, "was not recognised. Please try again."
+					return 'merge', False
+				if len(spp) > 1:
+					foundDNA = (False, -1)
+					for i,sp in reversed(list(enumerate(spp))):
+						if sp in range(len(self.sequences)):
+							for j,gene in enumerate(self.sequences[sp]):
+								if self.sequences[sp][j]:
+									if foundDNA[0]:
+										print "Sorry, you can't merge species if more than one has DNA. Please try again."
+										return "merge", False
+									else:
+										foundDNA = (True, sp)
+										break
+						else:
+							print "I couldn't find that SeqID."
+							return 'merge', False
+					if foundDNA[0]:
+						#It's safe to do the deletions
+						merged = [foundDNA[1]]
+						for i,sp in reversed(list(enumerate(spp))):
+							if sp != foundDNA[1]:
+								merged.append(self.speciesNames[sp])
+								del self.sequences[sp]
+								del self.speciesNames[sp]
+						self.mergedSpp.append(merged)
+						print "Successfully merged species into", merged[0]
+						print "Re-calulating summary statistics..."
+						self.dnaChecking()			
+						return "merge", False
+					else:
+						print "One of the species you're merging must have DNA data"
+						return "merge", False
+				else:
+					print "You can't merge a single species! Maybe try 'delete' mode?"
+					return "merge", False
+			elif inputSeq == "delete":
+				return "delete", True
+			elif inputSeq == "trim":
+				return "trim", True
+			elif inputSeq == "replace":
+				return "replace", True
+			else:
+				print "Sorry,", inputSeq, "was not recognised. Please try again."
+				return 'reload', False
 		
 		locker = True
 		firstTime = True
@@ -2070,6 +2139,8 @@ class PhyloGenerator:
 				mode, firstTime = trimMode(firstTime)
 			elif mode == "replace":
 				mode, firstTime = replaceMode(firstTime)
+			elif mode == "merge":
+				mode, firstTime = mergeMode(firstTime)
 			else:
 				raise RuntimeError("Unrecognised DNA Editing mode!")
 			if mode:
@@ -2086,7 +2157,7 @@ class PhyloGenerator:
 		print "\t'trimAl' - automatically trim your sequences using trimAl"
 		print "\t'raxml=X' - run X RAxML runs for each alignment, and calculate the R-F distances between the trees and alignments"
 		print "\t'metal' - calculate SSP distances between genes and alignments using metal"
-		print "To carry on and pick a single alignment for each gene, just hit enter."
+		print "To carry on, just hit enter. If you have multiple alignments, you will be asked to pick one for each gene."
 		locker = True
 		while locker:
 			inputAlign = raw_input("Alignment Checking:")
@@ -2188,7 +2259,7 @@ class PhyloGenerator:
 					print "Sorry, I don't understand", inputAlign, "- please try again."
 			else:
 				locker = False
-		if not self.allAlignments:
+		if len(self.alignmentMethods) > 1:
 			print "\nIn the prompt below is the name of a gene. Type the ID number of the alignment you'd like to use for that gene."
 			for i,gene in enumerate(self.genes):
 				locker = True
@@ -2203,6 +2274,9 @@ class PhyloGenerator:
 							print "Sorry, didn't get that. Try again."
 					except:
 						print "Sorry, didn't get that. Try again."
+		else:
+			for i,gene in enumerate(self.genes):
+				self.alignment[i] = self.alignment[i][0]
 	
 	def align(self):
 		methods = ['muscle', 'mafft', 'clustalo', 'prank', 'everything', 'quick']
@@ -2231,141 +2305,172 @@ class PhyloGenerator:
 			self.alignmentMethods = [self.alignmentMethod]
 	
 	def phylogen(self, method="RAxML-localVersion"):
-		def raxmlSetup(default=False):
-			print "RAXML:"
-			print "You have a choice of RAxML options:"
-			print "\t 'accelBootstrap' - conduct 'rapid bootstrap' and ML-search in one run (!)"
-			print "\t 'restart=X' - conduct X number of ML searches (!)"
-			print "\t 'localVersion' - the version of RAxML we're running is called 'raxml', not any of the other variants"
-			print "\t ''noPartitions' - *do not* split genes into separate partitions"
-			print "...to specify multiple options, type them all separated by hyphens (e.g. 'accelBootstrap-localVersion')"
-			print "...the options with '(!)' after them cannot be used in conjunction with each other"
-			print "...or... just hit enter to use the defaults!"
-			raxmlLock = True
+		def raxmlSetup(options=False):
+			def parseOptions(inputStr):
+				methods = ''
+				if 'accelBootstrap' in inputStr:
+					methods +=	'intergratedBootstrap-'
+				if 'restart=X' in inputStr:
+					temp = inputStr.split('-')
+					for each in temp:
+						if 'restart' in each:
+							methods += each + '-'
+							break
+				if 'localVersion' in inputStr:
+					methods +=	'localVersion-'
+				return methods
+			
 			self.concatenateSequences()
-			while raxmlLock:
-				raxmlInput = raw_input("Phylogeny Building (RAxML): ")
-				if raxmlInput:
-					methods = ''
-					if 'accelBootstrap' in raxmlInput:
-						methods +=	'intergratedBootstrap-'
-					if 'restart=X' in raxmlInput:
-						temp = raxmlInput.split('-')
-						for each in temp:
-							if 'restart' in each:
-								methods += each + '-'
-								break
-					if 'localVersion' in raxmlInput:
-						methods +=	'localVersion-'
-					if methods:
-						print "...running RAxML with options ", methods
-						self.phylogenyMethods = methods
-						for i,align in enumerate(self.alignment):
-							self.phylogeny.append(RAxML(align, method=self.phylogenyMethods, constraint=self.constraint, timeout=999999))
-							raxmlLock = False
-					else:
-						print "Sorry, I don't understand", raxmlInput, "- please try again."
+			if options:
+				if not parseOptions(options):
+					print "ERROR! Your RAxML options (", options, ") were not recognised. Please re-enter below."
 				else:
-					print "...running RAxML with default options"
-					for i,align in enumerate(self.alignment):
-						self.phylogeny.append(RAxML(align, method=self.phylogenyMethods, constraint=self.constraint, timeout=999999))
-					raxmlLock = False
+					self.phylogenyMethods = 'RAxML-' + parseOptions(options)
+			
+			if not self.phylogenyMethods:
+				print "RAXML:"
+				print "You have a choice of RAxML options:"
+				print "\t 'accelBootstrap' - conduct 'rapid bootstrap' and ML-search in one run (!)"
+				print "\t 'restart=X' - conduct X number of ML searches (!)"
+				print "\t 'localVersion' - the version of RAxML we're running is called 'raxml', not any of the other variants"
+				print "\t ''noPartitions' - *do not* split genes into separate partitions"
+				print "...to specify multiple options, type them all separated by hyphens (e.g. 'accelBootstrap-localVersion')"
+				print "...the options with '(!)' after them cannot be used in conjunction with each other"
+				print "...or... just hit enter to use the defaults!"
+				raxmlLock = True
+				while raxmlLock:
+					raxmlInput = raw_input("Phylogeny Building (RAxML): ")
+					if raxmlInput:
+						methods = parseOptions(raxmlInput)
+						if not methods:
+							print "Sorry, I don't understand", raxmlInput, "- please try again."
+						raxmlLock = False
+					else:
+						self.phylogenyMethods = 'RAxML-localVersion-GTR-GAMMA'
+						print "...running RAxML with default options:", self.phylogenyMethods
+						raxmlLock = False
+			
+			self.phylogeny = RAxML(self.alignment, method=self.phylogenyMethods, constraint=self.constraint, timeout=999999)
 		
-		def beastSetup(default=False):
-			print "BEAST:"
-			print "You have a choice of BEAST options:"
-			print "\t 'GTR' - conduct search with a GTR model (!)"
-			print "\t 'HKY' - conduct search with an HKY model (!)"
-			print "\t 'GAMMA' - conduct search with four gamma rate categories"
-			print "\t 'chainLength=X' - conduct search with chain length 'X'"
-			print "\t 'logRate=X' - log output every 'X' steps"
-			print "\t 'screenRate=X' - report ouptut to the screen every 'X' steps"
-			print "\t 'overwriteBlock' - causes BEAST to halt if there are any files from previous attempts in your working directory"
-			#print "\t 'restart=X' - conduct X independent searches"
-			print "...to specify multiple options, type them all separated by hyphens (e.g. 'GTR-GAMMA')"
-			print "...the options with '(!)' after them cannot be used in conjunction with each other"
-			print "...or... just hit enter to use the defaults!"
-			beastLock = True
-			while beastLock:
-				beastInput = raw_input("Phylogeny Building (BEAST): ")
+		def beastSetup(options=False):
+			def parseOptions(inputStr):
 				methods = ''
 				chainLength = 1000000
 				logRate = 1000
 				screenRate = 1000
 				overwrite = True
 				restart = 0
-				if beastInput:
-					if 'GTR' in beastInput:
-						methods +=	'-GTR'
-					if 'HKY' in beastInput:
-						methods += '-HKY'
-					if 'GAMMA' in beastInput:
-						methods +=	'-GAMMA'
-					if 'overwriteBlock' in beastInput:
-						overwrite = False
-					#Oh my god make this simpler, it's absurd!!!
-					if 'chainLength' in beastInput:
-						temp = beastInput.split('-')
-						for each in temp:
-							if 'chainLength' in each:
-								chainLength = int(each.replace('chainLength=', ''))
-								methods += '-chainLength='+str(chainLength)
-								break
-					if 'logRate' in beastInput:
-						temp = beastInput.split('-')
-						for each in temp:
-							if 'logRate' in each:
-								logRate = int(each.replace('logRate=', ''))
-								methods += '-logRate='+str(logRate)
-								break
-					if 'screenRate' in beastInput:
-						temp = beastInput.split('-')
-						for each in temp:
-							if 'screenRate' in each:
-								screenRate = int(each.replace('screenRate=', ''))
-								methods += '-screenRate='+str(screenRate)
-								break
-					if 'restart' in beastInput:
-						temp = beastInput.split('-')
-						for each in temp:
-							if 'restart' in each:
-								restart = int(each.replace('restart=', ''))
-								methods += '-restart='+str(screenRate)
-								break
-					if methods:
-						if not 'GTR' in methods or not 'HKY' in methods:
-							methods += '-GTR-GAMMA'
-						self.phylogenyMethods = 'BEAST' + methods
-						print "...running BEAST with options ", self.phylogenyMethods
-						self.phylogeny.append(BEAST(self.alignment, method=self.phylogenyMethods, constraint=self.constraint, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999))
-						beastLock = False
+				if 'GTR' in inputStr:
+					methods +=	'-GTR'
+				if 'HKY' in inputStr:
+					methods += '-HKY'
+				if 'GAMMA' in inputStr:
+					methods +=	'-GAMMA'
+				if 'overwriteBlock' in inputStr:
+					overwrite = False
+				#Oh my god make this simpler, it's absurd!!!
+				if 'chainLength' in inputStr:
+					temp = inputStr.split('-')
+					for each in temp:
+						if 'chainLength' in each:
+							chainLength = int(each.replace('chainLength=', ''))
+							methods += '-chainLength='+str(chainLength)
+							break
+				if 'logRate' in inputStr:
+					temp = inputStr.split('-')
+					for each in temp:
+						if 'logRate' in each:
+							logRate = int(each.replace('logRate=', ''))
+							methods += '-logRate='+str(logRate)
+							break
+				if 'screenRate' in inputStr:
+					temp = inputStr.split('-')
+					for each in temp:
+						if 'screenRate' in each:
+							screenRate = int(each.replace('screenRate=', ''))
+							methods += '-screenRate='+str(screenRate)
+							break
+				if 'restart' in inputStr:
+					temp = inputStr.split('-')
+					for each in temp:
+						if 'restart' in each:
+							restart = int(each.replace('restart=', ''))
+							methods += '-restart='+str(screenRate)
+							break
+				return methods, logRate, screenRate, chainLength, overwrite
+			
+			if options:
+				if not parseOptions(options)[0]:
+					print "ERROR! Your BEAST options (", options, ") were not recognised. Please re-enter below."
+				else:
+					self.phylogenyMethods, logRate, screenRate, chainLength, overwrite = parseOptions(options)
+					self.phylogenyMethods = 'BEAST' + self.phylogenyMethods
+			
+			if not self.phylogenyMethods:
+				print "BEAST:"
+				print "You have a choice of BEAST options:"
+				print "\t 'GTR' - conduct search with a GTR model (!)"
+				print "\t 'HKY' - conduct search with an HKY model (!)"
+				print "\t 'GAMMA' - conduct search with four gamma rate categories"
+				print "\t 'chainLength=X' - conduct search with chain length 'X'"
+				print "\t 'logRate=X' - log output every 'X' steps"
+				print "\t 'screenRate=X' - report ouptut to the screen every 'X' steps"
+				print "\t 'overwriteBlock' - causes BEAST to halt if there are any files from previous attempts in your working directory"
+				#print "\t 'restart=X' - conduct X independent searches"
+				print "...to specify multiple options, type them all separated by hyphens (e.g. 'GTR-GAMMA')"
+				print "...the options with '(!)' after them cannot be used in conjunction with each other"
+				print "...or... just hit enter to use the defaults!"
+				beastLock = True
+				while beastLock:
+					beastInput = raw_input("Phylogeny Building (BEAST): ")
+					methods = ''
+					if beastInput:
+						self.phylogenyMethods, logRate, screenRate, chainLength, overwrite = parseOptions(options)
+						self.phylogenyMethods = 'BEAST' + self.phylogenyMethods
+						if self.phylogenyMethods:
+							beastLock = False
+						else:
+							print "Sorry, I don't understand", beastInput, "- please try again."
 					else:
-						print "Sorry, I don't understand", beastInput, "- please try again."
-				else:
-					print "...running BEAST with default options"
-					for i,align in enumerate(self.alignment):
-						self.phylogenyMethods = 'BEAST-GTR-GAMMA'
-						self.phylogeny.append(BEAST(align, method=self.phylogenyMethods, constraint=self.constraint, overwrite=overwrite, timeout=999999))
-					self.phylogenyMethods = 'BEAST-GTR-GAMMA'
-					beastLock = False
-		
-		print "You can either build a maximum likelihood tree ('raxml') or a Bayesian tree ('beast'). If unsure what to do, just hit enter to build a RAxML tree with default options."
-		locker = True
-		while locker:
-			phyloInput = raw_input("Phylogeny Building: ")
-			if phyloInput:
-				if phyloInput == 'raxml':
-					raxmlSetup()
-					locker = False
-				elif phyloInput == 'beast':
-					beastSetup()
-					locker = False
-				else:
-					print "Sorry, I don't understand", phyloInput, "- please try again."
+						print "...running BEAST with default options"
+						self.phylogenyMethods = 'GTR-GAMMA'
+						beastLock = False
+			
+			if not 'GTR' in self.phylogenyMethods and not 'HKY' in self.phylogenyMethods:
+				self.phylogenyMethods += '-GTR-GAMMA'
+			print "...running BEAST with options ", self.phylogenyMethods
+			if len(self.alignment) > 1:
+				self.phylogeny = BEAST(self.alignment, method=self.phylogenyMethods, constraint=self.constraint, overwrite=overwrite, timeout=999999)
 			else:
-				print "...using RAxML with default options..."
-				raxmlSetup(default=True)
-				locker= False
+				self.phylogeny = BEAST(self.alignment[0], method=self.phylogenyMethods, constraint=self.constraint, overwrite=overwrite, timeout=999999)
+		
+		if self.phylogenyMethods:
+			if 'BEAST' in self.phylogenyMethods:
+				beastSetup(self.phylogenyMethods)
+			elif 'RAxML' in self.phylogenyMethods:
+				raxmlSetup(self.phylogenyMethods)
+			else:
+				print "I don't understand your phylogeny construction method", self.phylogenyMethods, ". Please enter one now."
+				self.phylogenyMethods = ''
+		
+		if not self.phylogenyMethods:
+			print "You can either build a maximum likelihood tree ('raxml') or a Bayesian tree ('beast'). If unsure what to do, just hit enter to build a RAxML tree with default options."
+			locker = True
+			while locker:
+				phyloInput = raw_input("Phylogeny Building: ")
+				if phyloInput:
+					if phyloInput == 'raxml':
+						raxmlSetup()
+						locker = False
+					elif phyloInput == 'beast':
+						beastSetup()
+						locker = False
+					else:
+						print "Sorry, I don't understand", phyloInput, "- please try again."
+				else:
+					print "...using RAxML with default options..."
+					raxmlSetup(default=True)
+					locker= False
 	
 	def rateSmooth(self):
 		def PATHd8():
@@ -2520,7 +2625,11 @@ class PhyloGenerator:
 				SeqIO.write(currentGene, self.stem+"_"+gene+".fasta", 'fasta')
 		
 		#Alignment
-		AlignIO.write(self.alignment, self.stem+"_alignment.fasta", 'fasta')
+		if type(self.alignment) is list:
+			for i,align in enumerate(self.alignment):
+				AlignIO.write(align, self.stem+"_"+self.genes[i]+"_alignment.fasta", 'fasta')
+		else:
+			AlignIO.write(self.alignment, self.stem+"_alignment.fasta", 'fasta')
 		
 		#Sequence info
 		if self.genBankIDs:
@@ -2533,10 +2642,9 @@ class PhyloGenerator:
 		#Phylogeny
 		if self.phylogeny:
 			if 'BEAST' in self.phylogenyMethods:
-				os.rename(self.phylogeny[0], self.stem+"_"+self.genes[i]+"_phylogeny.nex")
+				os.rename(self.phylogeny, self.stem+"_"+self.genes[i]+"_phylogeny.nex")
 			else:
-				for i,phylo in enumerate(self.phylogeny):
-					Phylo.write(phylo, self.stem+"_"+self.genes[i]+"_phylogeny.tre", 'newick')
+				Phylo.write(self.phylogeny, self.stem+"_phylogeny.tre", 'newick')
 		
 		#Constraint tree
 		if self.constraint:
@@ -2848,12 +2956,13 @@ if __name__ == '__main__':
 	parser.add_argument("-name", "-n", help="'Stem' name for all output files.")
 	parser.add_argument("-dna", "-d", help="Unaligned DNA (in FASTA format).")
 	parser.add_argument("-alignment", "-a", help="Alignment method")
+	parser.add_argument("-phylogen", "-p", help="Phylogeny construction method and options")
 	parser.add_argument("-gene", "-g", help="The genes to search for (multiple genes are comma-separated)")
 	parser.add_argument("-nGenes", "-ng", help="The number of genes to search for (if fewer than suggested in 'genes' are required)")
 	parser.add_argument("-species", "-s", help="Binomial names of species, each on a new line")
 	parser.add_argument("-consTree", "-cT", help="Constraint tree (in newick format).")
 	parser.add_argument("-consPhylomat", "-cP", help="Phylomatic's phylogeny (comma) and taxonomy")
 	parser.add_argument("-email", "-e", help="Email address for GenBank searches.")
-	parser.add_argument("-parameters", "-p", help="Parameter file giving detailed instructions to phyloGen.")
+	parser.add_argument("-options", "-o", help="Options file giving detailed instructions to phyloGen.")
 	parser.add_argument("-delay", help="Delay (seconds) when pausing between any internet API calls.")
 	main()
