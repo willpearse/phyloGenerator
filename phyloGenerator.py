@@ -1553,12 +1553,17 @@ class PhyloGenerator:
 		self.constraintMethod = ''
 		#Phylomatic
 		if args.consPhylomat:
-			self.phylomaticPhylogeny, self.phylomaticTaxonomy = args.consPhylom.split(",")
+			self.phylomaticPhylogeny, self.phylomaticTaxonomy = args.consPhylomat.split(",")
 			self.constraintMethod = 'phylomatic'
+		else:
+			self.phylomaticPhylogeny = None
+			self.phylomaticTaxonomy = None
+		
+		self.constraintRFs = []
 		
 		#Pre-supplied
 		if args.consTree:
-			self.constraintFilename = args.consTree
+			self.constraintFile = args.consTree
 			self.constraintMethod = 'newick'
 		
 		#Options file
@@ -2656,15 +2661,72 @@ class PhyloGenerator:
 				else:
 					print "...Continuing without constraint tree"
 					stopper = False
+					return False
 		else:
 			if self.constraintMethod == 'newick':
-				newickConstriant()
+				newickConstraint()
 			elif self.constraintMethod == 'phylomatic':
 				phylomatic()
 			elif self.constraintMethod == 'taxonomy':
 				taxonomy()
 			else:
 				print "Error in constraint tree method name."
+				#do something better here please!
+				return False
+		
+		print "To conduct RAxML searches with and without your constraint tree, and calculate the Rbonison-Foulds distances between them, enter the number of times you would like to do a tree search below. Otherwise, simply press enter."
+		checkLocker = True
+		while checkLocker:
+			checkerInput = raw_input("Constraint Method (check): ")
+			if checkerInput:
+				try:
+					nSearch = int(checkerInput)
+					trees = []
+					for i in range(nSearch):
+						trees.append(RAxML(self.alignment))
+					for i in range(nSearch):
+						trees.append(RAxML(self.alignment, constraint=self.constraint))
+					Phylo.write(trees, 'constraintCheckTemp.tre', 'newick')
+					pipe = TerminationPipe('raxml -f r -z constraintCheckTemp.tre -n constraintCheckTemp -m GTRGAMMA', 999999)
+					pipe.run()
+					if not pipe.failure:
+						with open('RAxML_RF-Distances.constraintCheckTemp') as f:
+							for line in f:
+								temp = line.strip()
+								self.constraintRFs.append(float(re.search("[0-9]{1}\.[0-9]+", temp).group()))
+						os.remove('constraintCheckTemp.tre')
+						os.remove('RAxML_RF-Distances.constraintCheckTemp')
+						os.remove('RAxML_info.constraintCheckTemp')
+						aFree = False
+						freeFree = []
+						freeConstrained = []
+						constrainedConstrained = []
+						x = 0
+						for i in range((nSearch*2) -1):
+							aFree = not aFree
+							bFree = not aFree
+							for j in range(i, (nSearch*2) -1):
+								if aFree:
+									if bFree:
+										freeFree.append(self.constraintRFs[x])
+									else:
+										freeConstrained.append(self.constraintRFs[x])
+								else:
+									if bFree:
+										freeConstrained.append(self.constraintRFs[x])
+									else:
+										constrainedConstrained.append(self.constraintRFs[x])
+								x += 1
+								bFree = not bFree
+						print "\tConstrained mean distance: ", str(round(sp.mean(constrainedConstrained),2)), " (SD: ", str(round(sp.std(constrainedConstrained), 4)), ")"
+						print "\tUnconstrained mean distance: ", str(round(sp.mean(freeFree),2)), " (SD: ", str(round(sp.std(freeFree), 4)), ")"
+						print "\tMean distance between them: ", str(round(sp.mean(freeConstrained),2)), " (SD: ", str(round(sp.std(freeConstrained), 4)), ")"
+					checkerLocker = False
+				except:
+					print "Sorry, I didn't get that. Please try again."
+			else:
+				checkerLocker = False
+	
 	
 	def checkConstraint(self):
 		if self.constraint:
