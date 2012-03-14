@@ -16,4 +16,3 @@
 
 #Issues noted:
 # - often the alignment statistics are the same. I've inserted a different alignment into it, run the function, and it picks up differences. The alignments quite literally are the same.
-# - you need some 

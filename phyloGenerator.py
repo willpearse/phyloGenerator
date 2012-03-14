@@ -1497,7 +1497,7 @@ class PhyloGenerator:
 		self.email = ''
 		self.codonModels = []
 		self.taxonomy = []
-		self.phylogenyMethods = 'RAxML-localVersion'
+		self.phylogenyMethods = False
 		self.initialSeqChoice = 'medianLength'
 		self.replaceSeqChoice = 'targetLength'
 		self.uniqueTaxonomy = []
@@ -2169,18 +2169,34 @@ class PhyloGenerator:
 			os.remove('mergedTempPhylogeny.tre')
 			return mergedTree
 		
+		def unmergeBEAST(treeFile, speciesNames, sppList):
+			with open(treeFile, 'r') as f:
+				for each in f:
+					if 'tree TREE1 = [&R]' in each:
+						treeText = each.strip()
+						treeText = re.sub('\[.*?\]','', treeText)
+						treeText = treeText.replace('tree TREE1 = ', '')
+						treeText = treeText.replace(' ', '')
+			for i,sp in enumerate(speciesNames):
+				treeText = re.sub('(?<=,|\()('+str(i+1)+')(?!([0-9]))', sp, treeText)
+				with open(treeFile+"SMOOTH_TEMP", 'w') as f:
+					f.write(treeText)
+				tree = Phylo.read(treeFile+"SMOOTH_TEMP", 'newick')
+				os.remove(treeFile+"SMOOTH_TEMP")
+			return unmergeNewick(tree, sppList)
+		
+
 		if self.mergedSpp:
-			if 'RAxML' in self.phylogenyMethods:
-				self.phylogenyMerged = unmergeNewick(self.phylogeny, self.mergedSpp)
-				print "RAxML tree successfully merged. Be aware that floating point precision issues may alter the tree's branchlengths."
+			if 'BEAST' in self.phylogenyMethods:
+				self.phylogenyMerged = unmergeBEAST(self.phylogeny, self.speciesNames, self.mergedSpp)
 				if self.smoothPhylogeny:
-					if not 'BEAST' in self.smoothMethods:
-						self.smoothPhylogenyMerged = unmergeNewick(self.smoothPhylogeny, self.mergedSpp)
-						print "Smoothed tree successfully merged. Be aware that floating point precision issues may alter the tree's branchlengths."
-					else:
-						print "Can't do merges on BEAST phylogenies yet..."
+					self.smoothPhylogenyMerged = unmergeBEAST(self.smoothPhylogeny, self.mergedSpp)
+				print "Warning: merged BEAST phylogenies do not have posteriors. For these, use the RAW output."
 			else:
-				print "Can't do merges on BEAST phylogenies yet..."
+				self.phylogenyMerged = unmergeNewick(self.phylogeny, self.mergedSpp)
+				if self.smoothPhylogeny:
+					self.smoothPhylogenyMerged = unmergeNewick(self.smoothPhylogeny, self.mergedSpp)
+			print "Smoothed tree successfully merged. Be aware that floating point precision issues may alter the tree's branchlengths."
 		else:
 			return False
 	
@@ -2479,7 +2495,7 @@ class PhyloGenerator:
 			if len(self.alignment) > 1:
 				self.phylogeny = BEAST(self.alignment, method=self.phylogenyMethods, constraint=self.constraint, overwrite=overwrite, timeout=999999)
 			else:
-				self.phylogeny = BEAST(self.alignment[0], method=self.phylogenyMethods, constraint=self.constraint, overwrite=overwrite, timeout=999999)
+				self.phylogeny = BEAST(self.alignment[0], method=self.phylogenyMethods, constraint=self.constraint, overwrite=overwrite, timeout=999999, logRate=logRate, screenRate=screenRate, chainLength=chainLength)
 		
 		if self.phylogenyMethods:
 			if 'BEAST' in self.phylogenyMethods:
@@ -2688,7 +2704,7 @@ class PhyloGenerator:
 		if self.phylogenyMerged:
 			if 'BEAST' in self.phylogenyMethods:
 				os.rename(self.phylogeny, self.stem+"_"+self.genes[i]+"_RAW_phylogeny.nex")
-				print "Merged BEAST phylogenies not yet supported"
+				Phylo.write(self.phylogenyMerged, self.stem+"_MERGED_phylogeny.tre", 'newick')
 			else:
 				Phylo.write(self.phylogenyMerged, self.stem+"_MERGED_phylogeny.tre", 'newick')
 				Phylo.write(self.phylogeny, self.stem+"_RAW_phylogeny.tre", 'newick')
@@ -2719,10 +2735,10 @@ class PhyloGenerator:
 			if self.smoothPhylogenyMerged:
 				if 'BEAST' in self.rateSmoothMethods:
 					os.rename(self.smoothPhylogeny, self.stem+"_"+self.genes[i]+"_RAW_smoothed_phylogeny.nex")
-					print "Merged BEAST phylogenies not yet supported"
+					Phylo.write(self.smoothPhylogenyMerged, self.stem+"_"+self.genes[i]+"_MERGED_smoothed_phylogeny.tre", 'newick')
 				else:
 					Phylo.write(self.smoothPhylogeny, self.stem+"_"+self.genes[i]+"_RAW_smoothed_phylogeny.tre", 'newick')
-					Phylo.write(self.smoothPhylogenyMerged, self.stem+"_"+self.genes[i]+"_RAW_smoothed_phylogeny.tre", 'newick')
+					Phylo.write(self.smoothPhylogenyMerged, self.stem+"_"+self.genes[i]+"_MERGED_smoothed_phylogeny.tre", 'newick')
 			else:
 				if 'BEAST' in self.rateSmoothMethods:
 					os.rename(self.phylogeny, self.stem+"_"+self.genes[i]+"_smoothed_phylogeny.nex")
