@@ -168,7 +168,7 @@ def sequenceDownload(spName, geneName=None, thorough=False, rettype='gb', titleT
 					for seq in firstSearch['IdList']:
 						lengths.append(eSummary(seq)['Length'])
 					medianLength = np.median(lengths)
-					#This next bit is necessary because you can't search for a median = a median can not be in the sample... (e.g. it could be floating point)
+					#This next bit is necessary because you can't search for a median - a median can not be in the sample... (e.g. it could be floating point)
 					currentMinLength = 1000000
 					currentBest = 0
 					for index, length in enumerate(lengths):
@@ -1281,7 +1281,7 @@ def trimSequence(seq, DNAtype='Standard', gapType='-'):
 	seq = SeqRecord(Seq(output), id=seq.id, description=seq.description, name=seq.name)
 	return(seq)
 
-def findGeneInSeq(seq, gene, trimSeq=False, DNAtype='Standard', gapType='-'):
+def findGeneInSeq(seq, gene, trimSeq=False, DNAtype='Standard', gapType='-', verbose=False):
 	if seq.features:
 		for feature in seq.features:
 			if 'gene' in feature.qualifiers.keys():
@@ -1293,7 +1293,7 @@ def findGeneInSeq(seq, gene, trimSeq=False, DNAtype='Standard', gapType='-'):
 					else:
 						return foundSeq
 		else:
-			warnings.warn("Gene '" + gene + "' not found in sequence")
+			if verbose: warnings.warn("Gene '" + gene + "' not found in sequence")
 			return ()
 	else:
 		raise RuntimeError('No sequence features found: are you using a GenBank record?')
@@ -2115,8 +2115,7 @@ class PhyloGenerator:
 						print "You can't merge a single species! Maybe try 'delete' mode?"
 						return "merge", False
 				except:
-					print "Sorry,", inputSeq, "was not recognised. Please try again."
-					return 'merge', False
+					pass
 				if inputSeq == "delete":
 					return "delete", True
 				elif inputSeq == "trim":
