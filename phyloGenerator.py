@@ -2080,52 +2080,54 @@ class PhyloGenerator:
 				try:
 					spp = [int(x) for x in inputSeq.split(',')]
 					spp.sort()
+					if len(spp) > 1:
+						foundDNA = (False, -1)
+						for i,sp in reversed(list(enumerate(spp))):
+							if sp in range(len(self.sequences)):
+								for j,gene in enumerate(self.sequences[sp]):
+									if self.sequences[sp][j]:
+										if foundDNA[0]:
+											print "Sorry, you can't merge species if more than one has DNA. Please try again."
+											return "merge", False
+										else:
+											foundDNA = (True, sp)
+											break
+							else:
+								print "I couldn't find that SeqID."
+								return 'merge', False
+						if foundDNA[0]:
+							#It's safe to do the deletions
+							merged = [self.speciesNames[foundDNA[1]]]
+							for i in reversed(spp):
+								if i != foundDNA[1]:
+									merged.append(self.speciesNames[i])
+									del self.sequences[i]
+									del self.speciesNames[i]
+							self.mergedSpp.append(merged)
+							print "Successfully merged species into", merged[0]
+							print "Re-calulating summary statistics..."
+							self.dnaChecking()			
+							return "merge", False
+						else:
+							print "One of the species you're merging must have DNA data"
+							return "merge", False
+					else:
+						print "You can't merge a single species! Maybe try 'delete' mode?"
+						return "merge", False
 				except:
 					print "Sorry,", inputSeq, "was not recognised. Please try again."
 					return 'merge', False
-				if len(spp) > 1:
-					foundDNA = (False, -1)
-					for i,sp in reversed(list(enumerate(spp))):
-						if sp in range(len(self.sequences)):
-							for j,gene in enumerate(self.sequences[sp]):
-								if self.sequences[sp][j]:
-									if foundDNA[0]:
-										print "Sorry, you can't merge species if more than one has DNA. Please try again."
-										return "merge", False
-									else:
-										foundDNA = (True, sp)
-										break
-						else:
-							print "I couldn't find that SeqID."
-							return 'merge', False
-					if foundDNA[0]:
-						#It's safe to do the deletions
-						merged = [foundDNA[1]]
-						for i,sp in reversed(list(enumerate(spp))):
-							if sp != foundDNA[1]:
-								merged.append(self.speciesNames[sp])
-								del self.sequences[sp]
-								del self.speciesNames[sp]
-						self.mergedSpp.append(merged)
-						print "Successfully merged species into", merged[0]
-						print "Re-calulating summary statistics..."
-						self.dnaChecking()			
-						return "merge", False
-					else:
-						print "One of the species you're merging must have DNA data"
-						return "merge", False
+				if inputSeq == "delete":
+					return "delete", True
+				elif inputSeq == "trim":
+					return "trim", True
+				elif inputSeq == "replace":
+					return "replace", True
 				else:
-					print "You can't merge a single species! Maybe try 'delete' mode?"
-					return "merge", False
-			elif inputSeq == "delete":
-				return "delete", True
-			elif inputSeq == "trim":
-				return "trim", True
-			elif inputSeq == "replace":
-				return "replace", True
+					print "Sorry,", inputSeq, "was not recognised. Please try again."
+					return 'reload', False
 			else:
-				print "Sorry,", inputSeq, "was not recognised. Please try again."
-				return 'reload', False
+				return "EXIT", True
 		
 		locker = True
 		firstTime = True
@@ -2146,6 +2148,41 @@ class PhyloGenerator:
 			if mode:
 				if mode == "EXIT":
 					locker = False
+	
+	def unmerge(self):
+		def unmergeNewick(tree, sppList):
+			Phylo.write(tree, 'mergedTempPhylogeny.tre', 'newick')
+			with open('mergedTempPhylogeny.tre', 'r') as f:
+				treeText = ''
+				for each in f:
+					treeText += each.strip()
+			for i,spp in enumerate(sppList):
+				sp = spp[0]
+				length = float(re.search('(?<='+sp+'\:)[0-9\.]*', treeText).group())
+				replacement = ':' + str(length/2) + ','
+				insertion = '(' + replacement.join(spp)
+				insertion += ':' + str(length/2) + '):' + str(length/2)
+				treeText = re.sub('('+sp+'\:)[0-9\.]*', insertion, treeText)
+			with open('mergedTempPhylogeny.tre', 'w') as f:
+				f.write(treeText)
+			mergedTree = Phylo.read('mergedTempPhylogeny.tre', 'newick')
+			os.remove('mergedTempPhylogeny.tre')
+			return mergedTree
+		
+		if self.mergedSpp:
+			if 'RAxML' in self.phylogenyMethods:
+				self.phylogenyMerged = unmergeNewick(self.phylogeny, self.mergedSpp)
+				print "RAxML tree successfully merged. Be aware that floating point precision issues may alter the tree's branchlengths."
+				if self.smoothPhylogeny:
+					if not 'BEAST' in self.smoothMethods:
+						self.smoothPhylogenyMerged = unmergeNewick(self.smoothPhylogeny, self.mergedSpp)
+						print "Smoothed tree successfully merged. Be aware that floating point precision issues may alter the tree's branchlengths."
+					else:
+						print "Can't do merges on BEAST phylogenies yet..."
+			else:
+				print "Can't do merges on BEAST phylogenies yet..."
+		else:
+			return False
 	
 	def alignmentEditing(self):
 		alignmentDisplay(self.alignment, self.alignmentMethods, self.genes, checkAlignmentList(self.alignment, method='everything'))
@@ -2604,12 +2641,20 @@ class PhyloGenerator:
 				print "\n", each
 	
 	def renameSequences(self):
+		for i,name in enumerate(self.speciesNames):
+			self.speciesNames[i] = name.replace(" ", "_")
+		
+		if self.mergedSpp:
+			for i,sppList in enumerate(self.mergedSpp):
+				for j,sp in enumerate(sppList):
+					self.mergedSpp[i][j] = sp.replace(" ", "_")
+		
 		for i in range(len(self.sequences)):
 			tGenBankIDs = []
 			for k in range(len(self.genes)):
 				if self.sequences[i][k]:
 					tGenBankIDs.append(self.sequences[i][k].id)
-					self.sequences[i][k].id = self.speciesNames[i].replace(" ", "_")
+					self.sequences[i][k].id = self.speciesNames[i]
 				else:
 					tGenBankIDs.append("NO_SEQUENCE")
 			self.genBankIDs.append(tGenBankIDs)
@@ -2640,11 +2685,20 @@ class PhyloGenerator:
 						f.write(name + "_" + self.genBankIDs[j][i] + "\n")
 		
 		#Phylogeny
-		if self.phylogeny:
+		if self.phylogenyMerged:
 			if 'BEAST' in self.phylogenyMethods:
-				os.rename(self.phylogeny, self.stem+"_"+self.genes[i]+"_phylogeny.nex")
+				os.rename(self.phylogeny, self.stem+"_"+self.genes[i]+"_RAW_phylogeny.nex")
+				print "Merged BEAST phylogenies not yet supported"
 			else:
-				Phylo.write(self.phylogeny, self.stem+"_phylogeny.tre", 'newick')
+				Phylo.write(self.phylogenyMerged, self.stem+"_MERGED_phylogeny.tre", 'newick')
+				Phylo.write(self.phylogeny, self.stem+"_RAW_phylogeny.tre", 'newick')
+			
+		else:
+			if self.phylogeny:
+				if 'BEAST' in self.phylogenyMethods:
+					os.rename(self.phylogeny, self.stem+"_"+self.genes[i]+"_phylogeny.nex")
+				else:
+					Phylo.write(self.phylogeny, self.stem+"_phylogeny.tre", 'newick')
 		
 		#Constraint tree
 		if self.constraint:
@@ -2662,12 +2716,18 @@ class PhyloGenerator:
 		
 		#Smoothed phylogeny
 		if self.smoothPhylogeny:
-			if 'BEAST' in self.rateSmoothMethods:
-				for i,phylo in enumerate(self.smoothPhylogeny):
-					os.rename(phylo, self.stem+"_"+self.genes[i]+"_smoothed_phylogeny.nex")
+			if self.smoothPhylogenyMerged:
+				if 'BEAST' in self.rateSmoothMethods:
+					os.rename(self.smoothPhylogeny, self.stem+"_"+self.genes[i]+"_RAW_smoothed_phylogeny.nex")
+					print "Merged BEAST phylogenies not yet supported"
+				else:
+					Phylo.write(self.smoothPhylogeny, self.stem+"_"+self.genes[i]+"_RAW_smoothed_phylogeny.tre", 'newick')
+					Phylo.write(self.smoothPhylogenyMerged, self.stem+"_"+self.genes[i]+"_RAW_smoothed_phylogeny.tre", 'newick')
 			else:
-				for i,phylo in enumerate(self.smoothPhylogeny):
-					Phylo.write(phylo, self.stem+"_"+self.genes[i]+"_smoothed_phylogeny.tre", 'newick')
+				if 'BEAST' in self.rateSmoothMethods:
+					os.rename(self.phylogeny, self.stem+"_"+self.genes[i]+"_smoothed_phylogeny.nex")
+				else:
+					Phylo.write(self.phylogeny, self.stem+"_"+self.genes[i]+"_smoothed_phylogeny.tre", 'newick')
 	
 	def getConstraint(self, fileName=""):
 		def newickConstraint():
@@ -2944,6 +3004,9 @@ def main():
 		else:
 			print "\nRATE SMOOTHING"
 			currentState.rateSmooth()
+		
+		#Handle merged species
+		currentState.unmerge()
 		
 		#Output
 		currentState.writeOutput()
