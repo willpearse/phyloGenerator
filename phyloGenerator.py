@@ -716,11 +716,10 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 			Phylo.write(constraint, 'tempStem'+'_TREE.tre', 'newick')
 			with open('tempStem'+'_TREE.tre') as tF:
 				treeFormat = tF.readlines()[0]
-				os.remove('tempStem'+'_TREE.tre')
 				f.write('	<newick id="startingTree">')
-				os.remove('tempStem'+'_TREE.tre')
 				f.write('		'+treeFormat)
 				f.write('	</newick>')
+			os.remove('tempStem'+'_TREE.tre')
 		else:
 			f.write('	<!-- Generate a random starting tree under the coalescent process			 -->\n')
 			f.write('	<coalescentTree id="startingTree" rootHeight="0.092">\n')
@@ -1581,6 +1580,7 @@ class PhyloGenerator:
 		if args.consTree:
 			self.constraintFile = args.consTree
 			self.constraintMethod = 'newick'
+			self.constraint = Phylo.read(self.constraintFile, 'newick')
 		
 		#Options file
 		if args.options:
@@ -2184,7 +2184,7 @@ class PhyloGenerator:
 				os.remove(treeFile+"SMOOTH_TEMP")
 			return unmergeNewick(tree, sppList)
 		
-
+		
 		if self.mergedSpp:
 			if 'BEAST' in self.phylogenyMethods:
 				self.phylogenyMerged = unmergeBEAST(self.phylogeny, self.speciesNames, self.mergedSpp)
@@ -2494,7 +2494,7 @@ class PhyloGenerator:
 			if len(self.alignment) > 1:
 				self.phylogeny = BEAST(self.alignment, method=self.phylogenyMethods, constraint=self.constraint, overwrite=overwrite, timeout=999999)
 			else:
-				self.phylogeny = BEAST(self.alignment[0], method=self.phylogenyMethods, constraint=self.constraint, overwrite=overwrite, timeout=999999, logRate=logRate, screenRate=screenRate, chainLength=chainLength)
+				self.phylogeny = BEAST(self.alignment[0], method=self.phylogenyMethods, constraint=self.constraint, timeout=999999)
 		
 		if self.phylogenyMethods:
 			if 'BEAST' in self.phylogenyMethods:
@@ -2923,7 +2923,7 @@ class PhyloGenerator:
 				except:
 					print "Sorry, I didn't get that. Please try again."
 			else:
-				checkerLocker = False
+				checkLocker = False
 	
 	def checkConstraint(self):
 		if self.constraint:
