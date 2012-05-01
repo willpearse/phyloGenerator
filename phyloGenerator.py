@@ -1600,6 +1600,13 @@ class PhyloGenerator:
 			print "\nPlease input a 'stem' name for all your output (phylogeny, sequences, etc.)"
 			self.stem = raw_input("Stem name: ")
 		
+		#Working directory
+		if args.wd:
+			self.workingDirectory = args.wd
+		else:
+			print "\nPlease input a working directory for all your output(phylogeny, sequences, etc.)"
+			self.workingDirectory = raw_input("Working directory: ")
+		
 		#Email
 		if args.email:
 			self.email = args.email
@@ -2761,6 +2768,8 @@ class PhyloGenerator:
 			self.genBankIDs.append(tGenBankIDs)
 	
 	def writeOutput(self):
+		#Change working directory
+		os.chdir(self.workingDirectory)
 		#Log - TO-DO
 		#Sequences
 		if self.sequences:
@@ -3118,6 +3127,7 @@ if __name__ == '__main__':
 	parser.add_argument("--version", action="store_true", help="Display version information.")
 	parser.add_argument("--manual", action="store_true", help="(Attempt to) open browser and show help")
 	parser.add_argument("-name", "-n", help="'Stem' name for all output files.")
+	parser.add_argument("-wd", help="Working directory for all output files")
 	parser.add_argument("-dna", "-d", help="Unaligned DNA (in FASTA format).")
 	parser.add_argument("-alignment", "-a", help="Alignment method")
 	parser.add_argument("-phylogen", "-p", help="Phylogeny construction method and options")
