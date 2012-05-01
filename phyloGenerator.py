@@ -1455,13 +1455,13 @@ class TerminationPipe(object):
 	def run(self, silent=None):
 		def silentTarget():
 			tStdout	 = open('termPipeStdErr.txt', 'w')
-			self.process = subprocess.Popen(self.cmd, stdout=subprocess.PIPE, shell=True, stderr=subprocess.PIPE)
+			self.process = subprocess.Popen("./requires/" + self.cmd, stdout=subprocess.PIPE, shell=True, stderr=subprocess.PIPE)
 			self.output = self.process.communicate()
 			self.stderr = open('termPipeStdErr.txt', 'r').readlines()
 			os.remove('termPipeStdErr.txt')
 		
 		def loudTarget():
-			self.process = subprocess.Popen(self.cmd, shell=False)
+			self.process = subprocess.Popen("./requires/" + self.cmd, shell=False)
 			self.output=self.process.communicate()
 		
 		if silent: self.silent = silent
@@ -1484,6 +1484,7 @@ class PhyloGenerator:
 		self.speciesNames = []
 		self.dnaCheck = []
 		self.phylogeny = False
+		self.phylogenyMerged = False
 		self.alignment = []
 		self.smoothPhylogeny = []
 		self.root = False
@@ -2521,7 +2522,7 @@ class PhyloGenerator:
 						print "Sorry, I don't understand", phyloInput, "- please try again."
 				else:
 					print "...using RAxML with default options..."
-					raxmlSetup(default=True)
+					raxmlSetup('localVersion')
 					locker= False
 	
 	def rateSmooth(self):
