@@ -27,10 +27,23 @@ import webbrowser #Load website on request
 import sys #To exit on errors
 import pdb #Debugging
 import warnings
+maxCheck = 4
 def taxonIDLookup(taxonID):
-	handleDownload = Entrez.efetch(db="taxonomy", id=taxonID, retmode="xml")
-	resultsDownload = Entrez.read(handleDownload)
-	handleDownload.close()
+	finished = 0
+	while finished <= maxCheck:
+		try:
+			handleDownload = Entrez.efetch(db="taxonomy", id=taxonID, retmode="xml")
+			resultsDownload = Entrez.read(handleDownload)
+			handleDownload.close()
+			finished = maxCheck + 1
+		except:
+			if finished == 0:
+				print "!!!Server error - retrying..."
+				finished += 1
+				time.sleep(10)
+			if finished == maxCheck:
+				print "!!!!!!Unreachable. Returning nothing."
+				return(tuple())
 	scientificName = resultsDownload[0]['ScientificName']
 	lineage = resultsDownload[0]['Lineage'].split("; ")
 	lineage.reverse()
@@ -40,9 +53,21 @@ def taxonIDLookup(taxonID):
 	return(scientificName, lineage, taxId, mitoCode)
 
 def commonLookup(spName):
-	handleSearch = Entrez.esearch(db="taxonomy", term=spName)
-	resultsSearch = Entrez.read(handleSearch)
-	handleSearch.close()
+	finished = 0
+	while finished <= maxCheck:
+		try:
+			handleSearch = Entrez.esearch(db="taxonomy", term=spName)
+			resultsSearch = Entrez.read(handleSearch)
+			handleSearch.close()
+			finished = maxCheck + 1
+		except:
+			if finished == 0:
+				print "!!!Server error checking", spName, " - retrying..."
+				finished += 1
+				time.sleep(10)
+			if finished == maxCheck:
+				print "!!!!!!Unreachable. Returning nothing."
+				return(tuple())
 	if resultsSearch['IdList']:
 		return taxonIDLookup(resultsSearch['IdList'][0])
 	else:
@@ -50,8 +75,20 @@ def commonLookup(spName):
 
 def cladeSpecies(cladeName):
 	searchTerm = cladeName + '[subtree] AND species[rank]'
-	handleSearch = Entrez.esearch(db="taxonomy", term=searchTerm)
-	resultsSearch = Entrez.read(handleSearch)
+	finished = 0
+	while finished <= maxCheck:
+		try:
+			handleSearch = Entrez.esearch(db="taxonomy", term=searchTerm)
+			resultsSearch = Entrez.read(handleSearch)
+			finished = maxCheck + 1
+		except:
+			if finished == 0:
+				print "!!!Server error checking", cladeName, " - retrying..."
+				finished += 1
+				time.sleep(10)
+			if finished == maxCheck:
+				print "!!!!!!Unreachable. Returning nothing."
+				return()
 	if resultsSearch['IdList']:
 		output = []
 		for spId in resultsSearch['IdList']:
@@ -101,27 +138,75 @@ def findRelativeSequence(spName, geneName=None, cladeDepth=0, thorough=False, re
 			return (None, namesTried)
 
 def eSearch(term, retStart=0, retMax=20, usehistory="y"):
-	handle = Entrez.esearch(db="nucleotide",term=term, usehistory=usehistory, retStart=retStart, retMax=retMax, retmode="text")
-	results = Entrez.read(handle)
-	handle.close()
+	finished = 0
+	while finished <= maxCheck:
+		try:
+			handle = Entrez.esearch(db="nucleotide",term=term, usehistory=usehistory, retStart=retStart, retMax=retMax, retmode="text")
+			results = Entrez.read(handle)
+			handle.close()
+			finished = maxCheck + 1
+		except:
+			if finished == 0:
+				print "!!!Server error checking", term, " - retrying..."
+				finished += 1
+				time.sleep(1)
+			if finished == maxCheck:
+				print "!!!!!!Unreachable. Returning nothing."
+				return()
 	return results
 
 def eFetchSeqID(seqID, rettype='gb'):
-	handle = Entrez.efetch(db="nucleotide", rettype=rettype, retmode="text", id=seqID)
-	results = SeqIO.read(handle,rettype)
-	handle.close()
+	finished = 0
+	while finished <= maxCheck:
+		try:
+			handle = Entrez.efetch(db="nucleotide", rettype=rettype, retmode="text", id=seqID)
+			results = SeqIO.read(handle,rettype)
+			handle.close()
+			finished = maxCheck + 1
+		except:
+			if finished == 0:
+				print "!!!Server error - retrying..."
+				finished += 1
+				time.sleep(10)
+			if finished == maxCheck:
+				print "!!!!!!Unreachable. Returning nothing."
+				return(tuple())
 	return results
 
 def eFetchESearch(eSearchOutput, rettype='gb'):
-	handle = Entrez.efetch(db="nucleotide", rettype=rettype, retmode="text", webenv=eSearchOutput['WebEnv'], query_key=eSearchOutput['QueryKey'])
-	results = SeqIO.read(handle, rettype)
-	handle.close()
+	finished = 0
+	while finished <= maxCheck:
+		try:
+			handle = Entrez.efetch(db="nucleotide", rettype=rettype, retmode="text", webenv=eSearchOutput['WebEnv'], query_key=eSearchOutput['QueryKey'])
+			results = SeqIO.read(handle, rettype)
+			handle.close()
+			finished = maxCheck + 1
+		except:
+			if finished == 0:
+				print "!!!Server error - retrying..."
+				finished += 1
+				time.sleep(10)
+			if finished == maxCheck:
+				print "!!!!!!Unreachable. Returning nothing."
+				return(tuple())
 	return results
 
 def eSummary(seqID):
-	handle = Entrez.esummary(db="nucleotide", id=seqID, retmode="text")
-	results = Entrez.read(handle)
-	handle.close()
+	finished = 0
+	while finished <= maxCheck:
+		try:
+			handle = Entrez.esummary(db="nucleotide", id=seqID, retmode="text")
+			results = Entrez.read(handle)
+			handle.close()
+			finished = maxCheck + 1
+		except:
+			if finished == 0:
+				print "!!!Server error - retrying..."
+				finished += 1
+				time.sleep(10)
+			if finished == maxCheck:
+				print "!!!!!!Unreachable. Returning nothing."
+				return(tuple())
 	return results[0]
 
 def sequenceDownload(spName, geneName=None, thorough=False, rettype='gb', titleText=None, noSeqs=1, seqChoice='random', download=True, retStart=0, retMax=20, targetLength=None, trimSeq=False, DNAtype='Standard', gapType='-', includeGenome=True, includePartial=True):
