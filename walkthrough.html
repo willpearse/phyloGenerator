@@ -41,13 +41,13 @@
 	          <a class="brand" href="./index.html">phyloGenerator</a>
 	          <div class="nav-collapse">
 	            <ul class="nav">
-	              <li class="active">
+	              <li class="">
 	                <a href="./index.html">Home</a>
 	              </li>
 	              <li class="">
 	                <a href="./install.html">Install</a>
 	              </li>
-	              <li class="">
+	              <li class="active">
 	                <a href="./walkthrough.html">Walkthrough</a>
 	              </li>
 	              <li class="">
@@ -75,7 +75,9 @@
 	  <li><a href="#startUp">Start-Up</a></li>
       <li><a href="#dnaChecking">DNA Checking</a></li>
       <li><a href="#align">Alignment</a></li>
+	  <li><a href="#constraint">Constraint Tree</a></li>
       <li><a href="#phylogeny">Phylogeny Building</a></li>
+	  <li><a href="#smoothing">Rate Smoothing</a></li>
       <li><a href="#output">Output</a></li>
         </ul>
       </li>
@@ -93,10 +95,12 @@
   </div>
   <div class="row">
     <div class="span6">
-		<p>phyloGenerator is simple enough to use, but it does take time to download everything from GenBank. Patience and a cup of tea are all that's required, however! Whenever you need to input a file, if it's not in the same folder as phyloGenerator you'll need to give phyloGenerator the 'absolute path' to the file. Something like '/Users/will/Documents/dna.fasta', or 'C:/Documents and Settings/dna.fasta'.</p>
+		<p>phyloGenerator is simple enough to use, but it does take time to download everything from GenBank. Patience and a cup of tea are all that's required, however! Whenever you need to input a file, if it's not in the same folder as phyloGenerator you'll need to give phyloGenerator the 'absolute path' to the file. Something like '/Users/will/Documents/dna.fasta', or 'C:\Documents and Settings\dna.fasta'.</p>
+		<p>phyloGenerator is a work-in-progress, and I'm sorry if something goes wrong. If it does, please copy-and-paste everything in your screen, and send me (follow the 'who?' link above) a message with that in it, or file an issue on GitHub. I'll do my utmost to get back in touch with you as soon as I can, and I'll get the thing working for you. I'm really grateful to people who send bugs reports/feature requests - I'm friendly so please do send away!</p>
 	</div>
     <div class="span6">
-    	<p>There are some example files included with phyloGenerator - to use them, simply type in whatever you see in <i>italics</i> wherever prompted below.</p>
+    	<p>There are some example files included with phyloGenerator - they're in the 'Demos' folder, and usage examples are in the 'README' file.</p>
+		<p>My advice would be to just try using the thing, and then refer back to this when stuck. This is intended to be a fairly exhaustive guide, and so makes the program seem a little intimidating. Bear in mind that phylogenetics is complicated - I don't go into any detail about how RAxML works, for example, because it's the product of several people's entire research careers. I don't have that much space!</p>
 		<p>Using an options file will give you more control over phyloGenerator, and its use is described in the 'reference' section. However, you can also use it interactively, and this will be described below. I will assume that you have successfully installed phyloGenerator, and have started it running.</p>
     </div>
     <div class="span4">
@@ -116,16 +120,18 @@
 	<div class="span6">
     	<h4>Stem Name</h4>
 			<p>phyloGenerator will automatically output all your files, but you need to give it a 'stem name' so that it knows what to call everything. I'd suggest 'test' for your first attempt!</p>
+		<h4>Working Directory</h4>
+		<p>phyloGenerator needs to know where to put your files. If you want to use the current directory, on a Mac/Linux you can just use a full stop.</p>
+		<h4>Gene Name(s)</h4>
+		<p>Enter the abbreviated names of the genes you're interested in, one per line, and then hit enter on a blank line to continue. Good choices for plants are usually <em>rbcL</em> and/or <em>matK</em>, for animals <em>COI</em>.
 		<h4>DNA Input</h4>
 			<p>If you've already downloaded or sequenced your data, but not aligned it, tell phyloGenerator where that FASTA formatted file is now. Otherwise, just press enter.</p>
-			<p>An example file here is <i>test.fasta</i>.</p>
 			</div>
 	    <div class="span6">
 			<h4>DNA Download</h4>
 				<p>If you don't have DNA sequences already, you'll need to download some. Tell phyloGenerator where a plain text file containing the binomial names of the species you want is. Each species must be on a separate line, with no formatting of any kind in the file. Otherwise, just press enter.</p>
 				<p>If you're downloading DNA, you'll need to provide a valid email address so Entrez can contact you about your downloads - don't worry, they won't if you provide a real one! You then need to give the genes you want to search for. If you want to give more than one, make sure you enter them on separate lines, and simply press enter on an empty line to continue once you're done.</p>
 				<p>You may have to wait some time before your sequences have all been downloaded, but phyloGenerator will tell you how it's doing. By default, it waits ten seconds after downloading each DNA sequence so that it doesn't irritate the servers at GenBank. You can change this behaviour in the options file, if you like.</p>
-				<p>An example file here is <i>test.txt</i>.</p>
 </section>
 
 
@@ -139,10 +145,10 @@
   <div class="row">
     <div class="span6">
 		<p>You will only get to this stage if you have some DNA from the previous steps loaded in.</p>
-		<p>This table shows each DNA sequence's 'ID', name used when searching GenBank (if appropriate), the name it was given on GenBank (usually an ID number), and its length. Sequences that are in the top or bottom 10% of sequence lengths are highlighted in the list. If the sequence lengths are within the 'specified tolerance' (by default, the minimum sequence length should be no less than 90% of the maximum length) it will be stated, but you can continue with intolerable sequences.</p>
+		<p>This table shows each DNA sequence's 'ID', name used when searching GenBank (if appropriate), the name it was given on GenBank (usually an ID number), and its length. Sequences that are in the top or bottom 5% of sequence lengths are highlighted in the list. If the sequence lengths are within the 'specified tolerance' (by default, the minimum sequence length should be no less than 90% of the maximum length) it will be stated, but you can continue with intolerable sequences.</p>
 	</div>
     <div class="span6">
-    	<p>There are three modes when 'checking' DNA: <em>delete</em>, <em>reload</em> and <em>trim</em>. You can enter any of the modes by typing their names. To continue, simply type <em>continue</em>.</p>
+    	<p>There are five modes when 'checking' DNA: <em>delete</em>, <em>reload</em>, <em>trim</em>, <em>replace</em>, and <em>merge</em>. You can enter any of the modes by typing their names. To continue, simply type <em>continue</em>.</p>
 	<dl>
 		<dt>delete</dt>
 		<dd>Enter a single sequence's 'Seq ID' to delete it.</dd>
@@ -150,6 +156,10 @@
 		<dd>Enter a single sequence's 'Seq ID' to download another sequence from GenBank with the search term originally used. By default, phyloGenerator will look through more sequences and take the sequence with the length closest to median of the others. You can change these defaults in the parameter file.</dd>
 		<dt>trim</dt>
 		<dd>Enter a single sequence's 'Seq ID' to trim a sequence down to only its Open Reading Frame (ORF). If you want to trim all the sequences (and that's advisable), enter 'all' and press enter. To change the translation table for the sequence you're working with (it might be from a plant's chloroplast, for example), type <em>translation</em> and select the appropriate number for each gene. Note that phyloGenerator will likely have already trimmed a sequence originating from a whole plasmid (e.g., a mitochondrial gene), by extracting what has been annotated as that gene.</dd>
+		<dt>replace</dt>
+		<dd>If there are no sequences for a species on GenBank, type its SeqID to replace it with a congener. Alternatively, type 'EVERYTHING' to replace all missing species with a congener, or 'THOROUGH' to replace all species without any sequences with a relative it is more related to than any other species according to the GenBank taxonomy. This will work even if a species isn't on GenBank at all, but typically not if there's no congener in the database.</dd>
+		<dt>merge</dt>
+		<dd>If there are no sequences for a species on GenBank, you can merge it/them with another species that do. phyloGenerator will replace the merged species with a polytomy at the end of the run, splitting them half-way along the species with sequence data's branch. Just enter the SeqIDs of the species you want to merge, separated by commas.</dd>
 	</dl>
 	</div>
 </section>
@@ -165,22 +175,46 @@
   <div class="row">
 	<div class="span4">
     	<h4>Alignment</h4>
-				<p>Simply press enter, and phyloGenerator will align your DNA using MAFFT. However, you have a choice of programs: MUSCLE, MAFFT, or Clustal-Omega. To use any of them, simply enter <em>muscle</em>, <em>mafft</em> or <em>clustalo</em> respectively. To compare the alignments of several programs, enter <em>everything</em>.</p>
+				<p>Simply press enter, and phyloGenerator will align your DNA using MUSCLE. However, you have a choice of programs: MUSCLE, MAFFT, Clustal-Omega, or PRANK. To use any of them, simply enter <em>muscle</em>, <em>mafft</em>, <em>clustalo</em>, or <em>prank</em> respectively. To compare the alignments of several programs, enter <em>everything</em>, or just to use the first three type <em>quick</em>. Note that PRANK can take a <b>very</b> long time, mainly because it doesn't guarantee to use any heuristics when comparing alignments.</p>
+				<p>When you're ready to continue, just hit enter. You'll pick an alignment for each gene (you can only have one alignment :p) by entering the alignment number for each gene, or if you've only used one alignment method phyloGenerator will just continue straight through.
 			</div>
 	    <div class="span4">
 			<h4>Alignment Checking</h4>
-				<p>It is strongly recommended that you look at your alignment before using it. Summary statistics for your alignment(s) have been outputted, and you may notice that one alignment has more gaps than another, or that your alignment seems OK. You can write out your alingment(s) by typing <em>output</em>. There are several modes available to you now, depending on what you enter. There are three modes when 'checking' an alignment: <em>edit</em>, <em>align</em> and <em>trim</em>.</p>
+				<p>It is strongly recommended that you look at your alignment before using it. Summary statistics for your alignment(s) have been outputted, and you may notice that one alignment has more gaps than another, or that your alignment seems OK. You can write out your alingment(s) by typing <em>output</em>. If you wish to return to the alignment or DNA download states, just type <em>DNA</em> or <em>align</em>. There are several other options available to you: <em>trimAl</em>, <em>raxml=X</em> and <em>metal</em>.</p>
 				</div>
 	    <div class="span4">					
 				<dl>
-					<dt>edit</dt>
-					<dd>This takes you back to the DNA editting stage. When you continue through it, you will skip straight to the alignment phase.</dd>
-					<dt>align</dt>
-					<dd>This will take you back to the alignment stage, so you align your sequences again, possiblly with different options.</dd>
-					<dt>trim</dt>
-					<dd>Some areas of your alignment may be filled with gaps, and some phylogeneticists woudl argue these areas should be removed, as they are uninformative. This mode uses 'trimAl' to automatically remove such regions, and will output an HTML file that describes what has been removed.</dd>
+					<dt>trimAl</dt>
+					<dd><a href="http://trimal.cgenomics.org/">trimAl</a> is a really useful tool that highlights difficult to align regions, and automatically cuts them out. trimAl will produce a very nice HTML page telling you what it's trimmed, and why. It's a very neat exploratory tool.</dd>
+					<dt>raxml=X</dt>
+					<dd>Different alignments give different results when run through phylogeny-building programs. RAxML is very quick, and so you can use it to run a number (replace the 'X' with the number of runs you want) of searches and plots the mean Robinson-Folds distance between trees built using the different alignments (and the genes). Ideally, none of your genes would give different results. This is a (possible) way to detect fast/slow genes that I quite like using.</dd>
+					<dt>metal</dt>
+					<dd>Comparing sequence alignments is tricky, but <a href="http://kumiho.smith.man.ac.uk/whelan/software/metal/">metal</a> calculates a few summary statistics for you. If you want to use this, I'd strongly recommend you read the paper!</dd>
 				</dl>
 				</div>
+</section>
+
+<!-- Constraint Tree
+================================================== -->
+<a name="constraint"></a>
+<section id="constraint">
+  <div class="page-header">
+    <h1>Constraint Tree</h1>
+  </div>
+  <div class="row">
+    <div class="span4">
+			<p>It is <strong>strongly advised</strong> that you use a constraint tree in your analysis. Generating novel phylogenetic hypotheses without a fair amount of knowledge is a tricky thing, so by constraining your tree to fit in with the general consensus of how your group fits together, you're reducingt the likelihood that your results will be untenable.</p>
+			<p>If you already have a constraint tree, type <em>newick</em>, then tell phyloGenerator where the phylogeny is.</p>
+	</div>
+    <div class="span4">
+	<h4>Building a Constraint Tree</h4>
+		<p>To build a constraint tree with Phylomatic, type <em>phlomatic</em>, then give the path to the reference phylogeny and taxonomy when asked. These need to match up perfectly with what you've entered into phyloGenerator, which can be difficult if you've merged taxa. Phylomatic can be a little fiddly, and it's often easier to do this step outside of phyloGenerator. I'm afraid phyloGenerator can't give you much help if an attempt fails, but it will at least warn you!</p>
+		<p>You can also use GenBank's taxonomy service to find the taxonomy of the species in your phylogeny. At the moment this can't be used to generate a constraint tree, but a number of people requested this feature so here it is. Just type 'taxonomy', wait a while, and at the end of your phyloGenerator run a taxonomy of your species will be outputted.</p>
+	</div>
+    <div class="span4">
+	<h4>Checking</h4>
+		<p>Constraint trees alter the way BEAST and RAxML search for trees, and alter your result. In an ideal world, the genes you've picked convey the 'truth' about the phylogeny of your species, but you might want to know whether that's true. If so, just enter the number of times you want to run a RAxML search both with and without the constraint tree (or nothing to not bother), and you'll be given the mean Robinson-Folds distance between searches with and without constraints.</p>
+	</div>
 </section>
 
 
@@ -193,18 +227,40 @@
   </div>
   <div class="row">
     <div class="span4">
-		<h4>Constraint Tree</h4>
-			<p>It is <strong>strongly advised</strong> that you use a constraint tree in your analysis. Generating novel phylogenetic hypotheses without a fair amount of knowledge is a tricky thing, so by constraining your tree to fit in with the general consensus of how your group fits together, you're reducingt the likelihood that your results will be untenable.</p>
-			<p>If you already have a constraint tree, type in its file name here. If you want to generate one from GenBank's taxonomy, type <em>genbank taxonomy</em>, or if you want to try the online PlantMiner database, type <em>plantminer</em> (only for plants). The latter will take some time, and requires an Internet connection.</p>
-			<p>An example file here is <i>test_constraint.tre</i>, but it can only be used with the FASTA file <i>test.fasta</i>. Otherwise, simply press enter to continue without a constraint tree.</p>
-	</div>
+	<h4>Overview</h4>
+    	<p>This is it! By simply pressing enter, you will make a phylogeny using RAxML default rapid boostrapping methods. That means you'll generate a maximum likelihood tree, with branch lengths proportional to mutation rates in your genes (you can 'rate smooth' this tree later if you wish). You can alter RAxML's parameters by typing <em>raxml</em>, or build a Bayesian tree with BEAST by typing <em>beast</em>.</p>
+    </div>
+  
+  <div class="row">
     <div class="span4">
 	<h4>RAxML</h4>
-    	<p>This is it! By simply pressing enter, you will make a phylogeny using RAxML default rapid boostrapping methods. To conduct more searches (advisable), simply type the number of times you would like to restart your search, and phyloGenerator will automatically select the best tree for you and annotate it with bootstrap values.</p>
+    	<p>You need to chain the options you want to use together, for example <em>accelBootstrap-noPartitions</em>. Descriptions of the options are below.</p>
+		<p>To understand these options, you're going to have to read up on RAxML I'm afraid. However, I would recommend that you either specify to use the <em>accelBootstrap</em>, or set a number of <em>restarts</em> (say 50 - computing time is cheap), as one search (the default) is unlikely to be enough.</em>
+			</div>
+    <div class="row">
+      <div class="span4">
+  	<h4>BEAST</h4>
+      	<p>Again, it's beyond the scope of this walkthrough to explain GTR and GAMMA modes, but the defaults are likely to be fine for most uses. At this moment in time, phyloGenerator can't handle multiple searches - this will change in the future.</p>
+		<p>phyloGenerator does <b>not</b> check MCMC chains for convergence - you will need to do this yourself. This is a deliberate choice; a method that is never wrong does not exist, and I don't want to give people false hope. If someone finds a method (...) I'll incorporate it, and buy them an evening's worth of drinks. If you don't know what any of this means, I suggest you don't use BEAST!</p>
     </div>
+</section>
+
+<a name="smoothing"></a>
+<section id="smoothing">
+  <div class="page-header">
+    <h1>Rate Smoothing</h1>
+  </div>
+  <div class="row">
     <div class="span4">
-	<h4>Rate Smoothing</h4>
-    	<p>RAxML creates phylogenies whose branch lengths are proportional to the number of mutations that have taken places along them. However, for most purposes, you will want a phylogeny whose branch lengths are proportional to time. To use PATHd8 to make such a rate-smoothed phylogeny, simply enter the name of your outgroup species and press enter. Otherwise, press enter to continue without making one.</p>
+	<h4>Overview</h4>
+		<p>RAxML creates phylogenies whose branch lengths are proportional to the number of mutations that have taken places along them. However, for most purposes, you will want a phylogeny whose branch lengths are proportional to time. We can do this either using PATHd8, which essentially averages out variation in branch lengths (very quickly), or conduct a BEAST search with the topology constrained to what was found by RAxML. All the caveats above about BEAST searches apply to this method of rate smoothing, although I've never had any convergence issues using BEAST in this way.</p> 
+	</div>
+	<div class="span4">
+	<h4>PATHd8</h4>
+    	<p>By default, the root age is set to 1, and PATHd8 is run like this. I have no plans to incorproate node-specific ages by default into phyloGenerator - it is probably easier to just do this by hand. I would argue that in my field, community phylogenetics, setting the root age to 1 is better than working with a phylogeny with branch lengths proportional to mutation rate.</p>
+    </div>
+	<h4>BEAST</h4>
+    	<p>All the options avaiable to you when performing a normal BEAST run are now available. It might be argued that deviating from the default model choice (GTR-GAMMA) makes no sense, however, as this is (roughly) the model that RAxML uses. As in a normal BEAST search, a log-normal clock is assumed.</p>
     </div>
 </section>
 
@@ -213,6 +269,8 @@
 <a name="output"></a>
 <section id="output">
   <div class="page-header">
+  <div class="page-header">
+    <h1>Output</h1>
 	  <div class="row">
 	    <div class="span6">
 		<h4>End of the line!</h4>
