@@ -14,7 +14,7 @@ from Bio.SeqFeature import SeqFeature, FeatureLocation #Sequence manipulation
 from Bio import SeqIO #Sequence manipulation
 import random #Randomly select from multiple matches when downloading sequences
 import numpy as np #Array and matrix sums
-import scipy as sp #Stats (quantiles, etc.)
+from scipy import percentile,mean,std
 import subprocess, threading #Background process class
 from Bio import AlignIO #Handle alignments
 import os #Remove temporary files
@@ -508,7 +508,7 @@ def checkSequenceList(seqList, method='length', tolerance=None):
 		seqLengths = seqLength(seqList)
 		output = {'seqLengths':[], 'maxLength':[], 'minLength':[], 'quantileLengths':[], 'lowerQuantile':[], 'upperQuantile':[]}
 		for i,each in enumerate(seqLengths):
-			output['quantileLengths'].append(sp.percentile(each, [5, 25, 50, 75, 95]))
+			output['quantileLengths'].append(percentile(each, [5, 25, 50, 75, 95]))
 			output['maxLength'].append(max(each))
 			output['minLength'].append(min(each))
 			output['upperQuantile'].append([False] * len(each))
@@ -3017,9 +3017,9 @@ class PhyloGenerator:
 										constrainedConstrained.append(self.constraintRFs[x])
 								x += 1
 								bFree = not bFree
-						print "\tConstrained mean distance: ", str(round(sp.mean(constrainedConstrained),2)), " (SD: ", str(round(sp.std(constrainedConstrained), 4)), ")"
-						print "\tUnconstrained mean distance: ", str(round(sp.mean(freeFree),2)), " (SD: ", str(round(sp.std(freeFree), 4)), ")"
-						print "\tMean distance between them: ", str(round(sp.mean(freeConstrained),2)), " (SD: ", str(round(sp.std(freeConstrained), 4)), ")"
+						print "\tConstrained mean distance: ", str(round(mean(constrainedConstrained),2)), " (SD: ", str(round(std(constrainedConstrained), 4)), ")"
+						print "\tUnconstrained mean distance: ", str(round(mean(freeFree),2)), " (SD: ", str(round(std(freeFree), 4)), ")"
+						print "\tMean distance between them: ", str(round(mean(freeConstrained),2)), " (SD: ", str(round(std(freeConstrained), 4)), ")"
 					checkerLocker = False
 				except:
 					print "Sorry, I didn't get that. Please try again."
