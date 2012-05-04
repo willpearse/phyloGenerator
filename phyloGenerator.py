@@ -1577,6 +1577,7 @@ class PhyloGenerator:
 		self.phylogeny = False
 		self.phylogenyMerged = False
 		self.alignment = []
+		self.alignmentUnpartitioned = []
 		self.smoothPhylogeny = []
 		self.root = False
 		self.genBankIDs = []
@@ -1598,6 +1599,12 @@ class PhyloGenerator:
 		self.partitions = None
 		self.alignRF = []
 		self.mergedSpp = []
+		self.constraintFile = False
+		self.smoothPhylogeny = False
+		self.smoothPhylogenyMerged = False
+		#Backup working directory
+		self.oldDirectory = os.getcwd()
+		
 		#Stem name
 		if args.name:
 			self.stem = args.name
@@ -2245,6 +2252,7 @@ class PhyloGenerator:
 				raise RuntimeError("Unrecognised DNA Editing mode!")
 			if mode:
 				if mode == "EXIT":
+					self.alignment = []
 					locker = False
 	
 	def unmerge(self):
@@ -2304,7 +2312,7 @@ class PhyloGenerator:
 		print "the summary statistics above are unlikely to be sufficient to spot big problems!"
 		print "\t'output' - write current alignments to your working directory."
 		print "\t'DNA' - return to DNA editting stage"
-		print "\t'align' - align the sequences differently"
+		print "\t'align' - align the sequences differently. You will lose all the current alignments."
 		print "\t'trimAl' - automatically trim your sequences using trimAl"
 		print "\t'raxml=X' - run X RAxML runs for each alignment, and calculate the R-F distances between the trees and alignments"
 		print "\t'metal' - calculate SSP distances between genes and alignments using metal"
@@ -2319,9 +2327,17 @@ class PhyloGenerator:
 							AlignIO.write(self.alignment[i][j], self.stem+"_"+gene+"_"+method+".fasta", 'fasta')
 					print "...output written!"
 				elif inputAlign == 'DNA':
+					self.alignment = []
+					self.alignmentMethod = False
 					self.dnaChecking()
-				elif inputAlign == 'align':
+					self.dnaEditing()
 					self.align()
+					alignmentDisplay(self.alignment, self.alignmentMethods, self.genes, checkAlignmentList(self.alignment, method='everything'))
+				elif inputAlign == 'align':
+					self.alignmentMethod = False
+					self.alignment = []
+					self.align()
+					alignmentDisplay(self.alignment, self.alignmentMethods, self.genes, checkAlignmentList(self.alignment, method='everything'))
 				elif inputAlign == 'trimAl':
 					self.alignment = cleanAlignment(self.alignment, timeout=99999)
 					alignmentDisplay(self.alignment, self.alignmentMethods, self.genes, checkAlignmentList(self.alignment, method='everything'))
@@ -2461,33 +2477,35 @@ class PhyloGenerator:
 				methods = ''
 				if 'accelBootstrap' in inputStr:
 					methods +=	'intergratedBootstrap-'
-				if 'restart=X' in inputStr:
+				if 'restart=' in inputStr:
 					temp = inputStr.split('-')
 					for each in temp:
 						if 'restart' in each:
 							methods += each + '-'
 							break
-				if 'localVersion' in inputStr:
-					methods +=	'localVersion-'
+				if 'partitions' in inputStr:
+					methods += 'partitions-'
 				return methods
 			
-			self.concatenateSequences()
+			if len(self.alignment) > 1:
+				align, partitions = self.concatenateSequences()
+			else:
+				align, partitions = self.alignment, None
 			if options:
 				if not parseOptions(options):
 					print "ERROR! Your RAxML options (", options, ") were not recognised. Please re-enter below."
 				else:
-					self.phylogenyMethods = 'RAxML-' + parseOptions(options)
+					self.phylogenyMethods = 'RAxML-' + parseOptions(options) + 'localVersion'
 			
 			if not self.phylogenyMethods:
 				print "RAXML:"
 				print "You have a choice of RAxML options:"
 				print "\t 'accelBootstrap' - conduct 'rapid bootstrap' and ML-search in one run (!)"
 				print "\t 'restart=X' - conduct X number of ML searches (!)"
-				print "\t 'localVersion' - the version of RAxML we're running is called 'raxml', not any of the other variants"
-				print "\t ''noPartitions' - *do not* split genes into separate partitions"
-				print "...to specify multiple options, type them all separated by hyphens (e.g. 'accelBootstrap-localVersion')"
+				print "...to specify multiple options, type them all separated by hyphens (e.g. 'accelBootstrap-partitions')"
 				print "...the options with '(!)' after them cannot be used in conjunction with each other"
 				print "...or... just hit enter to use the defaults!"
+				print "If you're using multiple genes, phyloGenerator will automatically concatenate your alignments and ask RAxML to do a partitioned analysis."
 				raxmlLock = True
 				while raxmlLock:
 					raxmlInput = raw_input("Phylogeny Building (RAxML): ")
@@ -2501,7 +2519,7 @@ class PhyloGenerator:
 						print "...running RAxML with default options:", self.phylogenyMethods
 						raxmlLock = False
 			
-			self.phylogeny = RAxML(self.alignment, method=self.phylogenyMethods, constraint=self.constraint, timeout=999999)
+			self.phylogeny = RAxML(align, method=self.phylogenyMethods, constraint=self.constraint, timeout=999999, partitions=partitions)
 		
 		def beastSetup(options=False):
 			def parseOptions(inputStr):
@@ -2576,7 +2594,7 @@ class PhyloGenerator:
 					beastInput = raw_input("Phylogeny Building (BEAST): ")
 					methods = ''
 					if beastInput:
-						self.phylogenyMethods, logRate, screenRate, chainLength, overwrite = parseOptions(options)
+						self.phylogenyMethods, logRate, screenRate, chainLength, overwrite = parseOptions(beastInput)
 						self.phylogenyMethods = 'BEAST' + self.phylogenyMethods
 						if self.phylogenyMethods:
 							beastLock = False
@@ -2596,9 +2614,9 @@ class PhyloGenerator:
 				self.phylogeny = BEAST(self.alignment[0], method=self.phylogenyMethods, constraint=self.constraint, timeout=999999)
 		
 		if self.phylogenyMethods:
-			if 'BEAST' in self.phylogenyMethods:
+			if 'beast' in self.phylogenyMethods:
 				beastSetup(self.phylogenyMethods)
-			elif 'RAxML' in self.phylogenyMethods:
+			elif 'raxml' in self.phylogenyMethods:
 				raxmlSetup(self.phylogenyMethods)
 			else:
 				print "I don't understand your phylogeny construction method", self.phylogenyMethods, ". Please enter one now."
@@ -2627,7 +2645,7 @@ class PhyloGenerator:
 		def PATHd8():
 			print "\nPlease enter an outgroup for your phylogeny, 'species' to see the tips in your phylogeny, or just hit enter to cancel and continue."
 			pathd8Locker = True
-			spNames = [x.name for x in self.phylogeny[0].get_terminals()]
+			spNames = [x.name for x in self.phylogeny.get_terminals()]
 			while pathd8Locker:
 				inputPathd8 = raw_input("Rate-Smoothing (PATHd8): ")
 				if inputPathd8:
@@ -2636,9 +2654,14 @@ class PhyloGenerator:
 						for each in spNames:
 							print each
 					elif inputPathd8 in spNames:
-						for i,phylo in enumerate(self.phylogeny):
-							phylo.root_with_outgroup(inputPathd8)
-							self.smoothPhylogeny.append(rateSmooth(phylo, sequenceLength=self.alignment[i].get_alignment_length()))
+						self.phylogeny.root_with_outgroup(inputPathd8)
+						length = 0
+						if type(self.alignment) is list:
+							for i,align in enumerate(self.alignment):
+								length += align.get_alignment_length()
+						else:
+							length = self.alignment.get_alignment_length()
+						self.smoothPhylogeny = rateSmooth(self.phylogeny, sequenceLength=length)
 						pathd8Locker = False
 						print "...phylogeny rate-smoothed! Continuing..."
 					else:
@@ -2660,6 +2683,7 @@ class PhyloGenerator:
 			print "...to specify multiple options, type them all separated by hyphens (e.g. 'GTR-GAMMA')"
 			print "...the options with '(!)' after them cannot be used in conjunction with each other"
 			print "...or... just hit enter to use the defaults!"
+			print "Please note: your alignment has (likely; check the output) been concatenated into one long sequence - this is how RAxML works, but may not be the best way to run it through BEAST."
 			beastLock = True
 			while beastLock:
 				beastInput = raw_input("Rate-Smoothing (BEAST): ")
@@ -2700,18 +2724,20 @@ class PhyloGenerator:
 								break
 					if methods:
 						self.rateSmoothMethods = 'BEAST' + methods
-						print "...running BEAST with options ", self.rateSmoothMethods
-						for phylo,align in zip(self.phylogeny, self.alignment):
-							self.smoothPhylogeny.append(BEAST(align, method=self.rateSmoothMethods, constraint=phylo, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, tempStem='beast_smooth'))
+						if len(self.alignment) > 1:
+							self.smoothPhylogeny = BEAST(self.alignment, method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, tempStem='beast_smooth')
+						else:
+							self.smoothPhylogeny = BEAST(self.alignment[0], method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, tempStem='beast_smooth')
 						beastLock = False
 					else:
 						print "Sorry, I don't understand", beastInput, "- please try again."
 				else:
 					print "...running BEAST with default options"
-					for i,align in enumerate(self.alignment):
-						self.rateSmoothMethods = 'BEAST-GTR-GAMMA'
-						for phylo,align in zip(self.phylogeny, self.alignment):
-							self.smoothPhylogeny.append(BEAST(align, method=self.rateSmoothMethods, constraint=phylo, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, tempStem='beast_smooth'))
+					self.rateSmoothMethods = 'BEAST-GTR-GAMMA'
+					if len(self.alignment) > 1:
+						self.smoothPhylogeny = BEAST(self.alignment, method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, tempStem='beast_smooth')
+					else:
+						self.smoothPhylogeny = BEAST(self.alignment[0], method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, tempStem='beast_smooth')
 					beastLock = False
 					
 		
@@ -2803,7 +2829,7 @@ class PhyloGenerator:
 		#Phylogeny
 		if self.phylogenyMerged:
 			if 'BEAST' in self.phylogenyMethods:
-				os.rename(self.phylogeny, self.stem+"_"+self.genes[i]+"_RAW_phylogeny.nex")
+				os.rename(self.oldDirectory + '/' + self.phylogeny, self.stem+"_"+self.genes[i]+"_RAW_phylogeny.nex")
 				Phylo.write(self.phylogenyMerged, self.stem+"_MERGED_phylogeny.tre", 'newick')
 			else:
 				Phylo.write(self.phylogenyMerged, self.stem+"_MERGED_phylogeny.tre", 'newick')
@@ -2812,7 +2838,7 @@ class PhyloGenerator:
 		else:
 			if self.phylogeny:
 				if 'BEAST' in self.phylogenyMethods:
-					os.rename(self.phylogeny, self.stem+"_"+self.genes[i]+"_phylogeny.nex")
+					os.rename(self.oldDirectory + '/' + self.phylogeny, self.stem+"_"+self.genes[i]+"_phylogeny.nex")
 				else:
 					Phylo.write(self.phylogeny, self.stem+"_phylogeny.tre", 'newick')
 		
@@ -2841,9 +2867,11 @@ class PhyloGenerator:
 					Phylo.write(self.smoothPhylogenyMerged, self.stem+"_"+self.genes[i]+"_MERGED_smoothed_phylogeny.tre", 'newick')
 			else:
 				if 'BEAST' in self.rateSmoothMethods:
-					os.rename(self.phylogeny, self.stem+"_"+self.genes[i]+"_smoothed_phylogeny.nex")
+					pdb.set_trace()
+					os.rename(self.originalDirectory + '/' + self.smoothPhylogeny, self.stem+"_"+self.genes[i]+"_RAW_smoothed_phylogeny.nex")
+					Phylo.write(self.smoothPhylogenyMerged, self.stem+"_"+self.genes[i]+"_MERGED_smoothed_phylogeny.tre", 'newick')
 				else:
-					Phylo.write(self.phylogeny, self.stem+"_"+self.genes[i]+"_smoothed_phylogeny.tre", 'newick')
+					Phylo.write(self.smoothPhylogeny, self.stem+"_"+self.genes[i]+"_smoothed_phylogeny.tre", 'newick')
 	
 	def getConstraint(self, fileName=""):
 		def newickConstraint():
@@ -2949,7 +2977,7 @@ class PhyloGenerator:
 			while stopper:
 				constraintInput = raw_input("Constraint Method: ")
 				if constraintInput:
-					if constraintInput == 'newic':
+					if constraintInput == 'newick':
 						stopper = newickConstraint()
 					elif constraintInput == 'phylomatic':
 						stopper = phylomatic()
@@ -2972,59 +3000,59 @@ class PhyloGenerator:
 				print "Error in constraint tree method name."
 				#do something better here please!
 				return False
-		
-		print "To conduct RAxML searches with and without your constraint tree, and calculate the Rbonison-Foulds distances between them, enter the number of times you would like to do a tree search below. Otherwise, simply press enter."
-		checkLocker = True
-		while checkLocker:
-			checkerInput = raw_input("Constraint Method (check): ")
-			if checkerInput:
-				try:
-					nSearch = int(checkerInput)
-					trees = []
-					for i in range(nSearch):
-						trees.append(RAxML(self.alignment))
-					for i in range(nSearch):
-						trees.append(RAxML(self.alignment, constraint=self.constraint))
-					Phylo.write(trees, 'constraintCheckTemp.tre', 'newick')
-					pipe = TerminationPipe('raxml -f r -z constraintCheckTemp.tre -n constraintCheckTemp -m GTRGAMMA', 999999)
-					pipe.run()
-					if not pipe.failure:
-						with open('RAxML_RF-Distances.constraintCheckTemp') as f:
-							for line in f:
-								temp = line.strip()
-								self.constraintRFs.append(float(re.search("[0-9]{1}\.[0-9]+", temp).group()))
-						os.remove('constraintCheckTemp.tre')
-						os.remove('RAxML_RF-Distances.constraintCheckTemp')
-						os.remove('RAxML_info.constraintCheckTemp')
-						aFree = False
-						freeFree = []
-						freeConstrained = []
-						constrainedConstrained = []
-						x = 0
-						for i in range((nSearch*2) -1):
-							aFree = not aFree
-							bFree = not aFree
-							for j in range(i, (nSearch*2) -1):
-								if aFree:
-									if bFree:
-										freeFree.append(self.constraintRFs[x])
+		if self.constraint:
+			print "To conduct RAxML searches with and without your constraint tree, and calculate the Rbonison-Foulds distances between them, enter the number of times you would like to do a tree search below. Otherwise, simply press enter."
+			checkLocker = True
+			while checkLocker:
+				checkerInput = raw_input("Constraint Method (check): ")
+				if checkerInput:
+					try:
+						nSearch = int(checkerInput)
+						trees = []
+						for i in range(nSearch):
+							trees.append(RAxML(self.alignment))
+						for i in range(nSearch):
+							trees.append(RAxML(self.alignment, constraint=self.constraint))
+						Phylo.write(trees, 'constraintCheckTemp.tre', 'newick')
+						pipe = TerminationPipe('raxml -f r -z constraintCheckTemp.tre -n constraintCheckTemp -m GTRGAMMA', 999999)
+						pipe.run()
+						if not pipe.failure:
+							with open('RAxML_RF-Distances.constraintCheckTemp') as f:
+								for line in f:
+									temp = line.strip()
+									self.constraintRFs.append(float(re.search("[0-9]{1}\.[0-9]+", temp).group()))
+							os.remove('constraintCheckTemp.tre')
+							os.remove('RAxML_RF-Distances.constraintCheckTemp')
+							os.remove('RAxML_info.constraintCheckTemp')
+							aFree = False
+							freeFree = []
+							freeConstrained = []
+							constrainedConstrained = []
+							x = 0
+							for i in range((nSearch*2) -1):
+								aFree = not aFree
+								bFree = not aFree
+								for j in range(i, (nSearch*2) -1):
+									if aFree:
+										if bFree:
+											freeFree.append(self.constraintRFs[x])
+										else:
+											freeConstrained.append(self.constraintRFs[x])
 									else:
-										freeConstrained.append(self.constraintRFs[x])
-								else:
-									if bFree:
-										freeConstrained.append(self.constraintRFs[x])
-									else:
-										constrainedConstrained.append(self.constraintRFs[x])
-								x += 1
-								bFree = not bFree
-						print "\tConstrained mean distance: ", str(round(mean(constrainedConstrained),2)), " (SD: ", str(round(std(constrainedConstrained), 4)), ")"
-						print "\tUnconstrained mean distance: ", str(round(mean(freeFree),2)), " (SD: ", str(round(std(freeFree), 4)), ")"
-						print "\tMean distance between them: ", str(round(mean(freeConstrained),2)), " (SD: ", str(round(std(freeConstrained), 4)), ")"
-					checkerLocker = False
-				except:
-					print "Sorry, I didn't get that. Please try again."
-			else:
-				checkLocker = False
+										if bFree:
+											freeConstrained.append(self.constraintRFs[x])
+										else:
+											constrainedConstrained.append(self.constraintRFs[x])
+									x += 1
+									bFree = not bFree
+							print "\tConstrained mean distance: ", str(round(mean(constrainedConstrained),2)), " (SD: ", str(round(std(constrainedConstrained), 4)), ")"
+							print "\tUnconstrained mean distance: ", str(round(mean(freeFree),2)), " (SD: ", str(round(std(freeFree), 4)), ")"
+							print "\tMean distance between them: ", str(round(mean(freeConstrained),2)), " (SD: ", str(round(std(freeConstrained), 4)), ")"
+						checkerLocker = False
+					except:
+						print "Sorry, I didn't get that. Please try again."
+				else:
+					checkLocker = False
 	
 	def checkConstraint(self):
 		if self.constraint:
@@ -3042,14 +3070,15 @@ class PhyloGenerator:
 	
 	def concatenateSequences(self):
 		if len(self.genes) > 1:
-			self.partitions = [0, self.alignment[0].get_alignment_length()]
+			partitions = [0, self.alignment[0].get_alignment_length()]
 			tempAlignment = self.alignment[0]
 			for i in range(1, (len(self.genes)-1)):
 				tempAlignment += self.alignment[i]
-				self.partitions.append(lengths[-1] + self.alignment[i])
-			self.alignment = tempAlignment
+				partitions.append(lengths[-1] + self.alignment[i])
+			tempAlignment
 			for i,x in enumerate(self.speciesNames):
-				self.alignment[i].id = self.speciesNames[i].replace(' ', '_')
+				tempAlignment[i].id = self.speciesNames[i].replace(' ', '_')
+		return alignment, partitions
 	
 	def APICheck(self):
 		if self.tracker == self.spacer:
