@@ -734,7 +734,7 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
 	else:
 		raise RuntimeError("Either phylogeny building program failed, or ran out of time")
 
-def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, constraint=None, cleanup=True, runNow=True, chainLength=1000000, logRate=1000, screenRate=1000, overwrite=True, burnin=0.1, restart=None):
+def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, constraint=None, cleanup=False, runNow=True, chainLength=1000000, logRate=1000, screenRate=1000, overwrite=True, burnin=0.1, restart=None):
 	completeConstraint = False
 	with open(tempStem+"_BEAST.xml", 'w') as f:
 		f.write('<?xml version="1.0" standalone="yes"?>\n')
@@ -1335,7 +1335,10 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 				os.remove(tempStem + ".trees")
 				os.remove(tempStem + ".log")
 				os.remove("mcmc.operators")
-			return tempStem + "Final.tre"
+				return tempStem + "Final.tre"
+			else:
+				os.remove("mcmc.operators")
+				return tempStem + "Final.tre", tempStem + "_BEAST.xml", tempStem + ".trees", tempStem + ".log"
 		else:
 			raise RuntimeError("Either tree annotation failed, or ran out of time")
 	else:
@@ -2584,7 +2587,7 @@ class PhyloGenerator:
 				if not parseOptions(options)[0]:
 					print "ERROR! Your BEAST options (", options, ") were not recognised. Please re-enter below."
 				else:
-					self.phylogenyMethods, logRate, screenRate, chainLength, overwrite = parseOptions(options)
+					self.phylogenyMethods, logRate, screenRate, chainLength, overwrite, burnin = parseOptions(options)
 					self.phylogenyMethods = 'BEAST' + self.phylogenyMethods
 			
 			if not self.phylogenyMethods:
@@ -2622,9 +2625,9 @@ class PhyloGenerator:
 				self.phylogenyMethods += '-GTR-GAMMA'
 			print "...running BEAST with options ", self.phylogenyMethods
 			if len(self.alignment) > 1:
-				self.phylogeny = BEAST(self.alignment, method=self.phylogenyMethods, constraint=self.constraint, timeout=999999, chainLength=chainLength, logRate=logRate, screenRate=screenRate, overwrite=overwrite, burnin=burnin)
+				self.phylogeny, self.beastXML, self.beastTrees, self.beastLogs = BEAST(self.alignment, method=self.phylogenyMethods, constraint=self.constraint, timeout=999999, chainLength=chainLength, logRate=logRate, screenRate=screenRate, overwrite=overwrite, burnin=burnin)
 			else:
-				self.phylogeny = BEAST(self.alignment[0], method=self.phylogenyMethods, constraint=self.constraint, timeout=999999, chainLength=chainLength, logRate=logRate, screenRate=screenRate, overwrite=overwrite, burnin=burnin)
+				self.phylogeny, self.beastXML, self.beastTrees, self.beastLogs  = BEAST(self.alignment[0], method=self.phylogenyMethods, constraint=self.constraint, timeout=999999, chainLength=chainLength, logRate=logRate, screenRate=screenRate, overwrite=overwrite, burnin=burnin)
 		
 		if self.phylogenyMethods:
 			if 'beast' in self.phylogenyMethods:
@@ -2748,9 +2751,9 @@ class PhyloGenerator:
 					if methods:
 						self.rateSmoothMethods = 'BEAST' + methods
 						if len(self.alignment) > 1:
-							self.smoothPhylogeny = BEAST(self.alignment, method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, burnin=burnin, timeout=999999, tempStem='beast_smooth')
+							self.smoothPhylogenyself.phylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs  = BEAST(self.alignment, method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, burnin=burnin, timeout=999999, tempStem='beast_smooth')
 						else:
-							self.smoothPhylogeny = BEAST(self.alignment[0], method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, burnin=burnin, tempStem='beast_smooth')
+							self.smoothPhylogenyself.phylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs = BEAST(self.alignment[0], method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, burnin=burnin, tempStem='beast_smooth')
 						beastLock = False
 					else:
 						print "Sorry, I don't understand", beastInput, "- please try again."
@@ -2758,9 +2761,9 @@ class PhyloGenerator:
 					print "...running BEAST with default options"
 					self.rateSmoothMethods = 'BEAST-GTR-GAMMA'
 					if len(self.alignment) > 1:
-						self.smoothPhylogeny = BEAST(self.alignment, method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, burnin=burnin, tempStem='beast_smooth')
+						self.smoothPhylogenyself.phylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs = BEAST(self.alignment, method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, burnin=burnin, tempStem='beast_smooth')
 					else:
-						self.smoothPhylogeny = BEAST(self.alignment[0], method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, burnin=burnin, tempStem='beast_smooth')
+						self.smoothPhylogenyself.phylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs = BEAST(self.alignment[0], method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, burnin=burnin, tempStem='beast_smooth')
 					beastLock = False
 					
 		
@@ -2853,6 +2856,9 @@ class PhyloGenerator:
 		if self.phylogenyMerged:
 			if 'BEAST' in self.phylogenyMethods:
 				os.rename(self.oldDirectory + '/' + self.phylogeny, self.stem+"_"+self.genes[i]+"_RAW_phylogeny.nex")
+				os.rename(self.oldDirectory + '/' + self.beastXML, self.stem+"_"+self.genes[i]+"_RAW_BEAST.xml")
+				os.rename(self.oldDirectory + '/' + self.beastTrees, self.stem+"_"+self.genes[i]+"_RAW_BEAST.trees")
+				os.rename(self.oldDirectory + '/' + self.beastLogs, self.stem+"_"+self.genes[i]+"_RAW_BEAST.log")
 				Phylo.write(self.phylogenyMerged, self.stem+"_MERGED_phylogeny.tre", 'newick')
 			else:
 				Phylo.write(self.phylogenyMerged, self.stem+"_MERGED_phylogeny.tre", 'newick')
@@ -2862,6 +2868,9 @@ class PhyloGenerator:
 			if self.phylogeny:
 				if 'BEAST' in self.phylogenyMethods:
 					os.rename(self.oldDirectory + '/' + self.phylogeny, self.stem+"_"+self.genes[i]+"_phylogeny.nex")
+					os.rename(self.oldDirectory + '/' + self.beastXML, self.stem+"_"+self.genes[i]+"_RAW_BEAST.xml")
+					os.rename(self.oldDirectory + '/' + self.beastTrees, self.stem+"_"+self.genes[i]+"_RAW_BEAST.trees")
+					os.rename(self.oldDirectory + '/' + self.beastLogs, self.stem+"_"+self.genes[i]+"_RAW_BEAST.log")
 				else:
 					Phylo.write(self.phylogeny, self.stem+"_phylogeny.tre", 'newick')
 		
@@ -2884,6 +2893,9 @@ class PhyloGenerator:
 			if self.smoothPhylogenyMerged:
 				if 'BEAST' in self.rateSmoothMethods:
 					os.rename(self.oldDirectory + '/' + self.smoothPhylogeny, self.stem+"_"+self.genes[i]+"_RAW_smoothed_phylogeny.nex")
+					os.rename(self.oldDirectory + '/' + self.smoothedBeastXML, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.xml")
+					os.rename(self.oldDirectory + '/' + self.smoothedBeastTrees, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.trees")
+					os.rename(self.oldDirectory + '/' + self.smoothedBeastLogs, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.log")
 					Phylo.write(self.smoothPhylogenyMerged, self.stem+"_"+self.genes[i]+"_MERGED_smoothed_phylogeny.tre", 'newick')
 				else:
 					Phylo.write(self.smoothPhylogeny, self.stem+"_"+self.genes[i]+"_RAW_smoothed_phylogeny.tre", 'newick')
@@ -2891,6 +2903,9 @@ class PhyloGenerator:
 			else:
 				if 'BEAST' in self.rateSmoothMethods:
 					os.rename(self.oldDirectory + '/' + self.smoothPhylogeny, self.stem+"_"+self.genes[i]+"_RAW_smoothed_phylogeny.nex")
+					os.rename(self.oldDirectory + '/' + self.smoothedBeastXML, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.xml")
+					os.rename(self.oldDirectory + '/' + self.smoothedBeastTrees, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.trees")
+					os.rename(self.oldDirectory + '/' + self.smoothedBeastLogs, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.log")
 				else:
 					Phylo.write(self.smoothPhylogeny, self.stem+"_"+self.genes[i]+"_smoothed_phylogeny.tre", 'newick')
 	
