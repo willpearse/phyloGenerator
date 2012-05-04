@@ -1521,7 +1521,7 @@ def metal(alignList, tempStem='tempMetal', timeout=100):
 	for i,currAlign in enumerate(alignLocations):
 		currDist = []
 		for j,nextAlign in enumerate(alignLocations[(i+1):]):
-			pipe = TerminationPipe("metal "+currAlign+" "+nextAlign, timeout=timeout)
+			pipe = TerminationPipe("metal --ignore-names"+currAlign+" "+nextAlign, timeout=timeout)
 			pipe.run()
 			temp = re.search('[0-9]*\ /\ [0-9]*', pipe.output[0]).group()
 			temp = 'float(' + temp + ')'
@@ -2323,7 +2323,6 @@ class PhyloGenerator:
 		print "\t'raxml=X' - run X RAxML runs for each alignment, and calculate the R-F distances between the trees and alignments"
 		print "\t'metal' - calculate SSP distances between genes and alignments using metal"
 		print "To carry on, just hit enter. If you have multiple alignments, you will be asked to pick one for each gene."
-		print "WARNING: I have flagged an error with the developer of MetAl. There is a possible bug with MetAl, such that running it is likely to caused an unhandled exception and crash phyloGenerator."
 		locker = True
 		while locker:
 			inputAlign = raw_input("Alignment Checking:")
