@@ -101,7 +101,7 @@
     <div class="span6">
     	<p>There are some example files included with phyloGenerator - they're in the 'Demos' folder, and usage examples are in the 'README' file.</p>
 		<p>My advice would be to just try using the thing, and then refer back to this when stuck. This is intended to be a fairly exhaustive guide, and so makes the program seem a little intimidating. Bear in mind that phylogenetics is complicated - I don't go into any detail about how RAxML works, for example, because it's the product of several people's entire research careers. I don't have that much space!</p>
-		<p>Using an options file will give you more control over phyloGenerator, and its use is described in the 'reference' section. However, you can also use it interactively, and this will be described below. I will assume that you have successfully installed phyloGenerator, and have started it running.</p>
+		<p>Finally, remember that <b>all paths in phyloGenerator are absolute</b>. For example, if you wanted to use a file in the same folder as phyloGenerator, give the full path (e.g., '/Users/will/mySpeciesList.txt', or 'C:\mySpeciesList.txt') - <b>not</b> the relative path (e.g., 'mySpeciesList.txt').</p>
     </div>
     <div class="span4">
 		
@@ -118,6 +118,7 @@
   </div>
   <div class="row">
 	<div class="span6">
+		Double-click 'phyloGenerator.exe' in Windows, or run './phyloGenerator.app/Contents/MacOS/phyloGenerator' from a Mac.
     	<h4>Stem Name</h4>
 			<p>phyloGenerator will automatically output all your files, but you need to give it a 'stem name' so that it knows what to call everything. I'd suggest 'test' for your first attempt!</p>
 		<h4>Working Directory</h4>
@@ -130,7 +131,7 @@
 	    <div class="span6">
 			<h4>DNA Download</h4>
 				<p>If you don't have DNA sequences already, you'll need to download some. Tell phyloGenerator where a plain text file containing the binomial names of the species you want is. Each species must be on a separate line, with no formatting of any kind in the file. Otherwise, just press enter.</p>
-				<p>If you're downloading DNA, you'll need to provide a valid email address so Entrez can contact you about your downloads - don't worry, they won't if you provide a real one! You then need to give the genes you want to search for. If you want to give more than one, make sure you enter them on separate lines, and simply press enter on an empty line to continue once you're done.</p>
+				<p>If you're downloading DNA, you'll need to provide a valid email address so Entrez can contact you about your downloads - this is if you download too much, and has never happened to me. You then need to give the genes you want to search for. If you want to give more than one, make sure you enter them on separate lines, and simply press enter on an empty line to continue once you're done.</p>
 				<p>You may have to wait some time before your sequences have all been downloaded, but phyloGenerator will tell you how it's doing. By default, it waits ten seconds after downloading each DNA sequence so that it doesn't irritate the servers at GenBank. You can change this behaviour in the options file, if you like.</p>
 </section>
 
@@ -176,7 +177,7 @@
 	<div class="span4">
     	<h4>Alignment</h4>
 				<p>Simply press enter, and phyloGenerator will align your DNA using MUSCLE. However, you have a choice of programs: MUSCLE, MAFFT, Clustal-Omega, or PRANK. To use any of them, simply enter <em>muscle</em>, <em>mafft</em>, <em>clustalo</em>, or <em>prank</em> respectively. To compare the alignments of several programs, enter <em>everything</em>, or just to use the first three type <em>quick</em>. Note that PRANK can take a <b>very</b> long time, mainly because it doesn't guarantee to use any heuristics when comparing alignments.</p>
-				<p>When you're ready to continue, just hit enter. You'll pick an alignment for each gene (you can only have one alignment :p) by entering the alignment number for each gene, or if you've only used one alignment method phyloGenerator will just continue straight through.
+				<p>When you're ready to continue, just hit enter. You'll pick an alignment for each gene (you can only have one alignment) by entering the alignment number for each gene, or if you've only used one alignment method phyloGenerator will just continue straight through.
 			</div>
 	    <div class="span4">
 			<h4>Alignment Checking</h4>
