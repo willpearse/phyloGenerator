@@ -394,7 +394,7 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
 				sortedAligns = []
 				for oldSeq in seqs:
 					for alignSeq in newSeqs:
-						if alignSeq.name == oldSeq.name:
+						if alignSeq.name == oldSeq.name or alignSeq.name == oldSeq.id:
 							sortedAligns.append(alignSeq)
 				geneOutput.append(MultipleSeqAlignment(sortedAligns))
 				os.remove(outputFile)
@@ -1413,7 +1413,6 @@ def rateSmooth(phylo, method='PATHd8', nodes=tuple(), sequenceLength=int(), temp
 				commandLine = ' '.join(['PATHd8', tempPATHd8Input, tempPATHd8Output])
 				pipe = TerminationPipe(commandLine, timeout)
 				pipe.run()
-				pdb.set_trace()
 				os.remove(tempPhyloFile)
 				os.remove(tempPATHd8Input)
 				if not pipe.failure:
@@ -2676,7 +2675,6 @@ class PhyloGenerator:
 								length += align.get_alignment_length()
 						else:
 							length = self.alignment.get_alignment_length()
-						pdb.set_trace()
 						self.smoothPhylogeny = rateSmooth(self.phylogeny, sequenceLength=length)
 						pathd8Locker = False
 						print "...phylogeny rate-smoothed! Continuing..."
@@ -2794,11 +2792,10 @@ class PhyloGenerator:
 					foundSequence = True
 				else:
 					self.sequences[i][j] = "-"
-			else:
-				if not foundSequence:
-					cleaned.append(self.speciesNames[i])
-					del self.sequences[i]
-					del self.speciesNames[i]
+			if not foundSequence:
+				cleaned.append(self.speciesNames[i])
+				del self.sequences[i]
+				del self.speciesNames[i]
 		
 		if cleaned:
 			print "\nThe following species did not have any DNA associated with them, and so have been excluded:"
