@@ -1769,6 +1769,7 @@ class PhyloGenerator:
 						aborted = False
 			except IOError:
 				print "\nERROR: File not found. Exiting..."
+				sys.exit()
 		else:
 			locker = True
 			aborted = False
@@ -2476,7 +2477,7 @@ class PhyloGenerator:
 		else:
 			self.alignmentMethods = [self.alignmentMethod]
 	
-	def phylogen(self, method="RAxML-localVersion"):
+	def phylogen(self, method="raxml-localVersion"):
 		def raxmlSetup(options=False):
 			def parseOptions(inputStr):
 				methods = ''
@@ -2500,7 +2501,7 @@ class PhyloGenerator:
 				if not parseOptions(options):
 					print "ERROR! Your RAxML options (", options, ") were not recognised. Please re-enter below."
 				else:
-					self.phylogenyMethods = 'RAxML-' + parseOptions(options) + 'localVersion'
+					self.phylogenyMethods = 'RAxML-' + parseOptions(options)
 			
 			if not self.phylogenyMethods:
 				print "RAXML:"
@@ -2520,11 +2521,11 @@ class PhyloGenerator:
 							print "Sorry, I don't understand", raxmlInput, "- please try again."
 						raxmlLock = False
 					else:
-						self.phylogenyMethods = 'RAxML-localVersion-GTR-GAMMA'
+						self.phylogenyMethods = 'RAxML-'
 						print "...running RAxML with default options:", self.phylogenyMethods
 						raxmlLock = False
 			
-			self.phylogeny = RAxML(align, method=self.phylogenyMethods, constraint=self.constraint, timeout=999999, partitions=partitions)
+			self.phylogeny = RAxML(align, method=self.phylogenyMethods+'localVersion', constraint=self.constraint, timeout=999999, partitions=partitions)
 		
 		def beastSetup(options=False):
 			def parseOptions(inputStr):
@@ -2600,6 +2601,7 @@ class PhyloGenerator:
 				print "\t 'burnin=X' - Discard 'X' initial fraction of chain as a 'burnin', e.g. 0.1 = 10%"
 				print "\t 'overwriteBlock' - causes BEAST to halt if there are any files from previous attempts in your working directory"
 				#print "\t 'restart=X' - conduct X independent searches"
+				print "...you *must* specify a DNA model (at least GTR or HKY) if defining your own parameters"
 				print "...to specify multiple options, type them all separated by hyphens (e.g. 'GTR-GAMMA')"
 				print "...the options with '(!)' after them cannot be used in conjunction with each other"
 				print "...or... just hit enter to use the defaults!"
@@ -2637,7 +2639,7 @@ class PhyloGenerator:
 				self.phylogenyMethods = ''
 		
 		if not self.phylogenyMethods:
-			print "You can either build a maximum likelihood tree ('raxml') or a Bayesian tree ('beast'). If unsure what to do, just hit enter to build a RAxML tree with default options."
+			print "You can either build a maximum likelihood tree ('raxml') or a Bayesian tree ('beast'). If unsure what to do, just hit enter to build a tree with RAxML."
 			locker = True
 			while locker:
 				phyloInput = raw_input("Phylogeny Building: ")
@@ -2651,8 +2653,8 @@ class PhyloGenerator:
 					else:
 						print "Sorry, I don't understand", phyloInput, "- please try again."
 				else:
-					print "...using RAxML with default options..."
-					raxmlSetup('localVersion')
+					print "...using RAxML..."
+					raxmlSetup('')
 					locker= False
 	
 	def rateSmooth(self):
@@ -2695,10 +2697,10 @@ class PhyloGenerator:
 			#print "\t 'screenRate=X' - report ouptut to the screen every 'X' steps"
 			print "\t 'burnin=X' - Discard 'X' initial fraction of chain as a 'burnin', e.g. 0.1 = 10%"
 			print "\t 'overwriteBlock' - causes BEAST to halt if there are any files from previous attempts in your working directory"
+			print "...you *must* specify a DNA model (at least GTR or HKY) if defining your own parameters"
 			print "...to specify multiple options, type them all separated by hyphens (e.g. 'GTR-GAMMA')"
 			print "...the options with '(!)' after them cannot be used in conjunction with each other"
 			print "...or... just hit enter to use the defaults!"
-			print "Please note: your alignment has (likely; check the output) been concatenated into one long sequence - this is how RAxML works, but may not be the best way to run it through BEAST."
 			beastLock = True
 			while beastLock:
 				beastInput = raw_input("Rate-Smoothing (BEAST): ")
@@ -2738,8 +2740,8 @@ class PhyloGenerator:
 								screenRate = int(each.replace('screenRate=', ''))
 								methods += '-screenRate='+str(screenRate)
 								break
-					if 'burnin' in inputStr:
-						temp = inputStr.split('-')
+					if 'burnin' in beastInput:
+						temp = beastInput.split('-')
 						for each in temp:
 							if 'burnin' in each:
 								burnin = int(each.replace('burnin=', ''))
@@ -2748,9 +2750,9 @@ class PhyloGenerator:
 					if methods:
 						self.rateSmoothMethods = 'BEAST' + methods
 						if len(self.alignment) > 1:
-							self.smoothPhylogenyself.phylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs  = BEAST(self.alignment, method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, burnin=burnin, timeout=999999, tempStem='beast_smooth')
+							self.smoothPhylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs  = BEAST(self.alignment, method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, burnin=burnin, timeout=999999, tempStem='beast_smooth')
 						else:
-							self.smoothPhylogenyself.phylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs = BEAST(self.alignment[0], method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, burnin=burnin, tempStem='beast_smooth')
+							self.smoothPhylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs = BEAST(self.alignment[0], method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, burnin=burnin, tempStem='beast_smooth')
 						beastLock = False
 					else:
 						print "Sorry, I don't understand", beastInput, "- please try again."
@@ -2758,15 +2760,16 @@ class PhyloGenerator:
 					print "...running BEAST with default options"
 					self.rateSmoothMethods = 'BEAST-GTR-GAMMA'
 					if len(self.alignment) > 1:
-						self.smoothPhylogenyself.phylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs = BEAST(self.alignment, method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, burnin=burnin, tempStem='beast_smooth')
+						self.smoothPhylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs = BEAST(self.alignment, method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, burnin=burnin, tempStem='beast_smooth')
 					else:
-						self.smoothPhylogenyself.phylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs = BEAST(self.alignment[0], method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, burnin=burnin, tempStem='beast_smooth')
+						self.smoothPhylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs = BEAST(self.alignment[0], method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, burnin=burnin, tempStem='beast_smooth')
 					beastLock = False
 					
 		
 		print "\nYou can now rate-smooth your phylogeny (i.e., make its branch lengths proportional to evolutionary time)."
 		print "\t'pathd8' - rate-smooth using PATHd8 (fastest!)"
 		print "\t'beast' - rate-smooth using BEAST (doesn't require you to specify an outgroup)"
+		print "...or hit enter to continue without rate smoothing."
 		locker = True
 		while locker:
 			inputSmooth = raw_input("Rate-Smoothing: ")
@@ -2889,9 +2892,9 @@ class PhyloGenerator:
 			if self.smoothPhylogenyMerged:
 				if 'BEAST' in self.rateSmoothMethods:
 					os.rename(self.oldDirectory + '/' + self.smoothPhylogeny, self.stem+"_"+self.genes[i]+"_RAW_smoothed_phylogeny.nex")
-					os.rename(self.oldDirectory + '/' + self.smoothedBeastXML, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.xml")
-					os.rename(self.oldDirectory + '/' + self.smoothedBeastTrees, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.trees")
-					os.rename(self.oldDirectory + '/' + self.smoothedBeastLogs, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.log")
+					os.rename(self.oldDirectory + '/' + self.smoothBeastXML, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.xml")
+					os.rename(self.oldDirectory + '/' + self.smoothBeastTrees, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.trees")
+					os.rename(self.oldDirectory + '/' + self.smoothBeastLogs, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.log")
 					Phylo.write(self.smoothPhylogenyMerged, self.stem+"_"+self.genes[i]+"_MERGED_smoothed_phylogeny.tre", 'newick')
 				else:
 					Phylo.write(self.smoothPhylogeny, self.stem+"_"+self.genes[i]+"_RAW_smoothed_phylogeny.tre", 'newick')
@@ -2899,9 +2902,9 @@ class PhyloGenerator:
 			else:
 				if 'BEAST' in self.rateSmoothMethods:
 					os.rename(self.oldDirectory + '/' + self.smoothPhylogeny, self.stem+"_"+self.genes[i]+"_RAW_smoothed_phylogeny.nex")
-					os.rename(self.oldDirectory + '/' + self.smoothedBeastXML, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.xml")
-					os.rename(self.oldDirectory + '/' + self.smoothedBeastTrees, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.trees")
-					os.rename(self.oldDirectory + '/' + self.smoothedBeastLogs, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.log")
+					os.rename(self.oldDirectory + '/' + self.smoothBeastXML, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.xml")
+					os.rename(self.oldDirectory + '/' + self.smoothBeastTrees, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.trees")
+					os.rename(self.oldDirectory + '/' + self.smoothBeastLogs, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.log")
 				else:
 					Phylo.write(self.smoothPhylogeny, self.stem+"_"+self.genes[i]+"_smoothed_phylogeny.tre", 'newick')
 	
@@ -3110,7 +3113,7 @@ class PhyloGenerator:
 			tempAlignment
 			for i,x in enumerate(self.speciesNames):
 				tempAlignment[i].id = self.speciesNames[i].replace(' ', '_')
-		return alignment, partitions
+		return tempAlignment, partitions
 	
 	def APICheck(self):
 		if self.tracker == self.spacer:
@@ -3153,6 +3156,7 @@ def main():
 		"\nDNA CHECKING"
 		currentState.dnaChecking()
 		print "\nYou are now able to delete DNA sequences you have loaded.\nEvery time you delete a sequence, your summary statistics will be re-calculated, and displayed to you again.\n*IMPORTANT*: Sequence IDs may change once you delete a sequence."
+		print "Note: all species without sequence data will be ignored when continuing to the next step."
 		currentState.dnaEditing()
 		
 		#DNA Cleanup and renaming
