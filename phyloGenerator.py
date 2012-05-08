@@ -1322,13 +1322,16 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 		return commandLine
 	
 	pipe = TerminationPipe(commandLine, timeout)
-	pipe.run(silent=False)
+	if sys.platform == "win32":
+                pipe.run(silent=False, changeDir=False)
+        else:
+                pipe.run(silent=False)
 	if not pipe.failure:
 		print "...removing burn-in of ", str(burnin*100), "%..."
 		burnin = int(burnin * (chainLength / logRate))
 		commandLine = 'treeannotator -burnin ' + str(burnin) + ' -heights median ' + tempStem + '.trees ' + tempStem + 'Final.tre'
 		pipeAnotate = TerminationPipe(commandLine, timeout)
-		pipeAnotate.run()
+		pipeAnotate.run(changeDir=False)
 		if not pipeAnotate.failure:
 			if cleanup:
 				os.remove(tempStem + "_BEAST.xml")
@@ -1542,22 +1545,31 @@ class TerminationPipe(object):
 		self.stdout = 'EMPTY'
 		self.silent = silent
 	
-	def run(self, silent=None):
+	def run(self, silent=None, changeDir=True):
 		def silentTarget():
-			tStdout	 = open('termPipeStdErr.txt', 'w')
 			if sys.platform == 'win32':
-				self.process = subprocess.Popen("requires\\" + self.cmd, stdout=subprocess.PIPE, shell=True, stderr=subprocess.PIPE)
+                                if changeDir:
+                                        self.process = subprocess.Popen("requires\\" + self.cmd, stdout=subprocess.PIPE, shell=True, stderr=subprocess.PIPE)
+                                else:
+                                        self.process = subprocess.Popen(self.cmd, stdout=subprocess.PIPE, shell=True, stderr=subprocess.PIPE)
 			else:
-				self.process = subprocess.Popen("./requires/" + self.cmd, stdout=subprocess.PIPE,shell=True, stderr=subprocess.PIPE)
+                                if changeDir:
+                                        self.process = subprocess.Popen("./requires/" + self.cmd, stdout=subprocess.PIPE,shell=True, stderr=subprocess.PIPE)
+                                else:
+                                        self.process = subprocess.Popen(self.cmd, stdout=subprocess.PIPE,shell=True, stderr=subprocess.PIPE)
 			self.output = self.process.communicate()
-			self.stderr = open('termPipeStdErr.txt', 'r').readlines()
-			os.remove('termPipeStdErr.txt')
 		
 		def loudTarget():
 			if sys.platform == 'win32':
-				self.process = subprocess.Popen("requires\\" + self.cmd, shell=False)
+                                if changeDir:
+                                        self.process = subprocess.Popen("requires\\" + self.cmd, shell=False)
+                                else:
+                                        self.process = subprocess.Popen(self.cmd, shell=False)
 			else:
-				self.process = subprocess.Popen("./requires/" + self.cmd, shell=False)
+                                if changeDir:
+                                        self.process = subprocess.Popen("./requires/" + self.cmd, shell=False)
+                                else:
+                                        self.process = subprocess.Popen(self.cmd, shell=False)
 			self.output=self.process.communicate()
 		
 		if silent: self.silent = silent
@@ -2163,7 +2175,7 @@ class PhyloGenerator:
 										self.sequences[i] = geneList
 										print "......alternative found:", candidate
 										break
-							print "......can't find one"
+									print "......can't find one"
 					print "Re-calulating summary statistics..."
 					self.dnaChecking()
 					return 'replace', False
@@ -2619,6 +2631,7 @@ class PhyloGenerator:
 					else:
 						print "...running BEAST with default options"
 						self.phylogenyMethods = 'GTR-GAMMA'
+						self.phylogenyMethods, logRate, screenRate, chainLength, overwrite, burnin = parseOptions('')
 						beastLock = False
 			
 			if not 'GTR' in self.phylogenyMethods and not 'HKY' in self.phylogenyMethods:
