@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>phyloGenerator (reference) - automated phylogeny generation for ecologists</title>
+    <title>phyloGenerator (FAQ) - automated phylogeny generation for ecologists</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="">
     <meta name="author" content="Will Pearse">
@@ -51,7 +51,7 @@
 	                <a href="./walkthrough.html">Walkthrough</a>
 	              </li>
 	              <li class="active">
-	                <a href="./reference.html">Reference</a>
+	                <a href="./faq.html">FAQ</a>
 	              </li>
 	              <li class="">
 	                <a href="http://imperial.academia.edu/WillPearse">Who?</a>
@@ -67,39 +67,37 @@
 <!-- Masthead
 ================================================== -->
 <header class="jumbotron subhead" id="overview">
-  <h1>Reference</h1>
-  <p class="lead">phyloGenerator's internals, and a guide to setting up configuration files'</p>
+  <h1>Frequently Asked Questions</h1>
+  <p class="lead">check here before you email me please!</p>
 </header>
 
 
-<!-- Overview
-================================================== -->
-<a name="overview"></a>
-<section id="overview">
-  <div class="page-header">
-    <h1>Overview</h1>
-  </div>
-  <div class="row">
-    <div class="span6">
-		<p>phyloGenerator is really just a big Python script, and you can use its internals in your own scripts if you'd like. I haven't written a proper guide yet, but for the time being just looking at the internals of the script (ignore the classes, as they're used in running the actual script).</p>
-	</div>
-    <div class="span6">
-    	<p>You can also make configuration files that will automate even more of phyloGenerator's features, allowing you to make phylogenies even more easily. However, this is only half-completed - but when it's finished, you'll see the details here!</p>
-    </div>
-    <div class="span4">
-		
-    </div>
-</section>
+<div class="container">
+      <h1>Necessities</h1>
+      <h3>Who should I cite?</h3>
+	  <p>At the moment no one, and you're not permitted to edit any of the source code, or indeed to publish anything generated from or written in this package without the express permission of the author. Once the paper is out, however, all this will change.</p>
+      <h3>What programs does this use? And how do I cite them?</h3>
+	  <p>Only cite the programs you use from the following list:</p>
+	  <ul>
+		  <li><a href="http://www.exelixis-lab.org/">RAxML - 7.3.0</a></li>
+		  <li><a href="http://beast.bio.ed.ac.uk/Main_Page">BEAST - 1.7.1</a></li>
+		  <li><a href="http://mafft.cbrc.jp/alignment/software/">MUSCLE - 3.8.31</a></li>
+		  <li><a href="http://mafft.cbrc.jp/alignment/software/">MAFFT - v6.847b</a></li>
+		  <li><a href="http://www.clustal.org/omega/"></a>Clustal-Omega - 1.0.3</li>
+		  <li><a href="http://www.ebi.ac.uk/goldman-srv/prank/prank/">PRANK - v.100701</a></li>
+		  <li><a href="http://www.phylodiversity.net/phylocom/"></a>Phylomatic - 4.2 (part of Phylocom)</li>
+		  <li><a href="http://kumiho.smith.man.ac.uk/whelan/software/metal/"></a>MetAl - 1.1 (compiled by me)</li>
+		  <li><a href="http://trimal.cgenomics.org/"></a>TrimAl - 1.2rev59</li>
+		 </ul>
+		 <p>But you <b>must</b> cite <a href="http://www.biopython.org/wiki/Main_Page">BioPython</a>. Sorry not to be more help than this, but it's best the authors tell you what to cite so I don't get in trouble!</p>
+		 <h3>It doesn't work! Help!</h3>
+		 <p>Oh no! Contact me using the link at the top of this page ('Who?'), including a copy-pasted version of everything you did and got back from phyloGenerator, any files you gave to phyloGenerator, and details about your computer (Mac? Windows? What version?). I'll get back to you quickly, I promise.</p>
+		 <h3>I don't understand what this program does! Help!</h3>
+		 <p>Have a read through the walkthrough. If that doesn't help, drop me an email. I'm afraid I can't explain the whole of phylogenetics to you (sorry!) but I'm quite likely to help you if you send me a polite email. Perhaps an offer of a beer would also be appropriate :p</p>
+		 <h3>I don't think this program is a good idea. It doesn't include method X / philsophically it's a bad idea / etc.</h3>
+		 <p>I probably agree with you. Please, send me an email (the 'Who?' link at the top should help you find me) and let's talk about it. Maybe we can improve the program, but at the very least I'd appreciate your feedback. For the record, I certainly don't think this program is a replacement for phylogeneticists. Otherwise I'd be out of a job!</p>
 
- <!-- Footer
-  ================================================== -->
-  <footer class="footer">
-    <p class="pull-right"><a href="#">Back to top</a></p>
-	<p>&copy <a href="http://imperial.academia.edu/WillPearse">Will Pearse</a> (2012), PhD student in the Purvis Lab at Imperial College London.</p>
-    <p>Website (heavily) based on Twitter's Bootstrap - thank you! Bootstrap was built by <a href="http://twitter.com/mdo" target="_blank">@mdo</a> and <a href="http://twitter.com/fat" target="_blank">@fat</a>, their code licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0" target="_blank">Apache License v2.0</a>.</p>
-  </footer>
-
-</div><!-- /container -->
+    </div> <!-- /container -->
 
 
 
