@@ -390,7 +390,10 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
 			os.remove(inputFile)
 			if not pipe.failure:
 				#Need to put the sequences back in order (...)
-				newSeqs = AlignIO.read(outputFile, 'fasta')
+				try:
+					newSeqs = AlignIO.read(outputFile, 'fasta')
+				except:
+					raise RuntimeError("MUSCLE unable to run: check your input sequences please!")
 				sortedAligns = []
 				for oldSeq in seqs:
 					for alignSeq in newSeqs:
@@ -412,7 +415,10 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
 			pipe.run(silent=silent)
 			os.remove(inputFile)
 			if not pipe.failure:
-				geneOutput.append(AlignIO.read(outputFile, 'fasta'))
+				try:
+					geneOutput.append(AlignIO.read(outputFile, 'fasta'))
+				except:
+					raise RuntimeError("MAFFT unable to run: check your input sequences please!")
 				os.remove(outputFile)
 				alignedSomething = True
 			else:
@@ -428,7 +434,10 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
 			pipe.run(silent=silent)
 			os.remove(inputFile)
 			if not pipe.failure:
-				geneOutput.append(AlignIO.read(outputFile, 'fasta'))
+				try:
+					geneOutput.append(AlignIO.read(outputFile, 'fasta'))
+				except:
+					raise RuntimeError("Clustal-Omega unable to run: check your input sequences please!")
 				os.remove(outputFile)
 				alignedSomething = True
 			else:
@@ -444,7 +453,10 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
 			pipe.run(silent=silent)
 			os.remove(inputFile)
 			if not pipe.failure:
-				geneOutput.append(AlignIO.read(outputFile+".2.fas", 'fasta'))
+				try:
+					geneOutput.append(AlignIO.read(outputFile+".2.fas", 'fasta'))
+				except:
+					raise RuntimeError("PRANK unable to run: check your input sequences please!")
 				dirList = os.listdir(os.getcwd())
 				for each in dirList:
 					if re.search("("+outputFile+")", each):
@@ -631,7 +643,7 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
 	inputFile = tempStem + 'In.phylip'
 	outputFile = tempStem + 'Out'
 	fileLine = ' -s ' + inputFile + ' -n ' + outputFile
-	options = ' -p ' + str(random.randint(0,10000000)) + ''
+	options = ' -p ' + str(random.randint(0,10000000))
 	#Outgroup(s), assuming they're in the right format for RAxML!
 	if outgroup:
 		options += ' -o ' + outgroup
@@ -650,11 +662,17 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
 					options += ' -N ' + number
 					break
 		#Algorithm
-		if 'intergratedBootstrap' in method:
+		if 'integratedBootstrap' in method:
 			if 'restarts' in method:
 				raise RuntimeError("RAxML cannot do the accelerated bootstrap multiple times (at least not the way I'm using it).")
+			temp = method.split('-')
+			for each in temp:
+				if 'integratedBootstrap' in each:
+					number = each.replace('integratedBootstrap=', '')
+					options += ' -N ' + number
+					break
+			options += ' -x ' + str(random.randint(0,10000000))
 			algorithm = ' -f a'
-			options += ' -b ' + str(random.randint(0,10000000)) + ' '
 		else:
 			algorithm = ' -f d'
 		#Starting tree
@@ -718,6 +736,8 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
 	if not pipe.failure:
 		if 'startingOnly' in method:
 			tree = Phylo.read('RAxML_parsimonyTree.' + outputFile, "newick")
+		elif 'integratedBootstrap' in method:
+			tree = Phylo.read('RAxML_bipartitions.' + outputFile, "newick")
 		else:
 			tree = Phylo.read('RAxML_bestTree.' + outputFile, "newick")
 		if cleanup:
@@ -730,7 +750,7 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
 					os.remove(each)
 				if tempStem+"In.phylip.reduced"==each:
 					os.remove(each)
-		return tree			
+		return tree
 	else:
 		raise RuntimeError("Either phylogeny building program failed, or ran out of time")
 
@@ -1523,7 +1543,7 @@ def metal(alignList, tempStem='tempMetal', timeout=100):
 	for i,currAlign in enumerate(alignLocations):
 		currDist = []
 		for j,nextAlign in enumerate(alignLocations[(i+1):]):
-			pipe = TerminationPipe("metal --ignore-names"+currAlign+" "+nextAlign, timeout=timeout)
+			pipe = TerminationPipe("metal --ignore-names "+currAlign+" "+nextAlign, timeout=timeout)
 			pipe.run()
 			temp = re.search('[0-9]*\ /\ [0-9]*', pipe.output[0]).group()
 			temp = 'float(' + temp + ')'
@@ -1606,7 +1626,7 @@ class PhyloGenerator:
 		self.email = ''
 		self.codonModels = []
 		self.taxonomy = []
-		self.phylogenyMethods = False
+		self.phylogenyMethods = ''
 		self.initialSeqChoice = 'medianLength'
 		self.replaceSeqChoice = 'targetLength'
 		self.uniqueTaxonomy = []
@@ -2329,7 +2349,7 @@ class PhyloGenerator:
 		print "\nIt's *strongly* recommended that you take a look at your alignment before continuing."
 		print "the summary statistics above are unlikely to be sufficient to spot big problems!"
 		print "\t'output' - write current alignments to your working directory."
-		print "\t'DNA' - return to DNA editting stage"
+		print "\t'DNA' - return to DNA editing stage"
 		print "\t'align' - align the sequences differently. You will lose all the current alignments."
 		print "\t'trimAl' - automatically trim your sequences using trimAl"
 		print "\t'raxml=X' - run X RAxML runs for each alignment, and calculate the R-F distances between the trees and alignments"
@@ -2381,65 +2401,65 @@ class PhyloGenerator:
 				elif 'raxml' in inputAlign:
 					try:
 						noTrees = int(inputAlign.replace('raxml=', ''))
+						#Make starting trees and random seeds
+						#startingTrees = []
+						#for i in range(noTrees):
+						#	startingTrees.append(RAxML(self.alignment[0][0], method='localVersion-startingOnly'))
+
+						#Find trees from this search
+						# - if you start with the same tree for each, it tends to be shit...
+						trees = []
+						for i,gene	in enumerate(self.alignment):
+							for k,method in enumerate(gene):
+								for tree in range(noTrees):
+									trees.append(RAxML(method, 'localVersion'))
+
+						#Calculate mean R-F distances
+						#...between alignment methods
+						Phylo.write(trees, 'alignCheckTemp.tre', 'newick')
+						pipe = TerminationPipe('raxml -f r -z alignCheckTemp.tre -n alignCheckTemp -m GTRGAMMA', 999999)
+						pipe.run()
+						if not pipe.failure:
+							self.alignRF = []
+							with open('RAxML_RF-Distances.alignCheckTemp') as f:
+								for line in f:
+									temp = line.strip()
+									self.alignRF.append(re.search("[0-9]{1}\.[0-9]+", temp).group())
+
+							os.remove('alignCheckTemp.tre')
+							os.remove('RAxML_RF-Distances.alignCheckTemp')
+							os.remove('RAxML_info.alignCheckTemp')
+							print "\nMean Robinson-Folds distances between genes and alignments:"
+							header = []
+							for i,gene in enumerate(self.genes):
+								if len(gene) > 4:
+									gene = gene[0:4]
+								else:
+									gene = gene.ljust(4)
+								for j,method in enumerate(self.alignmentMethods):
+									header.append(gene + "_" + method[0:4])
+							header.insert(0, "         ")
+							print " ".join(header)
+							colToWrite = len(self.genes) * len(self.alignmentMethods) -1
+							x = 0
+							spacer = 1
+							for row in range((len(self.genes) * len(self.alignmentMethods))-1):
+								currRow = []
+								for col in range(colToWrite):
+									temp = []
+									for rep in range(noTrees):
+										temp.append(float(self.alignRF[x]))
+										x += 1
+									currRow.append(str(round(sum(temp)/len(temp), 3)).ljust(9))
+								for i in range(spacer):
+									currRow.insert(0, "         ")
+								print header[row+1], " ".join(currRow)
+								colToWrite -= 1
+								spacer += 1
+						else:
+							print "!!!Something went wrong with the RAxML runs. Sorry!"
 					except:
-						print "Please specify the number of searches you want to perform."
-					#Make starting trees and random seeds
-					#startingTrees = []
-					#for i in range(noTrees):
-					#	startingTrees.append(RAxML(self.alignment[0][0], method='localVersion-startingOnly'))
-					
-					#Find trees from this search
-					# - if you start with the same tree for each, it tends to be shit...
-					trees = []
-					for i,gene	in enumerate(self.alignment):
-						for k,method in enumerate(gene):
-							for tree in range(noTrees):
-								trees.append(RAxML(method, 'localVersion'))
-					
-					#Calculate mean R-F distances
-					#...between alignment methods
-					Phylo.write(trees, 'alignCheckTemp.tre', 'newick')
-					pipe = TerminationPipe('raxml -f r -z alignCheckTemp.tre -n alignCheckTemp -m GTRGAMMA', 999999)
-					pipe.run()
-					if not pipe.failure:
-						self.alignRF = []
-						with open('RAxML_RF-Distances.alignCheckTemp') as f:
-							for line in f:
-								temp = line.strip()
-								self.alignRF.append(re.search("[0-9]{1}\.[0-9]+", temp).group())
-						
-						os.remove('alignCheckTemp.tre')
-						os.remove('RAxML_RF-Distances.alignCheckTemp')
-						os.remove('RAxML_info.alignCheckTemp')
-						print "\nMean Robinson-Folds distances between genes and alignments:"
-						header = []
-						for i,gene in enumerate(self.genes):
-							if len(gene) > 4:
-								gene = gene[0:4]
-							else:
-								gene = gene.ljust(4)
-							for j,method in enumerate(self.alignmentMethods):
-								header.append(gene + "_" + method[0:4])
-						header.insert(0, "         ")
-						print " ".join(header)
-						colToWrite = len(self.genes) * len(self.alignmentMethods) -1
-						x = 0
-						spacer = 1
-						for row in range((len(self.genes) * len(self.alignmentMethods))-1):
-							currRow = []
-							for col in range(colToWrite):
-								temp = []
-								for rep in range(noTrees):
-									temp.append(float(self.alignRF[x]))
-									x += 1
-								currRow.append(str(round(sum(temp)/len(temp), 3)).ljust(9))
-							for i in range(spacer):
-								currRow.insert(0, "         ")
-							print header[row+1], " ".join(currRow)
-							colToWrite -= 1
-							spacer += 1
-					else:
-						print "!!!Something went wrong with the RAxML runs. Sorry!"
+						print "Sorry, try again - something like 'raxml=5'."
 				else:
 					print "Sorry, I don't understand", inputAlign, "- please try again."
 			else:
@@ -2493,8 +2513,14 @@ class PhyloGenerator:
 		def raxmlSetup(options=False):
 			def parseOptions(inputStr):
 				methods = ''
-				if 'accelBootstrap' in inputStr:
-					methods +=	'intergratedBootstrap-'
+				if 'raxml' == inputStr:
+					methods += 'RAxML-defaults'
+				if 'integratedBootstrap=' in inputStr:
+					temp = inputStr.split('-')
+					for each in temp:
+						if 'integratedBootstrap' in each:
+							methods += each + '-'
+							break
 				if 'restart=' in inputStr:
 					temp = inputStr.split('-')
 					for each in temp:
@@ -2512,13 +2538,14 @@ class PhyloGenerator:
 			if options:
 				if not parseOptions(options):
 					print "ERROR! Your RAxML options (", options, ") were not recognised. Please re-enter below."
+					self.phylogenyMethods = ''
 				else:
 					self.phylogenyMethods = 'RAxML-' + parseOptions(options)
 			
 			if not self.phylogenyMethods:
 				print "RAXML:"
 				print "You have a choice of RAxML options:"
-				print "\t 'accelBootstrap' - conduct 'rapid bootstrap' and ML-search in one run (!)"
+				print "\t 'integratedBootstrap=X' - conduct X number of bootstraps and a thorough ML search in one run (!)"
 				print "\t 'restart=X' - conduct X number of ML searches (!)"
 				print "...to specify multiple options, type them all separated by hyphens (e.g. 'accelBootstrap-partitions')"
 				print "...the options with '(!)' after them cannot be used in conjunction with each other"
@@ -2672,6 +2699,19 @@ class PhyloGenerator:
 	
 	def rateSmooth(self):
 		def PATHd8():
+			if sys.platform == 'win32':
+				try:
+					subprocess.Popen('/requires/PATHd8')
+				except:
+					print "\n*ERROR*\n"
+					print "PATHd8 requires 'cygwin' to be installed, and you don't have it."
+					print "'website' - open cygwin website and install it"
+					print "...or... anything else to return to the rate-smoothing prompt"
+					cygwin = raw_input('Rate-smoothing (Cygwin): ')
+					if cygwin and cygwin == 'website':
+						browser.open('http://www.cygwin.com/')
+					else:
+						return False
 			print "\nPlease enter an outgroup for your phylogeny, 'species' to see the tips in your phylogeny, or just hit enter to cancel and continue."
 			pathd8Locker = True
 			spNames = [x.name for x in self.phylogeny.get_terminals()]
@@ -2698,6 +2738,7 @@ class PhyloGenerator:
 				else:
 					print "...cancelling rate-smoothing and continuing..."
 					pathd8Locker = False
+			return True
 		
 		def smoothBEAST():
 			print "You're about to perform a BEAST search with the topology constrained to that of your best phylogen(y/ies)."
@@ -2788,8 +2829,9 @@ class PhyloGenerator:
 			inputSmooth = raw_input("Rate-Smoothing: ")
 			if inputSmooth:
 				if inputSmooth == 'pathd8':
-					PATHd8()
-					locker = False
+					success = PATHd8()
+					if success:
+						locker = False
 				elif inputSmooth == 'beast':
 					smoothBEAST()
 					locker = False
@@ -2807,7 +2849,11 @@ class PhyloGenerator:
 				if seq:
 					foundSequence = True
 				else:
-					self.sequences[i][j] = "-"
+					self.sequences[i][j] = SeqRecord(Seq(""))
+					self.sequences[i][j].id = self.speciesNames[i] + "Empty" + str(i)
+					self.sequences[i][j].name = self.speciesNames[i] + "Empty" + str(i)
+					self.sequences[i][j].description = 'Empty sequence made up by phyloGenerator'
+			
 			if not foundSequence:
 				cleaned.append(self.speciesNames[i])
 				del self.sequences[i]
@@ -2816,7 +2862,7 @@ class PhyloGenerator:
 		if cleaned:
 			print "\nThe following species did not have any DNA associated with them, and so have been excluded:"
 			for each in cleaned:
-				print "\n", each
+				print each
 	
 	def renameSequences(self):
 		for i,name in enumerate(self.speciesNames):
@@ -3016,9 +3062,9 @@ class PhyloGenerator:
 			print "...lineages found!"
 		
 		if not self.constraintMethod:
-			print "It is *stronlgy* advised that you use a constraint tree with this program."
+			print "It is *strongly* advised that you use a constraint tree with this program."
 			print "\tTo supply your own constraint tree, type 'newick' and press enter."
-			print "\tTo use Phyomatic to generate a constraint tree, type 'phylomatic' and press enter."
+			print "\tTo use Phylomatic to generate a constraint tree, type 'phylomatic' and press enter."
 			print "\tTo generate a taxonomy for your species from GenBank, type 'taxonomy' and press enter."
 			print "Otherwise, press enter to continue without a constraint tree."
 			stopper = True
@@ -3168,7 +3214,10 @@ def main():
 		#DNA Checking
 		"\nDNA CHECKING"
 		currentState.dnaChecking()
-		print "\nYou are now able to delete DNA sequences you have loaded.\nEvery time you delete a sequence, your summary statistics will be re-calculated, and displayed to you again.\n*IMPORTANT*: Sequence IDs may change once you delete a sequence."
+		print "\nYou are now able to delete DNA sequences you have loaded."
+		print "Every time you delete a sequence, your summary statistics will be re-calculated, and displayed to you again."
+		print "*IMPORTANT*: Sequence IDs may change once you delete a sequence."
+		print "*IMPORTANT*: Check the lengths of sequences, and 'trim' them if abnormally (i.e. thousands of base pairs) longer than others."
 		print "Note: all species without sequence data will be ignored when continuing to the next step."
 		currentState.dnaEditing()
 		
