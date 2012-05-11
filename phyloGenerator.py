@@ -369,7 +369,7 @@ def argsCheck(arguments, parameter, argSplit='-', paramSplit=' '):
 		else:
 			raise RuntimeError("A match value for '" + paramter + "' was not found in the call '" + arguments + "'")
 
-def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, silent=False, nGenes=1, verbose=True):
+def alignSequences(seqList, sppNames, method='muscle', tempStem='temp', timeout=99999999, silent=False, nGenes=1, verbose=True):
 	finalOutput = []
 	output = []
 	alignedSomething = False
@@ -425,21 +425,41 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
 				raise RuntimeError("Mafft alignment not complete in time allowed")
 		
 		if 'clustalo' in method:
-			print "......with Clustal-o"
+			print "......with Clustal-Omega"
 			inputFile = tempStem + '.fasta'
 			outputFile = tempStem + 'Out.fasta'
 			commandLine = 'clustalo -i ' + inputFile + " -o " + outputFile + " -v"
-			SeqIO.write(seqs, inputFile, "fasta")
+			#Remove missing sequences
+			outSeqs = []
+			for seq in seqs:
+				if seq.seq.tostring() != '':
+					outSeqs.append(seq)
+			SeqIO.write(outSeqs, inputFile, "fasta")
 			pipe = TerminationPipe(commandLine, timeout)
 			pipe.run(silent=silent)
 			os.remove(inputFile)
 			if not pipe.failure:
 				try:
-					geneOutput.append(AlignIO.read(outputFile, 'fasta'))
+					clustalAlign = AlignIO.read(outputFile, 'fasta')
+					alignNames = [x.id for x in clustalAlign]
+					finalList = []
+					x = 0
+					fillerSeq = SeqRecord(Seq('-' * clustalAlign.get_alignment_length()))
+					for i,seq in enumerate(seqs):
+						if seq.id in alignNames:
+							finalList.append(clustalAlign[x])
+							x += 1
+						else:
+							finalList.append(fillerSeq)
+							finalList[-1].id = sppNames[i] + "MadeUp"
+							finalList[-1].name = sppNames[i] + "MadeUp"
+							finalList[-1].description = "Made up by phyloGenerator"
+					os.remove(outputFile)
+					
+					geneOutput.append(MultipleSeqAlignment(finalList))
+					alignedSomething = True
 				except:
 					raise RuntimeError("Clustal-Omega unable to run: check your input sequences please!")
-				os.remove(outputFile)
-				alignedSomething = True
 			else:
 				raise RuntimeError("Clustal-o alignment not complete in time allowed")
 		
@@ -1653,6 +1673,7 @@ class PhyloGenerator:
 		#Working directory
 		if args.wd:
 			self.workingDirectory = args.wd
+			print "\nUsing working directory", args.wd, "..."
 		else:
 			print "\nPlease input a working directory for all your output(phylogeny, sequences, etc.)"
 			self.workingDirectory = raw_input("Working directory: ")
@@ -2500,7 +2521,7 @@ class PhyloGenerator:
 					self.alignmentMethod = 'muscle'
 					locker = False
 		print "Starting alignment..."
-		self.alignment = alignSequences(self.sequences, method=self.alignmentMethod, tempStem='temp', timeout=99999999, nGenes=len(self.genes))
+		self.alignment = alignSequences(seqList=self.sequences, sppNames=self.speciesNames, method=self.alignmentMethod, tempStem='temp', timeout=99999999, nGenes=len(self.genes))
 		print "\nAlignment complete!"
 		if self.alignmentMethod == 'everything':
 			self.alignmentMethods = ['muscle', 'mafft', 'clustalo', 'prank']
