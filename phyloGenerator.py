@@ -1746,8 +1746,8 @@ class PhyloGenerator:
 		#Phylomatic
 		if args.consPhylomat:
 			self.phylomaticPhylogeny, self.phylomaticTaxonomy = args.consPhylomat.split(",")
-			self.phylomaticPhylogeny = os.getcwd() + '/' + self.phylomaticPhylogeny
-			self.phylomaticTaxonomy = os.getcwd() + '/' + self.phylomaticTaxonomy
+			self.phylomaticPhylogeny = self.phylomaticPhylogeny
+			self.phylomaticTaxonomy = self.phylomaticTaxonomy
 			self.constraintMethod = 'phylomatic'
 		else:
 			self.phylomaticPhylogeny = None
