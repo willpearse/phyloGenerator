@@ -1,5 +1,5 @@
-fagaceae/quercus/quercus_robur
-poaceae/oryza/oryza_sativa
-malvaceae/durio/durio_zibethinus
-rosaceae/rubus/rubus_ulmifolius
-anacardiaceae/pistacia/pistacia_lentis
+fagaceae/quercus/Quercus_robur
+poaceae/oryza/Oryza_sativa
+malvaceae/durio/Durio_zibethinus
+fagaceae/quercus/Quercus_ilex
+anacardiaceae/pistacia/Pistacia_chinensis
