@@ -1439,6 +1439,12 @@ def findGeneInSeq(seq, gene, trimSeq=False, DNAtype='Standard', gapType='-', ver
 	else:
 		raise RuntimeError('No sequence features found: are you using a GenBank record?')
 
+def cleanSequenceWrapper(seq, gene, DNAtype='Standard', gapType='-'):
+	output = findGeneInSeq(seq, gene, DNAtype=DNAtype, gapType=gapType, verbose=False)
+	if len(output) == len(seq):
+		output = trimSequence(seq, DNAtype=DNAtype, gapType=gapType)
+	return output
+
 def rateSmooth(phylo, method='PATHd8', nodes=tuple(), sequenceLength=int(), tempStem='temp', timeout=999999):
 	if not phylo.rooted:
 		raise RuntimeError("Phylogeny *must* be rooted")
@@ -2030,6 +2036,7 @@ class PhyloGenerator:
 				print "\t>X / <X - trims all sequences greater/lesser than X, e.g. '>1000' or '<1000'"
 				print "\t'EVERYTHING' - trim all sequences"
 				print "\t'type' - *IMPORTANT* select the type of gene (mitochondrial, nuclear, etc.) you've downloaded."
+				print "First time you trim, I will use sequence annotations, the second time, I will search for ORFs. Check documentation for details "
 				print "Other modes: 'delete', 'reload', 'replace', 'merge'.\n"
 			inputSeq = raw_input("DNA Editing (trim):")
 			if inputSeq:
@@ -2037,7 +2044,7 @@ class PhyloGenerator:
 					if int(inputSeq) in range(len(self.speciesNames)):
 						for i,each in enumerate(self.sequences[int(inputSeq)]):
 							if self.sequences[int(inputSeq)]:
-								self.sequences[int(inputSeq)][i] = trimSequence(self.sequences[int(inputSeq)][i])
+								self.sequences[int(inputSeq)][i] = cleanSequenceWrapper(self.sequences[int(inputSeq)][i], self.genes[i], DNAtype=self.codonModels[i], gapType='-')
 						print "Re-calulating summary statistics..."
 						self.dnaChecking()
 						return 'trim', False
@@ -2050,7 +2057,7 @@ class PhyloGenerator:
 							seqID = int(seqID)
 							if seqID < len(self.sequences):
 								print "Trimming SeqID", seqID, "gene", gene
-								self.sequences[seqID][i] = trimSequence(self.sequences[seqID][i])
+								self.sequences[seqID][i] = cleanSequenceWrapper(self.sequences[int(inputSeq)][i], self.genes[i], DNAtype=self.codonModels[i], gapType='-')
 								print "Re-calulating summary statistics..."
 								self.dnaChecking()
 								return 'trim', False
@@ -2061,7 +2068,7 @@ class PhyloGenerator:
 					for i,sp in enumerate(self.sequences):
 						for j,gene in enumerate(sp):
 							if len(self.sequences[i][j]) > threshold:
-								self.sequences[i][j] = trimSequence(self.sequences[i][j])
+								self.sequences[i][j] = cleanSequenceWrapper(self.sequences[i][j], self.genes[j], DNAtype=self.codonModels[j], gapType='-')
 					print "Re-calulating summary statistics..."
 					self.dnaChecking()
 					return 'trim', False
@@ -2094,7 +2101,7 @@ class PhyloGenerator:
 					for i,sp in enumerate(self.sequences):
 						for j,gene in enumerate(sp):
 							if self.sequences[i][j]:
-								self.sequences[i][j] = trimSequence(self.sequences[i][j])
+								self.sequences[i][j] = cleanSequenceWrapper(self.sequences[i][j], self.genes[j], DNAtype=self.codonModels[j], gapType='-', )
 					print "Re-calulating summary statistics..."
 					self.dnaChecking()
 					return 'trim', False
