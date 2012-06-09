@@ -859,7 +859,15 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 		else:
 			f.write('	<!-- Generate a random starting tree under the coalescent process			 -->\n')
 			f.write('	<coalescentTree id="startingTree" rootHeight="0.092">\n')
+			if constraint:
+				for i,clade in enumerate(clades):
+					f.write('	<constrainedTaxa>\n')
+					f.write('		<tmrca monophylletic="true">\n')
+					f.write('			<taxa idref="cladeNo' + str(i) + '">\n')
+					f.write('		</tmrca>\n')
 			f.write('		<taxa idref="taxa"/>\n')
+			if constraint:
+				f.write('	</constrainedTaxa>\n')
 			f.write('		<constantSize idref="initialDemo"/>\n')
 			f.write('	</coalescentTree>\n')
 		f.write('	<!-- Generate a tree model													 -->\n')
@@ -878,6 +886,14 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 		f.write('			<parameter id="treeModel.allInternalNodeHeights"/>\n')
 		f.write('		</nodeHeights>\n')
 		f.write('	</treeModel>\n')
+		if not completeConstraint and constraint:
+			for i,clade in enumerate(clades):
+				f.write('	<monophylyStatistic id="monophyly(' + clade + ')">\n')
+				f.write('		<mrca>\n')
+				f.write('			<taxa idref="cladeNo' + str(i) + '"/>\n')
+				f.write('		</mrca>\n')
+				f.write('<treeModel idref="treeModel"/>')
+				f.write('</monophylyStatistic>\n')
 		f.write('	<!-- Generate a speciation likelihood for Yule or Birth Death				 -->\n')
 		f.write('	<speciationLikelihood id="speciation">\n')
 		f.write('		<model>\n')
@@ -2729,6 +2745,7 @@ class PhyloGenerator:
 			if len(self.alignment) > 1:
 				self.phylogeny, self.beastXML, self.beastTrees, self.beastLogs = BEAST(self.alignment, method=self.phylogenyMethods, constraint=self.constraint, timeout=999999, chainLength=chainLength, logRate=logRate, screenRate=screenRate, overwrite=overwrite, burnin=burnin)
 			else:
+				pdb.set_trace()
 				self.phylogeny, self.beastXML, self.beastTrees, self.beastLogs  = BEAST(self.alignment[0], method=self.phylogenyMethods, constraint=self.constraint, timeout=999999, chainLength=chainLength, logRate=logRate, screenRate=screenRate, overwrite=overwrite, burnin=burnin)
 		
 		if self.phylogenyMethods:
