@@ -304,7 +304,37 @@ def sequenceDownload(spName, geneName=None, thorough=False, rettype='gb', titleT
 				if seq:
 					return seq
 				else:
-					return ()
+					if geneName:
+						#Now we're checking to see if they haven't labelled the sequence with a gene, and instead are checking in the title for the gene
+						if titleText:
+							titleText += " " + geneName
+						else:
+							titleText = geneName
+						geneName = None
+						seq = dwnSeq(includeGenome=False, includePartial=False)
+						if seq:
+							return seq
+						else:
+							seq = dwnSeq(includeGenome=True, includePartial=False)
+							if seq:
+								#Need to check to see if this gene is actually in this sequence (...)
+								try:
+									seq = findGeneInSeq(seq, geneName, trimSeq=trimSeq, DNAtype=DNAtype, gapType=gapType)
+								except:
+									seq = dwnSeq(includeGenome=True, includePartial=True)
+									if seq:
+										return seq
+									else:
+										return ()
+								return seq
+							else:
+								seq = dwnSeq(includeGenome=True, includePartial=True)
+								if seq:
+									return seq
+								else:
+									return ()
+					else:
+						return ()
 	else:
 		return dwnSeq(includeGenome, includePartial)
 
@@ -3065,6 +3095,7 @@ class PhyloGenerator:
 							self.constraint = Phylo.read(inputConstraint, 'newick')
 						except IOError:
 							print "\nFile not found. Please try again!"
+						pdb.set_trace()
 						if self.checkConstraint():
 							print "Constraint tree loaded!"
 							locker = False
@@ -3244,6 +3275,7 @@ class PhyloGenerator:
 			for each in tipLabels:
 				if each in self.speciesNames:
 					count += 1
+			pdb.set_trace()
 			if count == len(tipLabels):
 				return True
 			else:

@@ -1,34 +1,33 @@
-Achillea millefolium
-Anagallis arvensis
-Aphanes inexspectata
-Arrhenatherum elatius
-Bromus hordeaceus
-Carex hirta
-Carex riparia
-Cirsium arvense
-Deschampsia cespitosa
-Galium saxatile
-Geranium dissectum
-Geranium molle
-Holcus lanatus
-Juncus conglomeratus
-Leontodon autumnalis
-Lolium  multiflorum
-Lotus corniculatus
-Luzula campestris
-Myosotis arvensis
-Pilosella officinarum
-Prunella vulgaris
-Ranunculus acris
-Ranunculus repens
-Rubus fruticosus
-Rumex acetosa
-Rumex acetosella
-Senecio jacobaea
-Stellaria graminea
-Stellaria holostea
-Trifolium repens
-Urtica dioica
-Veronica chamaedrys
-Veronica officinalis
-Veronica serpyllifolia
+Achillea_millefolium
+Anagallis_arvensis
+Arrhenatherum_elatius
+Bromus_hordeaceus
+Carex_hirta
+Carex_riparia
+Cirsium_arvense
+Deschampsia_cespitosa
+Galium_saxatile
+Geranium_dissectum
+Geranium_molle
+Holcus_lanatus
+Juncus_conglomeratus
+Leontodon_autumnalis
+Lolium__multiflorum
+Lotus_corniculatus
+Luzula_campestris
+Myosotis_arvensis
+Pilosella_officinarum
+Prunella_vulgaris
+Ranunculus_acris
+Ranunculus_repens
+Rubus_fruticosus
+Rumex_acetosa
+Rumex_acetosella
+Senecio_jacobaea
+Stellaria_graminea
+Stellaria_holostea
+Trifolium_repens
+Urtica_dioica
+Veronica_chamaedrys
+Veronica_officinalis
+Veronica_serpyllifolia
