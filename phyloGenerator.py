@@ -1969,6 +1969,8 @@ class PhyloGenerator:
 					if int(inputSeq) in range(len(self.speciesNames)):
 						del self.sequences[int(inputSeq)]
 						del self.speciesNames[int(inputSeq)]
+						if self.taxonomy:
+							del self.taxonomy[int(inputSeq)]
 						print "SeqID", inputSeq, "Successfully deleted"
 						print "Re-calulating summary statistics..."
 						self.dnaChecking()
@@ -2005,12 +2007,14 @@ class PhyloGenerator:
 							else:
 								return 'delete', False
 					return 'delete', False
-				elif 'output':
+				elif inputSeq == 'output':
 					if self.sequences:
 						for i,gene in enumerate(self.genes):
 							currentGene = []
-							for seq in self.sequences:
-								currentGene.append(seq[i])
+							if self.sequences[i]:
+								for j,seq in enumerate(self.sequences[i]):
+									if self.sequences[i][j]:
+										currentGene.append(self.sequences[i][j])
 							SeqIO.write(currentGene, self.stem+"_WIP_"+gene+".fasta", 'fasta')
 					print "Raw sequences written out!"
 					return 'delete', False
@@ -2246,7 +2250,7 @@ class PhyloGenerator:
 												locker = True
 										if locker:
 											self.sequences[i] = temp
-											self.speciesNames[i] = candidate[0] +"(" + self.speciesNames[i] + ")"
+											self.speciesNames[i] = self.speciesNames[i]
 											print "......alternative found:", candidate[0], "re-caluclating summary statistics..."
 											self.dnaChecking()
 											return 'replace', False
@@ -2282,7 +2286,7 @@ class PhyloGenerator:
 										locker = True
 								if locker:
 									self.sequences[i] = temp
-									print "......alternative found:", candidate[0]
+									print "......alternative found:", candidate
 								break
 					print "Re-calulating summary statistics..."
 					self.dnaChecking()
@@ -2325,7 +2329,7 @@ class PhyloGenerator:
 										temp = sequenceDownload(candidate, gene)
 										geneList.append(temp)
 										if temp:
-											self.speciesNames[i] = candidate[0] +"(" + self.speciesNames[i] + ")"
+											self.speciesNames[i] = self.speciesNames[i]
 											locker = True
 									if locker:
 										self.sequences[i] = geneList
@@ -2999,6 +3003,8 @@ class PhyloGenerator:
 				cleaned.append(self.speciesNames[i])
 				del self.sequences[i]
 				del self.speciesNames[i]
+				if self.taxonomy:
+					del self.taxonomy[i]
 		
 		if cleaned:
 			print "\nThe following species did not have any DNA associated with them, and so have been excluded:"
@@ -3083,9 +3089,7 @@ class PhyloGenerator:
 				f.write("Species Name, Taxonomy...\n")
 				for i,each in enumerate(self.taxonomy):
 					if each:
-						f.write(self.speciesNames[i] + "," + ",".join(each) + "\n")
-					else:
-						f.write(self.speciesNames[i] + ", NOTHING FOUND\n")
+						f.write(",".join(each) + "\n")
 		
 		#Smoothed phylogeny
 		if self.smoothPhylogeny:
@@ -3097,8 +3101,8 @@ class PhyloGenerator:
 					os.rename(self.oldDirectory + '/' + self.smoothBeastLogs, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.log")
 					Phylo.write(self.smoothPhylogenyMerged, self.stem+"_"+self.genes[i]+"_MERGED_smoothed_phylogeny.tre", 'newick')
 				else:
-					Phylo.write(self.smoothPhylogeny, self.stem+"_"+self.genes[i]+"_RAW_smoothed_phylogeny.tre", 'newick')
-					Phylo.write(self.smoothPhylogenyMerged, self.stem+"_"+self.genes[i]+"_MERGED_smoothed_phylogeny.tre", 'newick')
+					Phylo.write(self.smoothPhylogeny, self.stem+"_RAW_smoothed_phylogeny.tre", 'newick')
+					Phylo.write(self.smoothPhylogenyMerged, self.stem+"_MERGED_smoothed_phylogeny.tre", 'newick')
 			else:
 				if 'BEAST' in self.rateSmoothMethods:
 					os.rename(self.oldDirectory + '/' + self.smoothPhylogeny, self.stem+"_"+self.genes[i]+"_RAW_smoothed_phylogeny.nex")
@@ -3106,7 +3110,7 @@ class PhyloGenerator:
 					os.rename(self.oldDirectory + '/' + self.smoothBeastTrees, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.trees")
 					os.rename(self.oldDirectory + '/' + self.smoothBeastLogs, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.log")
 				else:
-					Phylo.write(self.smoothPhylogeny, self.stem+"_"+self.genes[i]+"_smoothed_phylogeny.tre", 'newick')
+					Phylo.write(self.smoothPhylogeny, self.stem+"_smoothed_phylogeny.tre", 'newick')
 	
 	def getConstraint(self, fileName=""):
 		def newickConstraint():
@@ -3384,7 +3388,6 @@ def main():
 		
 		#Constraint tree
 		print "\nCONSTRAINT TREE"
-		#VERY poorly written - fix this!!!
 		currentState.getConstraint()
 		
 		#Phylogeny building
