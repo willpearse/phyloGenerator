@@ -643,7 +643,7 @@ def sequenceDisplay(seqList, speciesNames, geneNames, seqDetect=None):
 		#else:
 		#	print "Sequence lengths *outside* specified tolerance"
 		print "\nSequence summary:"
-		print "'^^^' and '___' denote very long or short sequences\n"
+		print "'^^^' and '___' denote particularly long or short sequences\n"
 		header = "Sp. ID " + "Input name".ljust(maxInputName)
 		for i, each in enumerate(geneNames):
 			header += each.ljust(geneNameLengths[i]) + "     "
@@ -811,6 +811,7 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
 
 def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, constraint=None, cleanup=False, runNow=True, chainLength=1000000, logRate=1000, screenRate=1000, overwrite=True, burnin=0.1, restart=None):
 	completeConstraint = False
+	agedConstraint = False
 	with open(tempStem+"_BEAST.xml", 'w') as f:
 		f.write('<?xml version="1.0" standalone="yes"?>\n')
 		f.write('<beast>\n')
@@ -825,13 +826,23 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 		f.write('	</taxa>\n')
 		if constraint:
 			clades = []
-			for clade in constraint.find_clades():
+			cladesNames = []
+			cladesAges = []
+			agedNames = []
+			ages = []
+			for x,clade in enumerate(constraint.find_clades()):
 				temp = [x.name for x in clade.get_terminals()]
 				if len(temp) > 1:
 					clades.append(temp)
+					cladesNames.append(clade.name)
+					cladesAges.append(clade.branch_length)
 			if len(set([item for sublist in clades for item in sublist])) == len(constraint.get_terminals()):
 				completeConstraint = True
 			for i,clade in enumerate(clades):
+				if cladesNames[i]:
+					ages.append(cladesAges[i])
+					agedNames.append("cladeNo"+str(i))
+					agedConstraint = True
 				f.write('	<taxa id="cladeNo' + str(i) + '">\n')
 				for sp in clade:
 					f.write('		<taxon idref="' + sp + '"/>\n')
@@ -916,13 +927,20 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 		f.write('			<parameter id="treeModel.allInternalNodeHeights"/>\n')
 		f.write('		</nodeHeights>\n')
 		f.write('	</treeModel>\n')
-		if not completeConstraint and constraint:
+		if constraint:
 			for i,clade in enumerate(clades):
-				f.write('	<monophylyStatistic id="monophyly(' + clade + ')">\n')
+				f.write('	<!-- Taxon Sets                                                              -->\n')
+				f.write('	<tmrcaStatistic id="tmrca(cladeNo' + str(i) + ')" includeStem="false">\n')
+				f.write('			<mrca>\n')
+				f.write('				<taxa idref="cladeNo' + str(i) + '"/>\n')
+				f.write('			</mrca>\n')
+				f.write('		<treeModel idref="treeModel"/>\n')
+				f.write('	</tmrcaStatistic>\n')
+				f.write('	<monophylyStatistic id="monophyly(' + str(i) + ')">\n')
 				f.write('		<mrca>\n')
 				f.write('			<taxa idref="cladeNo' + str(i) + '"/>\n')
 				f.write('		</mrca>\n')
-				f.write('<treeModel idref="treeModel"/>')
+				f.write('<treeModel idref="treeModel"/>\n')
 				f.write('</monophylyStatistic>\n')
 		f.write('	<!-- Generate a speciation likelihood for Yule or Birth Death				 -->\n')
 		f.write('	<speciationLikelihood id="speciation">\n')
@@ -1258,6 +1276,11 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 		f.write('	<mcmc id="mcmc" chainLength="' + str(chainLength) + '" autoOptimize="true">\n')
 		f.write('		<posterior id="posterior">\n')
 		f.write('			<prior id="prior">\n')
+		if agedConstraint:
+			for age,clade in zip(ages, agedNames):
+				f.write('				<normalPrior mean="'+ str(age) + '" stdev="1.0">\n')
+				f.write('					<statistic idref="tmrca(' + str(clade) + ')"/>\n')
+				f.write('				</normalPrior>\n')
 		if 'GTR' in method:
 			if type (alignment) is list:
 				for i,align in enumerate(alignment):
@@ -1938,7 +1961,8 @@ class PhyloGenerator:
 				print "\nDELETE MODE"
 				print "\tSpID - irreversibly delete a species, e.g. '0'"
 				print "\tgene - irreversibly delete an entire gene (brings up gene choice prompt)"
-				print "Other modes: 'reload', 'trim', 'replace', 'merge'.\n"
+				print "\toutput - write out downloaded sequences in FASTA format"
+				print "Other modes: 'reload', 'trim', 'replace', 'merge'. Hit enter to continue.\n"
 			inputSeq = raw_input("DNA Editing (delete): ")
 			if inputSeq:
 				try:
@@ -1981,6 +2005,15 @@ class PhyloGenerator:
 							else:
 								return 'delete', False
 					return 'delete', False
+				elif 'output':
+					if self.sequences:
+						for i,gene in enumerate(self.genes):
+							currentGene = []
+							for seq in self.sequences:
+								currentGene.append(seq[i])
+							SeqIO.write(currentGene, self.stem+"_WIP_"+gene+".fasta", 'fasta')
+					print "Raw sequences written out!"
+					return 'delete', False
 				elif inputSeq == "trim":
 					return "trim", True
 				elif inputSeq == "reload":
@@ -2006,7 +2039,7 @@ class PhyloGenerator:
 				print "\tSeqID GeneName - reload one gene for one species, e.g. '0rbcL'"
 				print "\t>X / <X - reload all sequences longer/shorter than X, e.g. '>900' / '<900'"
 				print "\tEVERYTHING - reload all sequences (search will be more thorough)"
-				print "Other modes: 'delete', 'trim', 'replace', 'merge'.\n"
+				print "Other modes: 'delete', 'trim', 'replace', 'merge'. Hit enter to continue.\n"
 			inputSeq = raw_input("DNA Editing (reload):")
 			if inputSeq:
 				try:
@@ -2083,7 +2116,7 @@ class PhyloGenerator:
 				print "\t'EVERYTHING' - trim all sequences"
 				print "\t'type' - *IMPORTANT* select the type of gene (mitochondrial, nuclear, etc.) you've downloaded."
 				print "First time you trim, I will use sequence annotations, the second time, I will search for ORFs. Check documentation for details "
-				print "Other modes: 'delete', 'reload', 'replace', 'merge'.\n"
+				print "Other modes: 'delete', 'reload', 'replace', 'merge'. Hit enter to continue.\n"
 			inputSeq = raw_input("DNA Editing (trim):")
 			if inputSeq:
 				try:
@@ -2167,7 +2200,7 @@ class PhyloGenerator:
 				print "\tSpID - replace a species with a congener"
 				print "\tEVERYTHING - replace all species without sequences with a congener"
 				print "\tTHOROUGH - replace all species without sequences with a close-relative, where this doesn't conflict with a GenBank-derrived taxonomy of your species."
-				print "Other modes: 'delete', 'reload', 'trim', 'merge'.\n"
+				print "Other modes: 'delete', 'reload', 'trim', 'merge'. Hit enter to continue.\n"
 			inputSeq = raw_input("DNA Editing (replace):")
 			if inputSeq:
 				try:
@@ -2321,7 +2354,7 @@ class PhyloGenerator:
 				print "\nMERGE MODE"
 				print "\tSpID,SpID - merge species into a group, e.g. 0,1,2"
 				print "Groups must have only one species with sequence data. There is no 'undo' option, and you *must not* merge two merged groups."
-				print "Other modes: 'delete', 'reload', 'trim', 'replace'.\n"
+				print "Other modes: 'delete', 'reload', 'trim', 'replace'. Hit enter to continue.\n"
 			inputSeq = raw_input("DNA Editing (merge): ")
 			if inputSeq:
 				try:
@@ -2765,8 +2798,8 @@ class PhyloGenerator:
 							print "Sorry, I don't understand", beastInput, "- please try again."
 					else:
 						print "...running BEAST with default options"
-						self.phylogenyMethods = 'GTR-GAMMA'
 						self.phylogenyMethods, logRate, screenRate, chainLength, overwrite, burnin = parseOptions('')
+						self.phylogenyMethods = 'GTR-GAMMA'
 						beastLock = False
 			
 			if not 'GTR' in self.phylogenyMethods and not 'HKY' in self.phylogenyMethods:
@@ -3094,7 +3127,7 @@ class PhyloGenerator:
 							self.constraint = Phylo.read(inputConstraint, 'newick')
 						except IOError:
 							print "\nFile not found. Please try again!"
-						if self.checkConstraint() != "ERROR":
+						if self.checkConstraint():
 							print "Constraint tree loaded!"
 							locker = False
 							return False
@@ -3167,11 +3200,13 @@ class PhyloGenerator:
 				self.taxonomy.append(findLineage(sp))
 			print "...lineages found!"
 		
+		stopper = True
 		if not self.constraintMethod:
 			print "I recommend you use a constraint tree with this program"
 			print "\t'newick' - supply your own constraint tree"
-			print "\t'phylomatic' - use Phylomatic to generate a tree; Phylomatic hard to get right first time I'm afraid"
+			print "\t'phylomatic' - use Phylomatic to generate a tree"
 			print "\t'taxonomy' - download the NCBI taxonomy for your species (does not generate a constraint tree)"
+			print "Warning: Phylomatic can trim the end off species names, causing conflicts with phyloGenerator that are hard to detect. Rooted phylogenies are *not* valid constraint."
 			print "Otherwise, press enter to continue without a constraint tree.\n"
 			stopper = True
 			while stopper:
@@ -3213,7 +3248,7 @@ class PhyloGenerator:
 				print "\nYour constraint phylogeny is incompatible with RAxML, which probably means you used a rooted phylogeny with Phylomatic."
 				print "Your constraint has been written out as 'temp_contraint.tre'. You can edit it if you wish."
 				return True
-			print "To conduct RAxML searches with and without your constraint tree, and calculate the Rbonison-Foulds distances between them, enter the number of times you would like to do a tree search below. Otherwise, simply press enter."
+			print "To conduct RAxML searches with and without your constraint tree, and calculate the Robinson-Foulds distances between them, enter the number of times you would like to do a tree search below. Otherwise, simply press enter."
 			checkLocker = True
 			while checkLocker:
 				checkerInput = raw_input("Constraint Method (check): ")
@@ -3274,13 +3309,11 @@ class PhyloGenerator:
 				if each in self.speciesNames:
 					count += 1
 			if count == len(tipLabels):
-				return "complete"
-			elif count > 0:
-				return "incomplete"
+				return True
 			else:
-				return "ERROR"
+				return False
 		else:
-			return "ERROR"
+			return False
 	
 	def concatenateSequences(self):
 		if len(self.genes) > 1:
