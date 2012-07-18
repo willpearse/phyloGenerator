@@ -1,5 +1,5 @@
-Quercus robur
-Quercus ilex
-Durio zibethinus
-Pistacia chinensis
-Oryza sativa
+quercus robur
+quercus ilex
+durio zibethinus
+pistacia chinensis
+oryza sativa

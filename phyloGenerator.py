@@ -2599,7 +2599,7 @@ class PhyloGenerator:
 			print "Return will use MAFFT; prank is very slow!\n"
 			locker = True
 			while locker:
-				alignInput = raw_input("")
+				alignInput = raw_input("DNA Alignment: ")
 				if alignInput:
 					if alignInput in methods:
 						self.alignmentMethod = alignInput
@@ -2775,7 +2775,6 @@ class PhyloGenerator:
 			if len(self.alignment) > 1:
 				self.phylogeny, self.beastXML, self.beastTrees, self.beastLogs = BEAST(self.alignment, method=self.phylogenyMethods, constraint=self.constraint, timeout=999999, chainLength=chainLength, logRate=logRate, screenRate=screenRate, overwrite=overwrite, burnin=burnin)
 			else:
-				pdb.set_trace()
 				self.phylogeny, self.beastXML, self.beastTrees, self.beastLogs  = BEAST(self.alignment[0], method=self.phylogenyMethods, constraint=self.constraint, timeout=999999, chainLength=chainLength, logRate=logRate, screenRate=screenRate, overwrite=overwrite, burnin=burnin)
 		
 		if self.phylogenyMethods:
@@ -3095,14 +3094,13 @@ class PhyloGenerator:
 							self.constraint = Phylo.read(inputConstraint, 'newick')
 						except IOError:
 							print "\nFile not found. Please try again!"
-						pdb.set_trace()
-						if self.checkConstraint():
+						if self.checkConstraint() != "ERROR":
 							print "Constraint tree loaded!"
 							locker = False
 							return False
 						else:
 							self.constraint = False
-							print "Constraint tree does *not* match the species names you've inputted. Please load another file."
+							print "Constraint tree does *not* match the species names you've inputed - this is case sensitive. Please load another file."
 					else:
 						print "...No constraint tree loaded"
 						locker = False
@@ -3275,13 +3273,14 @@ class PhyloGenerator:
 			for each in tipLabels:
 				if each in self.speciesNames:
 					count += 1
-			pdb.set_trace()
 			if count == len(tipLabels):
-				return True
+				return "complete"
+			elif count > 0:
+				return "incomplete"
 			else:
-				return False
+				return "ERROR"
 		else:
-			return False
+			return "ERROR"
 	
 	def concatenateSequences(self):
 		if len(self.genes) > 1:
