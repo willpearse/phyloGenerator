@@ -257,7 +257,7 @@ def sequenceDownload(spName, geneName=None, thorough=False, rettype='gb', titleT
 						currentLength = abs(targetLength - eSummary(seq)['Length'])
 						if currentLength < currentMinLength:
 							currentMinLength = currentLength
-							currentBest = 0
+							currentBest = index
 					return eFetchSeqID(firstSearch['IdList'][currentBest], rettype=rettype)
 				elif seqChoice == 'medianLength':
 					if noSeqs > 1: raise RuntimeError("You can't return more than one best-length sequence...")
@@ -809,7 +809,7 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
 	else:
 		raise RuntimeError("Either phylogeny building program failed, or ran out of time")
 
-def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, constraint=None, cleanup=False, runNow=True, chainLength=1000000, logRate=1000, screenRate=1000, overwrite=True, burnin=0.1, restart=None):
+def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, constraint=None, cleanup=False, runNow=True, chainLength=10000, logRate=1000, screenRate=1000, overwrite=True, burnin=0.1, restart=None):
 	completeConstraint = False
 	agedConstraint = False
 	with open(tempStem+"_BEAST.xml", 'w') as f:
@@ -2140,7 +2140,7 @@ class PhyloGenerator:
 							seqID = int(seqID)
 							if seqID < len(self.sequences):
 								print "Trimming SeqID", seqID, "gene", gene
-								self.sequences[seqID][i] = cleanSequenceWrapper(self.sequences[int(inputSeq)][i], self.genes[i], DNAtype=self.codonModels[i], gapType='-')
+								self.sequences[seqID][i] = cleanSequenceWrapper(self.sequences[seqID][i], self.genes[i], DNAtype=self.codonModels[i], gapType='-')
 								print "Re-calulating summary statistics..."
 								self.dnaChecking()
 								return 'trim', False
@@ -2803,7 +2803,7 @@ class PhyloGenerator:
 					else:
 						print "...running BEAST with default options"
 						self.phylogenyMethods, logRate, screenRate, chainLength, overwrite, burnin = parseOptions('')
-						self.phylogenyMethods = 'GTR-GAMMA'
+						self.phylogenyMethods = 'BEAST-GTR-GAMMA'
 						beastLock = False
 			
 			if not 'GTR' in self.phylogenyMethods and not 'HKY' in self.phylogenyMethods:
