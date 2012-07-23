@@ -2026,6 +2026,8 @@ class PhyloGenerator:
 								return 'delete', False
 					return 'delete', False
 				elif inputSeq == 'output':
+					oldWD = os.getcwd()
+					os.chdir(self.workingDirectory)
 					if self.sequences:
 						for i,gene in enumerate(self.genes):
 							currentGene = []
@@ -2034,6 +2036,7 @@ class PhyloGenerator:
 									if self.sequences[i][j]:
 										currentGene.append(self.sequences[i][j])
 							SeqIO.write(currentGene, self.stem+"_WIP_"+gene+".fasta", 'fasta')
+					os.chdir(oldWD)
 					print "Raw sequences written out!"
 					return 'delete', False
 				elif inputSeq == "trim":
@@ -2516,9 +2519,12 @@ class PhyloGenerator:
 			inputAlign = raw_input("Alignment Checking:")
 			if inputAlign:
 				if inputAlign == 'output':
+					oldWD = os.getcwd()
+					os.chdir(self.workingDirectory)
 					for i,gene in enumerate(self.genes):
 						for j,method in enumerate(self.alignmentMethods):
 							AlignIO.write(self.alignment[i][j], self.stem+"_"+gene+"_"+method+".fasta", 'fasta')
+					os.chdir(oldWD)
 					print "...output written!"
 				elif inputAlign == 'DNA':
 					self.alignment = []
