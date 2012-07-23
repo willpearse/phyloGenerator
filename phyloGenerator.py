@@ -436,7 +436,7 @@ def alignSequences(seqList, sppNames, method='muscle', tempStem='temp', timeout=
 				try:
 					newSeqs = AlignIO.read(outputFile, 'fasta')
 				except:
-					raise RuntimeError("MUSCLE unable to run: check your input sequences please!")
+					raise RuntimeError("MUSCLE unable to run: check your input sequences don't need trimming!")
 				sortedAligns = []
 				for oldSeq in seqs:
 					for alignSeq in newSeqs:
@@ -461,7 +461,7 @@ def alignSequences(seqList, sppNames, method='muscle', tempStem='temp', timeout=
 				try:
 					geneOutput.append(AlignIO.read(outputFile, 'fasta'))
 				except:
-					raise RuntimeError("MAFFT unable to run: check your input sequences please!")
+					raise RuntimeError("MAFFT unable to run: check your input sequences don't need trimming!")
 				os.remove(outputFile)
 				alignedSomething = True
 			else:
@@ -502,7 +502,7 @@ def alignSequences(seqList, sppNames, method='muscle', tempStem='temp', timeout=
 					geneOutput.append(MultipleSeqAlignment(finalList))
 					alignedSomething = True
 				except:
-					raise RuntimeError("Clustal-Omega unable to run: check your input sequences please!")
+					raise RuntimeError("Clustal-Omega unable to run: check your input sequences don't need trimming!")
 			else:
 				raise RuntimeError("Clustal-o alignment not complete in time allowed")
 		
@@ -519,7 +519,7 @@ def alignSequences(seqList, sppNames, method='muscle', tempStem='temp', timeout=
 				try:
 					geneOutput.append(AlignIO.read(outputFile+".2.fas", 'fasta'))
 				except:
-					raise RuntimeError("PRANK unable to run: check your input sequences please!")
+					raise RuntimeError("PRANK unable to run: check your input sequences don't need trimming!")
 				dirList = os.listdir(os.getcwd())
 				for each in dirList:
 					if re.search("("+outputFile+")", each):
@@ -818,8 +818,13 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 		f.write('	<!-- The list of taxa analyse (can also include dates/ages).				 -->\n')
 		f.write('	<taxa id="taxa">\n')
 		if type(alignment) is list:
-			for each in alignment[0]:
-				f.write('		<taxon id="'+each.id+'"/>\n')
+			spp = []
+			for i,align in enumerate(alignment):
+				for j,seq in enumerate(align):
+					if seq.id not in spp:
+						spp.append(seq.id)
+			for each in spp:
+				f.write('		<taxon id="'+each+'"/>\n')
 		else:
 			for each in alignment:
 				f.write('		<taxon id="'+each.id+'"/>\n')
@@ -1111,26 +1116,27 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 			else:
 				raise RuntimeError("No valid DNA substituion model specified for BEAST.")
 		if type(alignment) is list:
+			f.write('	<!-- site model																 -->\n')
 			for i,align in enumerate(alignment):
-				f.write('	<!-- site model																 -->\n')
 				f.write('	<siteModel id="siteModel' + str(i) + '">\n')
 				f.write('		<substitutionModel>\n')
 				if 'GTR' in method:
 					f.write('			<gtrModel idref="gtr' + str(i) + '"/>\n')
 					if 'GAMMA' in method:
-						f.write('		<gammaShape gammaCategories="4">')
-						f.write('			<parameter id="alpha' + str(i) + '" value="0.5" lower="0.0" upper="1000.0"/>')
-						f.write('		</gammaShape>')
+						f.write('		<gammaShape gammaCategories="4">\n')
+						f.write('			<parameter id="alpha' + str(i) + '" value="0.5" lower="0.0" upper="1000.0"/>\n')
+						f.write('		</gammaShape>\n')
 				elif 'HKY' in method:
-					f.write('			<HKYModel idref="hky' + str(i) + '"/>')
+					f.write('			<HKYModel idref="hky' + str(i) + '"/>\n')
 					if 'GAMMA' in method:
-						f.write('		<gammaShape gammaCategories="4">')
-						f.write('			<parameter id="alpha' + str(i) + '" value="0.5" lower="0.0" upper="1000.0"/>')
-						f.write('		</gammaShape>')
+						f.write('		<gammaShape gammaCategories="4">\n')
+						f.write('			<parameter id="alpha' + str(i) + '" value="0.5" lower="0.0" upper="1000.0"/>\n')
+						f.write('		</gammaShape>\n')
 				else:
 					raise RuntimeError("No valid DNA substituion model specified for BEAST.")
 				f.write('		</substitutionModel>\n')
-			f.write('	</siteModel>\n')
+				f.write('	</siteModel>\n')
+				
 		else:
 			f.write('	<!-- site model																 -->\n')
 			f.write('	<siteModel id="siteModel">\n')
@@ -1142,11 +1148,11 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 			else:
 				raise RuntimeError("No valid DNA substituion model specified for BEAST.")
 			f.write('		</substitutionModel>\n')
-		if 'GAMMA' in method:
-			f.write('		<gammaShape gammaCategories="4">')
-			f.write('			<parameter id="alpha" value="0.5" lower="0.0" upper="1000.0"/>')
-			f.write('		</gammaShape>')
-		f.write('	</siteModel>\n')
+			if 'GAMMA' in method:
+				f.write('		<gammaShape gammaCategories="4">')
+				f.write('			<parameter id="alpha" value="0.5" lower="0.0" upper="1000.0"/>')
+				f.write('		</gammaShape>')
+			f.write('	</siteModel>\n')
 		if type(alignment) is list:
 			for i,align in enumerate(alignment):
 				f.write('	<treeLikelihood id="treeLikelihood' + str(i) + '" useAmbiguities="false">\n')
@@ -1218,9 +1224,16 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 			else:
 				raise RuntimeError("No valid DNA substituion model specified for BEAST.")
 		if 'GAMMA' in method:
-			f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">')
-			f.write('			<parameter idref="alpha"/>')
-			f.write('		</scaleOperator>')
+			if type(alignment) is list:
+				for i,align in enumerate(alignment):
+					f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
+					f.write('			<parameter idref="alpha' + str(i) + '"/>\n')
+					f.write('		</scaleOperator>\n')
+			else:
+				f.write('		<scaleOperator scaleFactor="0.75" weight="0.1">\n')
+				f.write('			<parameter idref="alpha"/>\n')
+				f.write('		</scaleOperator>\n')
+		
 		if not completeConstraint:
 			f.write('		<subtreeSlide size="0.0092" gaussian="true" weight="15">\n')
 			f.write('			<treeModel idref="treeModel"/>\n')
@@ -1388,7 +1401,12 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 		else:
 			raise RuntimeError("No valid DNA substituion model specified for BEAST.")
 		if 'GAMMA' in method:
-			f.write('			<parameter idref="alpha"/>')
+			if type(alignment) is list:
+					for i,align in enumerate(alignment):
+						f.write('			<parameter idref="alpha' + str(i) + '"/>\n')
+		else:
+			f.write('			<parameter idref="alpha"/>\n')
+		
 		if type(alignment) is list:
 			for i,align in enumerate(alignment):
 				f.write('			<parameter idref="ucld.mean' + str(i) + '"/>\n')
@@ -1923,7 +1941,7 @@ class PhyloGenerator:
 						self.genbankFile = inputFile
 						locker = False
 					except IOError:
-						print "\nFile not found. Try again, or hit end-of-file to exit"
+						print "\nFile not found - make sure there's no blank space at the end of your file path. Try again, or hit end-of-file to exit"
 				else:
 					print "\nNo DNA downloaded"
 					locker = False
@@ -3325,8 +3343,7 @@ class PhyloGenerator:
 			tempAlignment = self.alignment[0]
 			for i in range(1, (len(self.genes)-1)):
 				tempAlignment += self.alignment[i]
-				partitions.append(lengths[-1] + self.alignment[i])
-			tempAlignment
+				partitions.append(partitions[-1] + self.alignment[i].get_alignment_length())
 			for i,x in enumerate(self.speciesNames):
 				tempAlignment[i].id = self.speciesNames[i].replace(' ', '_')
 		return tempAlignment, partitions
