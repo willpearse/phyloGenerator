@@ -798,6 +798,8 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
 		if cleanup:
 			if startingTree:
 				os.remove(tempStem + 'startingTree.tre')
+			if constraint:
+				os.remove(tempStem + '_constraint.tre')
 			os.remove(inputFile)
 			dirList = os.listdir(os.getcwd())
 			for each in dirList:
@@ -2246,7 +2248,6 @@ class PhyloGenerator:
 								if locker:
 									self.sequences[i] = temp
 									print "......alternative found:", candidate[0], "re-caluclating summary statistics..."
-									self.speciesNames[i] = candidate[0] +" - " + self.speciesNames[i]
 									self.dnaChecking()
 									return 'replace', False
 							else:
@@ -2271,7 +2272,6 @@ class PhyloGenerator:
 												locker = True
 										if locker:
 											self.sequences[i] = temp
-											self.speciesNames[i] = self.speciesNames[i]
 											print "......alternative found:", candidate[0], "re-caluclating summary statistics..."
 											self.dnaChecking()
 											return 'replace', False
@@ -3347,7 +3347,7 @@ class PhyloGenerator:
 		if len(self.genes) > 1:
 			partitions = [0, self.alignment[0].get_alignment_length()]
 			tempAlignment = self.alignment[0]
-			for i in range(1, (len(self.genes)-1)):
+			for i in range(1, len(self.genes)):
 				tempAlignment += self.alignment[i]
 				partitions.append(partitions[-1] + self.alignment[i].get_alignment_length())
 			for i,x in enumerate(self.speciesNames):
