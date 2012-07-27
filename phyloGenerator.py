@@ -15,7 +15,7 @@ import numpy as np #Array and matrix sums
 from scipy import percentile,mean,std
 import subprocess, threading #Background process class
 from Bio import AlignIO #Handle alignments
-from Bio.Align import MultipleSeqAlignment #Create an alignment (for shitty MUSCLE)
+from Bio.Align import MultipleSeqAlignment #Create an alignment (for MUSCLE)
 import os #Remove temporary files
 import re #Search for files to delete
 from Bio import Phylo #Load constructed phylogeny
@@ -421,7 +421,11 @@ def alignSequences(seqList, sppNames, method='muscle', tempStem='temp', timeout=
 	for i in range(nGenes):
 		if verbose: print "...aligning gene no.", i+1
 		geneOutput = []
-		seqs = [x[i] for x in seqList]
+		seqs = []
+		for seq in seqList:
+			if seq[i]:
+				seqs.append(seq[i])
+		
 		if 'muscle' in method:
 			print "......with MUSCLE"
 			inputFile = tempStem + '.fasta'
@@ -442,6 +446,7 @@ def alignSequences(seqList, sppNames, method='muscle', tempStem='temp', timeout=
 					for alignSeq in newSeqs:
 						if alignSeq.name == oldSeq.name or alignSeq.name == oldSeq.id:
 							sortedAligns.append(alignSeq)
+							break
 				geneOutput.append(MultipleSeqAlignment(sortedAligns))
 				os.remove(outputFile)
 				alignedSomething = True
@@ -466,40 +471,20 @@ def alignSequences(seqList, sppNames, method='muscle', tempStem='temp', timeout=
 				alignedSomething = True
 			else:
 				raise RuntimeError("Mafft alignment not complete in time allowed")
-		
+
 		if 'clustalo' in method:
 			print "......with Clustal-Omega"
 			inputFile = tempStem + '.fasta'
 			outputFile = tempStem + 'Out.fasta'
 			commandLine = 'clustalo -i ' + inputFile + " -o " + outputFile + " -v"
-			#Remove missing sequences
-			outSeqs = []
-			for seq in seqs:
-				if seq.seq.tostring() != '':
-					outSeqs.append(seq)
-			SeqIO.write(outSeqs, inputFile, "fasta")
+			SeqIO.write(seqs, inputFile, "fasta")
 			pipe = TerminationPipe(commandLine, timeout)
 			pipe.run(silent=silent)
 			os.remove(inputFile)
 			if not pipe.failure:
 				try:
-					clustalAlign = AlignIO.read(outputFile, 'fasta')
-					alignNames = [x.id for x in clustalAlign]
-					finalList = []
-					x = 0
-					fillerSeq = SeqRecord(Seq('-' * clustalAlign.get_alignment_length()))
-					for i,seq in enumerate(seqs):
-						if seq.id in alignNames:
-							finalList.append(clustalAlign[x])
-							x += 1
-						else:
-							finalList.append(fillerSeq)
-							finalList[-1].id = sppNames[i] + "MadeUp"
-							finalList[-1].name = sppNames[i] + "MadeUp"
-							finalList[-1].description = "Made up by phyloGenerator"
+					clustalAlign = geneOutput.append(AlignIO.read(outputFile, 'fasta'))
 					os.remove(outputFile)
-					
-					geneOutput.append(MultipleSeqAlignment(finalList))
 					alignedSomething = True
 				except:
 					raise RuntimeError("Clustal-Omega unable to run: check your input sequences don't need trimming!")
@@ -800,6 +785,8 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
 				os.remove(tempStem + 'startingTree.tre')
 			if constraint:
 				os.remove(tempStem + '_constraint.tre')
+			if partitions:
+				os.remove(tempStem+"_partitions.txt")
 			os.remove(inputFile)
 			dirList = os.listdir(os.getcwd())
 			for each in dirList:
@@ -1652,25 +1639,26 @@ def createConstraintTree(spNames, method="phylomaticTaxonomy", fileName='', temp
 
 def metal(alignList, tempStem='tempMetal', timeout=100):
 	#Write out alignments
-	alignLocations = []
-	for i,gene in enumerate(alignList):
-		for j,method in enumerate(gene):
-			AlignIO.write(method, str(i)+"_"+str(j)+"_"+tempStem+".fasta", "fasta")
-			alignLocations.append(str(i)+"_"+str(j)+"_"+tempStem+".fasta")
-	
-	#Use each alignment and print it out
 	distances = []
-	for i,currAlign in enumerate(alignLocations):
-		currDist = []
-		for j,nextAlign in enumerate(alignLocations[(i+1):]):
-			pipe = TerminationPipe("metal --ignore-names "+currAlign+" "+nextAlign, timeout=timeout)
-			pipe.run()
-			temp = re.search('[0-9]*\ /\ [0-9]*', pipe.output[0]).group()
-			temp = 'float(' + temp + ')'
-			currDist.append(eval(temp))
-		if len(currDist) > 0: distances.append(currDist)
-	for i,location in enumerate(alignLocations):
-		os.remove(location)
+	for i,gene in enumerate(alignList):
+		alignLocations = []
+		geneDistances = []
+		for j,method in enumerate(gene):
+			AlignIO.write(method, str(j)+"_"+tempStem+".fasta", "fasta")
+			alignLocations.append(str(j)+"_"+tempStem+".fasta")
+		for j in range(0, len(alignLocations)-1):
+			currDist = []
+			for k in range(j+1, len(alignLocations)):
+				pipe = TerminationPipe("metal --ignore-names "+alignLocations[j] + " " + alignLocations[k], timeout=timeout)
+				pipe.run()
+				temp = re.search('[0-9]*\ /\ [0-9]*', pipe.output[0]).group()
+				temp = 'float(' + temp + ')'
+				currDist.append(eval(temp))
+			geneDistances.append(currDist)
+		for i,location in enumerate(alignLocations):
+			os.remove(location)
+		distances.append(geneDistances)
+	
 	return distances
 
 class TerminationPipe(object):
@@ -2546,28 +2534,29 @@ class PhyloGenerator:
 						print "You've only used one alignment method, and one gene!"
 					else:
 						self.metal = metal(self.alignment)
-						print "\nSSP distances between genes and alignments:"
-						header = []
-						for i,gene in enumerate(self.genes):
-							if len(gene) > 4:
-								gene = gene[0:4]
-							else:
-								gene = gene.ljust(4)
-							for j,method in enumerate(self.alignmentMethods):
-								header.append(gene + "_" + method[0:4])
-						print " ".join(header)
+						#Make the header row for each gene
+						header = ['     ']
+						for i,method in enumerate(self.alignmentMethods[1:]):
+							header.append(method[0:5])
+						header = " ".join(header)
+						print "\nSSP distances between alignments:"
 						x = 1
+						pdb.set_trace()
+						print header
 						for i,gene in enumerate(self.metal):
-							curRow = ["        "]
-							x += 1
-							for k,method in enumerate(gene):
-								curRow.append(str(round(method, 4)).ljust(9))
-							print " ".join(curRow)
+							print self.genes[i] + ":"
+							for j,method in enumerate(gene):
+								row = self.alignmentMethods[j][0:5].ljust(6)
+								for k,comparison in enumerate(method):
+									row += '      ' * j
+									row += str(round(comparison, 4)).ljust(6)
+								print row
 				elif 'raxml' in inputAlign:
 					if len(self.alignmentMethods) == 1 and len(self.genes) == 1:
 						print "You've only used one alignment method, and one gene!"
 					else:
 						try:
+							pdb.set_trace()
 							noTrees = int(inputAlign.replace('raxml=', ''))
 							#Make starting trees and random seeds
 							#startingTrees = []
@@ -2671,6 +2660,7 @@ class PhyloGenerator:
 					self.alignmentMethod = 'mafft'
 					locker = False
 		print "Starting alignment..."
+
 		self.alignment = alignSequences(seqList=self.sequences, sppNames=self.speciesNames, method=self.alignmentMethod, tempStem='temp', timeout=99999999, nGenes=len(self.genes))
 		print "\nAlignment complete!"
 		if self.alignmentMethod == 'everything':
@@ -2811,7 +2801,7 @@ class PhyloGenerator:
 				print "\t 'overwriteBlock' - causes BEAST to halt if there are any files from previous attempts in your working directory"
 				#print "\t 'restart=X' - conduct X independent searches"
 				print "You must specify a DNA model (GTR or HKY) if defining your own parameters"
-				print "Specify multiple options with hyphens (e.g., 'restart=5-partitions'), but do not mix options marked with '(!)'"
+				print "Specify multiple options with hyphens (e.g., 'GTR-GAMMA=chainLength=2000000'), but do not mix options marked with '(!)'"
 				print "Hit enter to use the defaults\n"
 				beastLock = True
 				while beastLock:
@@ -2870,7 +2860,7 @@ class PhyloGenerator:
 		def PATHd8():
 			if sys.platform == 'win32':
 				try:
-					subprocess.Popen('/requires/PATHd8')
+					subprocess.Popen('\requires\PATHd8.exe')
 				except:
 					print "\n*ERROR*\n"
 					print "PATHd8 requires 'cygwin' to be installed, and you don't have it."
@@ -2878,7 +2868,7 @@ class PhyloGenerator:
 					print "...or... anything else to return to the rate-smoothing prompt"
 					cygwin = raw_input('Rate-smoothing (Cygwin): ')
 					if cygwin and cygwin == 'website':
-						browser.open('http://www.cygwin.com/')
+						webbrowser.open('http://www.cygwin.com/')
 					else:
 						return False
 			print "\nPlease enter an outgroup for your phylogeny, 'species' to see the tips in your phylogeny, or just hit enter to cancel and continue."
@@ -2912,18 +2902,18 @@ class PhyloGenerator:
 		def smoothBEAST():
 			print "You're about to perform a BEAST search with the topology constrained to that of your best phylogen(y/ies)."
 			print "This means you have a choice of BEAST options:"
-			print "\t 'GTR' - conduct search with a GTR model (!)"
-			print "\t 'HKY' - conduct search with an HKY model (!)"
-			print "\t 'GAMMA' - conduct search with four gamma rate categories"
-			print "\t 'chainLength=X' - conduct search with chain length 'X'"
-			print "\t 'logRate=X' - log output every 'X' steps"
+			print "\t 'GTR' - use a GTR model (default) (!)"
+			print "\t 'HKY' - use an HKY model (!)"
+			print "\t 'GAMMA' - use four gamma rate categories"
+			print "\t 'chainLength=X' - use chain length of 'X' (default 1 000 000)"
+			print "\t 'logRate=X' - log output every 'X' steps (default 1000)"
 			#print "\t 'screenRate=X' - report ouptut to the screen every 'X' steps"
-			print "\t 'burnin=X' - Discard 'X' initial fraction of chain as a 'burnin', e.g. 0.1 = 10%"
+			print "\t 'burnin=X' - discard 'X' initial fraction of chain as a 'burnin' (default 0.1 = 10%)"
 			print "\t 'overwriteBlock' - causes BEAST to halt if there are any files from previous attempts in your working directory"
-			print "...you *must* specify a DNA model (at least GTR or HKY) if defining your own parameters"
-			print "...to specify multiple options, type them all separated by hyphens (e.g. 'GTR-GAMMA')"
-			print "...the options with '(!)' after them cannot be used in conjunction with each other"
-			print "...or... just hit enter to use the defaults!"
+			#print "\t 'restart=X' - conduct X independent searches"
+			print "You must specify a DNA model (GTR or HKY) if defining your own parameters"
+			print "Specify multiple options with hyphens (e.g., 'GTR-GAMMA=chainLength=2000000'), but do not mix options marked with '(!)'"
+			print "Hit enter to use the defaults\n"
 			beastLock = True
 			while beastLock:
 				beastInput = raw_input("Rate-Smoothing (BEAST): ")
@@ -3017,11 +3007,11 @@ class PhyloGenerator:
 			for j,seq in reversed(list(enumerate(sp))):
 				if seq:
 					foundSequence = True
-				else:
-					self.sequences[i][j] = SeqRecord(Seq(""))
-					self.sequences[i][j].id = self.speciesNames[i] + "Empty" + str(i)
-					self.sequences[i][j].name = self.speciesNames[i] + "Empty" + str(i)
-					self.sequences[i][j].description = 'Empty sequence made up by phyloGenerator'
+				#else:
+				#self.sequences[i][j] = SeqRecord(Seq(""))
+				#self.sequences[i][j].id = self.speciesNames[i]
+				#self.sequences[i][j].name = self.speciesNames[i]
+				#self.sequences[i][j].description = 'Empty sequence made up by phyloGenerator'
 			
 			if not foundSequence:
 				cleaned.append(self.speciesNames[i])
@@ -3234,7 +3224,7 @@ class PhyloGenerator:
 			print "\t'newick' - supply your own constraint tree"
 			print "\t'phylomatic' - use Phylomatic to generate a tree"
 			print "\t'taxonomy' - download the NCBI taxonomy for your species (does not generate a constraint tree)"
-			print "Warning: Phylomatic can trim the end off species names, causing conflicts with phyloGenerator that are hard to detect. Rooted phylogenies are *not* valid constraint."
+			print "Warning: Phylomatic can trim the end off species names, causing conflicts with phyloGenerator that are hard to detect. Rooted phylogenies are *not* valid constraints."
 			print "Otherwise, press enter to continue without a constraint tree.\n"
 			stopper = True
 			while stopper:
@@ -3276,7 +3266,8 @@ class PhyloGenerator:
 				print "\nYour constraint phylogeny is incompatible with RAxML, which probably means you used a rooted phylogeny with Phylomatic."
 				print "Your constraint has been written out as 'temp_contraint.tre'. You can edit it if you wish."
 				return True
-			print "To conduct RAxML searches with and without your constraint tree, and calculate the Robinson-Foulds distances between them, enter the number of times you would like to do a tree search below. Otherwise, simply press enter."
+			print "To run RAxML searches with and without your constraint, and compare mean Robinson-Foulds distances between their results, enter the number of times to search below."
+			print "Press enter to continue without this."
 			checkLocker = True
 			while checkLocker:
 				checkerInput = raw_input("Constraint Method (check): ")
@@ -3406,9 +3397,10 @@ def main():
 		#Alignment
 		print "\nDNA ALIGNMENT"
 		currentState.align()
+		
 		print "\nALIGNMENT CHECKING"
 		currentState.alignmentEditing()
-		
+				
 		#Constraint tree
 		print "\nCONSTRAINT TREE"
 		currentState.getConstraint()
