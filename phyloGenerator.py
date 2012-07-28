@@ -1540,7 +1540,10 @@ def rateSmooth(phylo, method='PATHd8', nodes=tuple(), sequenceLength=int(), temp
 				tempPATHd8Output = tempStem + 'PATHd8Output'
 				with open(tempPATHd8Input, 'w') as tempFile:
 					tempFile.write(outfile)
-				commandLine = ' '.join(['PATHd8', tempPATHd8Input, tempPATHd8Output])
+				if sys.platform == 'win32':
+                                        commandLine = ' '.join(['PATHd8.exe', tempPATHd8Input, tempPATHd8Output])
+                                else:
+                                        commandLine = ' '.join(['PATHd8', tempPATHd8Input, tempPATHd8Output])
 				pipe = TerminationPipe(commandLine, timeout)
 				pipe.run()
 				os.remove(tempPhyloFile)
@@ -2555,68 +2558,72 @@ class PhyloGenerator:
 					if len(self.alignmentMethods) == 1 and len(self.genes) == 1:
 						print "You've only used one alignment method, and one gene!"
 					else:
+						pdb.set_trace()
 						try:
-							pdb.set_trace()
 							noTrees = int(inputAlign.replace('raxml=', ''))
-							#Make starting trees and random seeds
-							#startingTrees = []
-							#for i in range(noTrees):
-							#	startingTrees.append(RAxML(self.alignment[0][0], method='localVersion-startingOnly'))
-
-							#Find trees from this search
-							# - if you start with the same tree for each, it tends to be shit...
-							trees = []
-							for i,gene	in enumerate(self.alignment):
-								for k,method in enumerate(gene):
-									for tree in range(noTrees):
-										trees.append(RAxML(method, 'localVersion'))
-
-							#Calculate mean R-F distances
-							#...between alignment methods
+						except:
+							print "Sorry, how many times? Try again - something like 'raxml=5'."
+						#Make starting trees and random seeds
+						#startingTrees = []
+						#for i in range(noTrees):
+						#	startingTrees.append(RAxML(self.alignment[0][0], method='localVersion-startingOnly'))
+						#Find trees from this search
+						# - if you start with the same tree for each, it tends to be shit...
+						trees = []
+						for i,gene in enumerate(self.alignment):
+							geneTrees = []
+							for k,method in enumerate(gene):
+								for tree in range(noTrees):
+									geneTrees.append(RAxML(method, 'localVersion'))
+							
+							#Calculate mean RF between alignments
 							Phylo.write(trees, 'alignCheckTemp.tre', 'newick')
 							pipe = TerminationPipe('raxml -f r -z alignCheckTemp.tre -n alignCheckTemp -m GTRGAMMA', 999999)
-							pipe.run()
-							if not pipe.failure:
-								self.alignRF = []
-								with open('RAxML_RF-Distances.alignCheckTemp') as f:
-									for line in f:
-										temp = line.strip()
-										self.alignRF.append(re.search("[0-9]{1}\.[0-9]+", temp).group())
+							
+						#Calculate mean R-F distances
+						#...between alignment methods
+						Phylo.write(trees, 'alignCheckTemp.tre', 'newick')
+						pipe = TerminationPipe('raxml -f r -z alignCheckTemp.tre -n alignCheckTemp -m GTRGAMMA', 999999)
+						pipe.run()
+						if not pipe.failure:
+							self.alignRF = []
+							with open('RAxML_RF-Distances.alignCheckTemp') as f:
+								for line in f:
+									temp = line.strip()
+									self.alignRF.append(re.search("[0-9]{1}\.[0-9]+", temp).group())
 
-								os.remove('alignCheckTemp.tre')
-								os.remove('RAxML_RF-Distances.alignCheckTemp')
-								os.remove('RAxML_info.alignCheckTemp')
-								print "\nMean Robinson-Folds distances between genes and alignments:"
-								header = []
-								for i,gene in enumerate(self.genes):
-									if len(gene) > 4:
-										gene = gene[0:4]
-									else:
-										gene = gene.ljust(4)
-									for j,method in enumerate(self.alignmentMethods):
-										header.append(gene + "_" + method[0:4])
-								header.insert(0, "         ")
-								print " ".join(header)
-								colToWrite = len(self.genes) * len(self.alignmentMethods) -1
-								x = 0
-								spacer = 1
-								for row in range((len(self.genes) * len(self.alignmentMethods))-1):
-									currRow = []
-									for col in range(colToWrite):
-										temp = []
-										for rep in range(noTrees):
-											temp.append(float(self.alignRF[x]))
-											x += 1
-										currRow.append(str(round(sum(temp)/len(temp), 3)).ljust(9))
-									for i in range(spacer):
-										currRow.insert(0, "         ")
-									print header[row+1], " ".join(currRow)
-									colToWrite -= 1
-									spacer += 1
-							else:
-								print "!!!Something went wrong with the RAxML runs. Sorry!"
-						except:
-							print "Sorry, try again - something like 'raxml=5'."
+							os.remove('alignCheckTemp.tre')
+							os.remove('RAxML_RF-Distances.alignCheckTemp')
+							os.remove('RAxML_info.alignCheckTemp')
+							print "\nMean Robinson-Folds distances between genes and alignments:"
+							header = []
+							for i,gene in enumerate(self.genes):
+								if len(gene) > 4:
+									gene = gene[0:4]
+								else:
+									gene = gene.ljust(4)
+								for j,method in enumerate(self.alignmentMethods):
+									header.append(gene + "_" + method[0:4])
+							header.insert(0, "         ")
+							print " ".join(header)
+							colToWrite = len(self.genes) * len(self.alignmentMethods) -1
+							x = 0
+							spacer = 1
+							for row in range((len(self.genes) * len(self.alignmentMethods))-1):
+								currRow = []
+								for col in range(colToWrite):
+									temp = []
+									for rep in range(noTrees):
+										temp.append(float(self.alignRF[x]))
+										x += 1
+									currRow.append(str(round(sum(temp)/len(temp), 3)).ljust(9))
+								for i in range(spacer):
+									currRow.insert(0, "         ")
+								print header[row+1], " ".join(currRow)
+								colToWrite -= 1
+								spacer += 1
+						else:
+							print "!!!Something went wrong with the RAxML runs. Sorry!"
 				else:
 					print "Sorry, I don't understand", inputAlign, "- please try again."
 			else:
@@ -2860,7 +2867,8 @@ class PhyloGenerator:
 		def PATHd8():
 			if sys.platform == 'win32':
 				try:
-					subprocess.Popen('\requires\PATHd8.exe')
+                                        pdb.set_trace()
+					subprocess.Popen('requires\\PATHd8.exe')
 				except:
 					print "\n*ERROR*\n"
 					print "PATHd8 requires 'cygwin' to be installed, and you don't have it."
@@ -3008,10 +3016,10 @@ class PhyloGenerator:
 				if seq:
 					foundSequence = True
 				#else:
-				#self.sequences[i][j] = SeqRecord(Seq(""))
-				#self.sequences[i][j].id = self.speciesNames[i]
-				#self.sequences[i][j].name = self.speciesNames[i]
-				#self.sequences[i][j].description = 'Empty sequence made up by phyloGenerator'
+				#	self.sequences[i][j] = SeqRecord(Seq(""))
+				#	self.sequences[i][j].id = self.speciesNames[i]
+				#	self.sequences[i][j].name = self.speciesNames[i]
+				#	self.sequences[i][j].description = 'Empty sequence made up by phyloGenerator'
 			
 			if not foundSequence:
 				cleaned.append(self.speciesNames[i])
@@ -3053,7 +3061,8 @@ class PhyloGenerator:
 			for i,gene in enumerate(self.genes):
 				currentGene = []
 				for seq in self.sequences:
-					currentGene.append(seq[i])
+					if seq[i]:
+						currentGene.append(seq[i])
 				SeqIO.write(currentGene, self.stem+"_"+gene+".fasta", 'fasta')
 		
 		#Alignment
@@ -3334,6 +3343,39 @@ class PhyloGenerator:
 		else:
 			return False
 	
+	def padAlignment(self):
+		if len(self.genes) > 1:
+			lengths = set([len(x) for x in self.alignment])
+			#Check to see if we need to cleverly link the sequences
+			if len(lengths)!=0 and list(lengths)[0] != len(self.speciesNames):
+				spp = []
+				for i,align in enumerate(self.alignment):
+					for j,seq in enumerate(align):
+						if seq.id not in spp:
+							spp.append(seq.id)
+				
+				for i,align in enumerate(self.alignment):
+					present = [x.id for x in align]
+					absent = list(set(spp) - set(present))
+					for j,sp in enumerate(absent):
+						tempSeq = SeqRecord(Seq("-"*align.get_alignment_length()))
+						tempSeq.id = sp
+						tempSeq.description = "made up by phyloGenerator"
+						align.append(tempSeq)
+				
+				sortedAligns = []
+				spp.sort()
+				for i,align in enumerate(self.alignment):
+					holder = []
+					for j,sp in enumerate(spp):
+						for k,seq in enumerate(align):
+							if seq.id == sp:
+								holder.append(seq)
+								break
+					sortedAligns.append(MultipleSeqAlignment(holder))
+				
+				self.alignment = sortedAligns
+	
 	def concatenateSequences(self):
 		if len(self.genes) > 1:
 			partitions = [0, self.alignment[0].get_alignment_length()]
@@ -3400,7 +3442,8 @@ def main():
 		
 		print "\nALIGNMENT CHECKING"
 		currentState.alignmentEditing()
-				
+		#Add blank alignment entries for BEAST/RAxML for the missing species
+		currentState.padAlignment()		
 		#Constraint tree
 		print "\nCONSTRAINT TREE"
 		currentState.getConstraint()
