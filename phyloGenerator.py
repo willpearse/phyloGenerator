@@ -631,7 +631,7 @@ def sequenceDisplay(seqList, speciesNames, geneNames, seqDetect=None):
 		print "'^^^' and '___' denote particularly long or short sequences\n"
 		header = "Sp. ID " + "Input name".ljust(maxInputName)
 		for i, each in enumerate(geneNames):
-			header += each.ljust(geneNameLengths[i]) + "     "
+			header += each.ljust(geneNameLengths[i]) + "	 "
 		print header
 		for i in range(len(seqList)):
 			stars = []
@@ -642,10 +642,10 @@ def sequenceDisplay(seqList, speciesNames, geneNames, seqDetect=None):
 					elif seqDetect['lowerQuantile'][k][i]:
 						stars.append("___")
 					else:
-						stars.append("   ")
+						stars.append("	 ")
 				else:
 					#What *does* happen to empty sequences?
-					stars.append("   ")
+					stars.append("	 ")
 			
 			row = str(i).ljust(len("Sp. ID ")) + str(speciesNames[i]).ljust(maxInputName)
 			for k in range(len(seqList[i])):
@@ -846,6 +846,9 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
 def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, constraint=None, cleanup=False, runNow=True, chainLength=10000, logRate=1000, screenRate=1000, overwrite=True, burnin=0.1, restart=None):
 	completeConstraint = False
 	agedConstraint = False
+	if sys.platform == "win32":
+		oldWD = os.getcwd()
+		os.chdir('requires')
 	with open(tempStem+"_BEAST.xml", 'w') as f:
 		f.write('<?xml version="1.0" standalone="yes"?>\n')
 		f.write('<beast>\n')
@@ -968,7 +971,7 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 		f.write('	</treeModel>\n')
 		if constraint:
 			for i,clade in enumerate(clades):
-				f.write('	<!-- Taxon Sets                                                              -->\n')
+				f.write('	<!-- Taxon Sets																 -->\n')
 				f.write('	<tmrcaStatistic id="tmrca(cladeNo' + str(i) + ')" includeStem="false">\n')
 				f.write('			<mrca>\n')
 				f.write('				<taxa idref="cladeNo' + str(i) + '"/>\n')
@@ -1482,16 +1485,16 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 	if overwrite:
 		commandLine = "beast -overwrite " + tempStem + "_BEAST.xml"
 	else:
-		commandLine = "beast -overwrite " + tempStem + "_BEAST.xml"
+		commandLine = "beast " + tempStem + "_BEAST.xml"
 	
 	if not runNow:
 		return commandLine
 	
 	pipe = TerminationPipe(commandLine, timeout)
 	if sys.platform == "win32":
-                pipe.run(silent=False, changeDir=False)
-        else:
-                pipe.run(silent=False)
+		pipe.run(silent=False, changeDir=False)
+	else:
+		pipe.run(silent=False)
 	if not pipe.failure:
 		print "...removing burn-in of ", str(burnin*100), "%..."
 		burnin = int(burnin * (chainLength / logRate))
@@ -1504,9 +1507,18 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 				os.remove(tempStem + ".trees")
 				os.remove(tempStem + ".log")
 				os.remove("mcmc.operators")
+				if sys.platform == "win32":
+					os.rename(tempStem + "Final.tre", oldWD + '\\' + tempStem + 'Final.tre')
+					os.chdir(oldWD)
 				return tempStem + "Final.tre"
 			else:
 				os.remove("mcmc.operators")
+				if sys.platform == "win32":
+					os.rename(tempStem + "_BEAST.xml", oldWD + '\\' + tempStem + '_BEAST.xml')
+					os.rename(tempStem + ".trees", oldWD + '\\' + tempStem + '.trees')
+					os.rename(tempStem + ".log", oldWD + '\\' + tempStem + '.log')
+					os.rename(tempStem + "Final.tre", oldWD + '\\' + tempStem + 'Final.tre')
+					os.chdir(oldWD)
 				return tempStem + "Final.tre", tempStem + "_BEAST.xml", tempStem + ".trees", tempStem + ".log"
 		else:
 			raise RuntimeError("Either tree annotation failed, or ran out of time")
@@ -1586,9 +1598,9 @@ def rateSmooth(phylo, method='PATHd8', nodes=tuple(), sequenceLength=int(), temp
 				with open(tempPATHd8Input, 'w') as tempFile:
 					tempFile.write(outfile)
 				if sys.platform == 'win32':
-                                        commandLine = ' '.join(['PATHd8.exe', tempPATHd8Input, tempPATHd8Output])
-                                else:
-                                        commandLine = ' '.join(['PATHd8', tempPATHd8Input, tempPATHd8Output])
+					commandLine = ' '.join(['PATHd8.exe', tempPATHd8Input, tempPATHd8Output])
+				else:
+					commandLine = ' '.join(['PATHd8', tempPATHd8Input, tempPATHd8Output])
 				pipe = TerminationPipe(commandLine, timeout)
 				pipe.run()
 				os.remove(tempPhyloFile)
@@ -1724,28 +1736,28 @@ class TerminationPipe(object):
 	def run(self, silent=None, changeDir=True):
 		def silentTarget():
 			if sys.platform == 'win32':
-                                if changeDir:
-                                        self.process = subprocess.Popen("requires\\" + self.cmd, stdout=subprocess.PIPE, shell=True, stderr=subprocess.PIPE)
-                                else:
-                                        self.process = subprocess.Popen(self.cmd, stdout=subprocess.PIPE, shell=True, stderr=subprocess.PIPE)
+				if changeDir:
+					self.process = subprocess.Popen("requires\\" + self.cmd, stdout=subprocess.PIPE, shell=True, stderr=subprocess.PIPE)
+				else:
+					self.process = subprocess.Popen(self.cmd, stdout=subprocess.PIPE, shell=True, stderr=subprocess.PIPE)
 			else:
-                                if changeDir:
-                                        self.process = subprocess.Popen("./requires/" + self.cmd, stdout=subprocess.PIPE,shell=True, stderr=subprocess.PIPE)
-                                else:
-                                        self.process = subprocess.Popen(self.cmd, stdout=subprocess.PIPE,shell=True, stderr=subprocess.PIPE)
+				if changeDir:
+					self.process = subprocess.Popen("./requires/" + self.cmd, stdout=subprocess.PIPE,shell=True, stderr=subprocess.PIPE)
+				else:
+					self.process = subprocess.Popen(self.cmd, stdout=subprocess.PIPE,shell=True, stderr=subprocess.PIPE)
 			self.output = self.process.communicate()
 		
 		def loudTarget():
 			if sys.platform == 'win32':
-                                if changeDir:
-                                        self.process = subprocess.Popen("requires\\" + self.cmd, shell=False)
-                                else:
-                                        self.process = subprocess.Popen(self.cmd, shell=False)
+				if changeDir:
+					self.process = subprocess.Popen("requires\\" + self.cmd, shell=False)
+				else:
+					self.process = subprocess.Popen(self.cmd, shell=False)
 			else:
-                                if changeDir:
-                                        self.process = subprocess.Popen("./requires/" + self.cmd, shell=False)
-                                else:
-                                        self.process = subprocess.Popen(self.cmd, shell=False)
+				if changeDir:
+					self.process = subprocess.Popen("./requires/" + self.cmd, shell=False)
+				else:
+					self.process = subprocess.Popen(self.cmd, shell=False)
 			self.output=self.process.communicate()
 		
 		if silent: self.silent = silent
@@ -2583,7 +2595,7 @@ class PhyloGenerator:
 					else:
 						self.metal = metal(self.alignment)
 						#Make the header row for each gene
-						header = ['      ']
+						header = ['		 ']
 						for i,method in enumerate(self.alignmentMethods[1:]):
 							header.append(method[0:5])
 						header = " ".join(header)
@@ -2596,7 +2608,7 @@ class PhyloGenerator:
 							for j,method in enumerate(gene):
 								row = self.alignmentMethods[j][0:5].ljust(7)
 								for k,comparison in enumerate(method):
-									row += '       ' * j
+									row += '	   ' * j
 									row += str(round(comparison, 4)).ljust(7)
 								print row
 				elif 'raxml' in inputAlign:
@@ -2605,7 +2617,7 @@ class PhyloGenerator:
 					else:
 						try:
 							#Make the header row for each gene
-							header = ['      ']
+							header = ['		 ']
 							for i,method in enumerate(self.alignmentMethods):
 								header.append(method[0:5])
 							header = " ".join(header)
@@ -2627,7 +2639,7 @@ class PhyloGenerator:
 								print header
 								for x,first in enumerate(geneTrees):
 									row = self.alignmentMethods[x][0:5].ljust(7)
-									row += '       ' * x
+									row += '	   ' * x
 									for y in range(x, len(geneTrees)):
 										distances = treeDistances(first + geneTrees[y], nReps=noTrees)
 										if (x==y):
@@ -2669,7 +2681,7 @@ class PhyloGenerator:
 		methods = ['muscle', 'mafft', 'clustalo', 'prank', 'everything', 'quick']
 		if not self.alignmentMethod:
 			print "\nChoose one alignment method ('muscle', 'mafft', 'clustalo', 'prank'), or..."
-			print "\t'everything' -  all four and compare their outputs"
+			print "\t'everything' -	 all four and compare their outputs"
 			print "\t'quick' to do only the first three"
 			print "Return will use MAFFT; prank is very slow!\n"
 			locker = True
@@ -2851,7 +2863,7 @@ class PhyloGenerator:
 			if len(self.alignment) > 1:
 				self.phylogeny, self.beastXML, self.beastTrees, self.beastLogs = BEAST(self.alignment, method=self.phylogenyMethods, constraint=self.constraint, timeout=999999, chainLength=chainLength, logRate=logRate, screenRate=screenRate, overwrite=overwrite, burnin=burnin)
 			else:
-				self.phylogeny, self.beastXML, self.beastTrees, self.beastLogs  = BEAST(self.alignment[0], method=self.phylogenyMethods, constraint=self.constraint, timeout=999999, chainLength=chainLength, logRate=logRate, screenRate=screenRate, overwrite=overwrite, burnin=burnin)
+				self.phylogeny, self.beastXML, self.beastTrees, self.beastLogs	= BEAST(self.alignment[0], method=self.phylogenyMethods, constraint=self.constraint, timeout=999999, chainLength=chainLength, logRate=logRate, screenRate=screenRate, overwrite=overwrite, burnin=burnin)
 		
 		if self.phylogenyMethods:
 			if 'beast' in self.phylogenyMethods:
@@ -2885,12 +2897,11 @@ class PhyloGenerator:
 		def PATHd8():
 			if sys.platform == 'win32':
 				try:
-                                        pdb.set_trace()
-					subprocess.Popen('requires\\PATHd8.exe')
+					subprocess.Popen("requires\\PATHd8.exe" + self.cmd, stdout=subprocess.PIPE, shell=True, stderr=subprocess.PIPE)
 				except:
 					print "\n*ERROR*\n"
 					print "PATHd8 requires 'cygwin' to be installed, and you don't have it."
-					print "'website' - open cygwin website and install it"
+					print "'website' - open cygwin website (so you can install it)"
 					print "...or... anything else to return to the rate-smoothing prompt"
 					cygwin = raw_input('Rate-smoothing (Cygwin): ')
 					if cygwin and cygwin == 'website':
@@ -2989,7 +3000,7 @@ class PhyloGenerator:
 					if methods:
 						self.rateSmoothMethods = 'BEAST' + methods
 						if len(self.alignment) > 1:
-							self.smoothPhylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs  = BEAST(self.alignment, method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, burnin=burnin, timeout=999999, tempStem='beast_smooth')
+							self.smoothPhylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs	= BEAST(self.alignment, method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, burnin=burnin, timeout=999999, tempStem='beast_smooth')
 						else:
 							self.smoothPhylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs = BEAST(self.alignment[0], method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, burnin=burnin, tempStem='beast_smooth')
 						beastLock = False
@@ -3338,7 +3349,7 @@ class PhyloGenerator:
 											constrainedConstrained.append(self.constraintRFs[x])
 									x += 1
 									bFree = not bFree
-							print "\tConstrained mean distance:   ", str(round(mean(constrainedConstrained),2)), " (SD: ", str(round(std(constrainedConstrained), 4)), ")"
+							print "\tConstrained mean distance:	  ", str(round(mean(constrainedConstrained),2)), " (SD: ", str(round(std(constrainedConstrained), 4)), ")"
 							print "\tUnconstrained mean distance: ", str(round(mean(freeFree),2)), " (SD: ", str(round(std(freeFree), 4)), ")"
 							print "\tMean distance between them:  ", str(round(mean(freeConstrained),2)), " (SD: ", str(round(std(freeConstrained), 4)), ")"
 						checkLocker = False
