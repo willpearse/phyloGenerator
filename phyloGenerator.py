@@ -471,7 +471,7 @@ def alignSequences(seqList, sppNames, method='muscle', tempStem='temp', timeout=
 				alignedSomething = True
 			else:
 				raise RuntimeError("Mafft alignment not complete in time allowed")
-
+		
 		if 'clustalo' in method:
 			print "......with Clustal-Omega"
 			inputFile = tempStem + '.fasta'
@@ -678,6 +678,51 @@ def alignmentDisplay(alignments, alignMethods, geneNames, alignDetect=None):
 			print "ID", "Alignment", "Length"
 			for i in range(len(alignList)):
 				print str(i).ljust(len("ID")), alignMethods[i].ljust(len("Alignment")), str(alignList[i].get_alignment_length()).ljust(len("Length"))
+
+def treeDistances(trees, nReps, fileName='tempStem'):
+	Phylo.write(trees, fileName, 'newick')
+	pipe = TerminationPipe('raxml -f r -z ' + fileName + ' -n alignCheckTemp -m GTRGAMMA', 999999)
+	pipe.run()
+	if not pipe.failure:
+		alignRF = []
+	with open('RAxML_RF-Distances.alignCheckTemp') as f:
+			for line in f:
+				temp = line.strip()
+				alignRF.append(float(re.search("[0-9]{1}\.[0-9]+", temp).group()))
+	
+	os.remove('RAxML_info.alignCheckTemp')
+	os.remove('RAxML_RF-Distances.alignCheckTemp')
+	os.remove(fileName)
+	
+	#Go through and calculate means and SD on the basis of those RFs
+	firstGroup = []
+	secondGroup = []
+	betweenGroup = []
+	first = 0
+	second = 1
+	for i,RF in enumerate(alignRF):
+		#Put the distance in the right category
+		if first < nReps:
+			if second < nReps:
+				firstGroup.append(RF)
+			else:
+				betweenGroup.append(RF)
+		else:
+			if second < nReps:
+				betweenGroup.append(RF)
+			else:
+				secondGroup.append(RF)
+		#Handle changing the values
+		if second < ((nReps * 2)-1):
+			second += 1
+		else:
+			first += 1
+			second = first + 1
+	
+	#Calcualte means, SDs, etc.
+	means = [mean(firstGroup), mean(secondGroup), mean(betweenGroup)]
+	SDs = [std(firstGroup), std(secondGroup), std(betweenGroup)]
+	return (means, SDs)
 
 def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, timeout=999999999, cladeList=None,	DNAmodel='GTR+G', partitions=None, constraint=None, cleanup=True, runNow=True, startingTree=None):
 	inputFile = tempStem + 'In.phylip'
@@ -1655,7 +1700,7 @@ def metal(alignList, tempStem='tempMetal', timeout=100):
 				pipe = TerminationPipe("metal --ignore-names "+alignLocations[j] + " " + alignLocations[k], timeout=timeout)
 				pipe.run()
 				temp = re.search('[0-9]*\ /\ [0-9]*', pipe.output[0]).group()
-				temp = 'float(' + temp + ')'
+				temp = 'float(' + temp + '.0)'
 				currDist.append(eval(temp))
 			geneDistances.append(currDist)
 		for i,location in enumerate(alignLocations):
@@ -2503,7 +2548,7 @@ class PhyloGenerator:
 		print "\t'align' - return to alignment stage, discarding current alignments."
 		print "\t'trimal' - automatically trim your sequences using trimAl"
 		print "\t'raxml=X' - run X RAxML runs for each alignment, and calculate the R-F distances between the trees and alignments"
-		print "\t'metal' - calculate SSP distances between genes and alignments using metal"
+		print "\t'metal' - calculate SSP distances between alignments using metal"
 		print "Hit enter to continue and choose one final alignment per gene\n"
 		locker = True
 		while locker:
@@ -2538,92 +2583,65 @@ class PhyloGenerator:
 					else:
 						self.metal = metal(self.alignment)
 						#Make the header row for each gene
-						header = ['     ']
+						header = ['      ']
 						for i,method in enumerate(self.alignmentMethods[1:]):
 							header.append(method[0:5])
 						header = " ".join(header)
 						print "\nSSP distances between alignments:"
 						x = 1
 						pdb.set_trace()
+						print self.genes[i] + ":"
 						print header
 						for i,gene in enumerate(self.metal):
-							print self.genes[i] + ":"
 							for j,method in enumerate(gene):
-								row = self.alignmentMethods[j][0:5].ljust(6)
+								row = self.alignmentMethods[j][0:5].ljust(7)
 								for k,comparison in enumerate(method):
-									row += '      ' * j
-									row += str(round(comparison, 4)).ljust(6)
+									row += '       ' * j
+									row += str(round(comparison, 4)).ljust(7)
 								print row
 				elif 'raxml' in inputAlign:
 					if len(self.alignmentMethods) == 1 and len(self.genes) == 1:
 						print "You've only used one alignment method, and one gene!"
 					else:
-						pdb.set_trace()
 						try:
+							#Make the header row for each gene
+							header = ['      ']
+							for i,method in enumerate(self.alignmentMethods):
+								header.append(method[0:5])
+							header = " ".join(header)
 							noTrees = int(inputAlign.replace('raxml=', ''))
-						except:
+							trees = []
+							for i,gene in enumerate(self.alignment):
+								geneTrees = []
+								for j,method in enumerate(gene):
+									#Get the trees
+									methodTrees = []
+									for k in range(noTrees):
+										methodTrees.append(RAxML(method, 'localVersion'))
+									geneTrees.append(methodTrees)
+								trees.append([item for sublist in geneTrees for item in sublist])
+								
+								#Now calculate distances between methods
+								print "Mean within gene distances:"
+								print self.genes[i] + ":"
+								print header
+								for x,first in enumerate(geneTrees):
+									row = self.alignmentMethods[x][0:5].ljust(7)
+									row += '       ' * x
+									for y in range(x, len(geneTrees)):
+										distances = treeDistances(first + geneTrees[y], nReps=noTrees)
+										if (x==y):
+											row += str(round(distances[0][0], 4)).ljust(7)
+										else:
+											row += str(round(distances[0][2], 4)).ljust(7)
+									print row
+							#Check to see if we can compare between genes
+							alignNames = []
+							for i,gene in enumerate(self.alignment):
+								pass
+						except ValueError:
 							print "Sorry, how many times? Try again - something like 'raxml=5'."
-						#Make starting trees and random seeds
-						#startingTrees = []
-						#for i in range(noTrees):
-						#	startingTrees.append(RAxML(self.alignment[0][0], method='localVersion-startingOnly'))
-						#Find trees from this search
-						# - if you start with the same tree for each, it tends to be shit...
-						trees = []
-						for i,gene in enumerate(self.alignment):
-							geneTrees = []
-							for k,method in enumerate(gene):
-								for tree in range(noTrees):
-									geneTrees.append(RAxML(method, 'localVersion'))
-							
-							#Calculate mean RF between alignments
-							Phylo.write(trees, 'alignCheckTemp.tre', 'newick')
-							pipe = TerminationPipe('raxml -f r -z alignCheckTemp.tre -n alignCheckTemp -m GTRGAMMA', 999999)
-							
-						#Calculate mean R-F distances
-						#...between alignment methods
-						Phylo.write(trees, 'alignCheckTemp.tre', 'newick')
-						pipe = TerminationPipe('raxml -f r -z alignCheckTemp.tre -n alignCheckTemp -m GTRGAMMA', 999999)
-						pipe.run()
-						if not pipe.failure:
-							self.alignRF = []
-							with open('RAxML_RF-Distances.alignCheckTemp') as f:
-								for line in f:
-									temp = line.strip()
-									self.alignRF.append(re.search("[0-9]{1}\.[0-9]+", temp).group())
-
-							os.remove('alignCheckTemp.tre')
-							os.remove('RAxML_RF-Distances.alignCheckTemp')
-							os.remove('RAxML_info.alignCheckTemp')
-							print "\nMean Robinson-Folds distances between genes and alignments:"
-							header = []
-							for i,gene in enumerate(self.genes):
-								if len(gene) > 4:
-									gene = gene[0:4]
-								else:
-									gene = gene.ljust(4)
-								for j,method in enumerate(self.alignmentMethods):
-									header.append(gene + "_" + method[0:4])
-							header.insert(0, "         ")
-							print " ".join(header)
-							colToWrite = len(self.genes) * len(self.alignmentMethods) -1
-							x = 0
-							spacer = 1
-							for row in range((len(self.genes) * len(self.alignmentMethods))-1):
-								currRow = []
-								for col in range(colToWrite):
-									temp = []
-									for rep in range(noTrees):
-										temp.append(float(self.alignRF[x]))
-										x += 1
-									currRow.append(str(round(sum(temp)/len(temp), 3)).ljust(9))
-								for i in range(spacer):
-									currRow.insert(0, "         ")
-								print header[row+1], " ".join(currRow)
-								colToWrite -= 1
-								spacer += 1
-						else:
-							print "!!!Something went wrong with the RAxML runs. Sorry!"
+				
 				else:
 					print "Sorry, I don't understand", inputAlign, "- please try again."
 			else:
