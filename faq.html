@@ -90,18 +90,27 @@
 		  <li><a href="http://trimal.cgenomics.org/">TrimAl - 1.2rev59</a></li>
 		 </ul>
 		 <p>But you <b>must</b> cite <a href="http://www.biopython.org/wiki/Main_Page">BioPython</a>. Sorry not to be more help than this, but it's best the authors tell you what to cite so I don't get in trouble!</p>
+		 <h3>How can I exit phyloGenerator in the middle of a run?</h3>
+		 <p>Press 'control-c' a few times. On a PC, you'll get a dialogue box warning of an error - just hit enter and ignore it.</p>
+		 <h3>I can't load any files, despite putting in the right path to them</h3>
+		 <p>Make sure you are using the cirrect, full, absolute path. For example, 'Demos/Silwood_Plants/sequences.fasta' is an incomplete absolute path, but '/Users/will/Documents/phyloGenerator/Demo/Silwood_Plants/sequences.fasta' is a complete, full path.</p>
+		 <p>Also, if you're dragging and dropping files into phyloGenerator when it asks for them, make sure there are no trailing spaces at the end of your filename. If in doubt, press delete - if the file path doesn't appear to change, you had some trailing spaces.</p>
+		 <h3>It warns me that a blank input wasn't recognised, or an input I typed in doesn't work.</h3>
+		 <p>You might have hit a button while the program was running earlier and it remembered that. Try entering the command again, but if you still get problems <a href="http://imperial.academia.edu/WillPearse">contact me</a>.</p>
 		 <h3>phyloGenerator keeps hanging and not doing anything!</h3>
-		 <p>I've set phyloGenerator to pause every ten times it downloads something for ten seconds, so as not to overload the NCBI database. However, I'm being massively conservative, and if you want to alter that (at your own risk!) then play around with the 'delay' argument when running phyloGenerator. If in doubt, why hurry?</p>
-		 <h3>I keep getting warned about server errrors!</h3>
-		 <p>This is nothing to worry about, unless it crashes phyloGenerator or causes it to exit. If either of those things happen, consider not downloading as many species (more than six hundred seems to cause it problems, and I've not designed this program to handle that many), and please send me an email about it.</p>
-		 <h3>It doesn't work! Help!</h3>
-		 <p>Oh no! Contact me using the link at the top of this page ('Who?'), including a copy-pasted version of everything you did and got back from phyloGenerator, any files you gave to phyloGenerator, and details about your computer (Mac? Windows? What version?). I'll get back to you quickly, I promise.</p>
-		 <p>Nine times out of ten, the problem is that you're working with sequences you should have trimmed, or the constraint tree you've specified is rooted and so RAxML has unexpectedly crashed. If you can't load file in, make sure you've specified the absolute path ('/Users/will/file.txt', not 'file.txt'), and that there're no spaces at the end of your input ('C:\Docs\file.txt', not 'C:\Docs\file.txt ').</p>
+		 <p>I've set phyloGenerator to pause every ten times it downloads something for ten seconds, so as not to overload the NCBI database. However, I'm being massively conservative, and if you want to alter that (at your own risk!) then play around with the 'delay' argument when running phyloGenerator. Many of the programs phyloGenerator calls take quite a while too - if you can hear your computer whirring, it's probably just building your phylogeny.</p>
+		 <p>If you're aligning sequences and it seems to be taking forever, make sure there are no abnormally long sequences in your dataset. If most of your sequences are 1000bp long, and one or two are >10000bp long, you'll need to trim the sequences or you'll crash most alignment programs.</p>
+		 <h3>I keep getting warned about server errrors</h3>
+		 <p>This is nothing to worry about, unless it crashes phyloGenerator or causes it to exit. If either of those things happen, consider not downloading as many species (more than six hundred seems to cause it problems, and I've not designed this program to handle that many), but please do <a href="http://imperial.academia.edu/WillPearse">send me an email</a> about it.</p>
+		 <h3>Can I run two instances of phyloGenerator at a time!</h3>
+		 <p>Sorry, you can't. Only one run at a time, as the temporary files phyloGenerator uses can get confused and you can get strange results.</p>
 		 <h3>I don't understand what this program does! Help!</h3>
-		 <p>Have a read through the walkthrough. If that doesn't help, drop me an email. I'm afraid I can't explain the whole of phylogenetics to you (sorry!) but I'm quite likely to help you if you send me a polite email. Perhaps an offer of a beer would also be appropriate :p</p>
+		 <p>Have a read through the walkthrough. If that doesn't help, drop me an email. I'm afraid I can't explain the whole of phylogenetics to you (sorry!) but I'm quite likely to help you if you send me a polite email. Even more so if you promise me a beer!</p>
 		 <h3>I don't think this program is a good idea. It doesn't include method X / philsophically it's a bad idea / etc.</h3>
-		 <p>I probably agree with you. Please, send me an email (the 'Who?' link at the top should help you find me) and let's talk about it. Maybe we can improve the program, but at the very least I'd appreciate your feedback. For the record, I certainly don't think this program is a replacement for phylogeneticists. Otherwise I'd be out of a job!</p>
-
+		 <p>I probably agree with you. Please, <a href="http://imperial.academia.edu/WillPearse">send me an email</a> and let's talk about it. Maybe we can improve the program, but at the very least I'd appreciate your feedback. For the record, I certainly don't think this program is a replacement for phylogeneticists.</p>
+		 <h3>It doesn't work! Help!</h3>
+		 <p>Oh no! <a href="http://imperial.academia.edu/WillPearse">Send me</a> a copy-pasted version of everything you did and got back from phyloGenerator, any files you gave to phyloGenerator, and details about your computer (Mac? Windows? What version?). I'm always grateful for feedback (even errors!), and I'll try and help you as soon as I can. Make sure you read all the FAQs above first, though!</p>
+		 
     </div> <!-- /container -->
 
      <!-- Footer
