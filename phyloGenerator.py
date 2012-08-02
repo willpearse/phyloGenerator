@@ -2,8 +2,7 @@
 # encoding: utf-8
 """
 phyloGenerator.py
-Created by Will Pearse on 2011-08-24.
-Copyright (c) 2011 Imperial College london. All rights reserved.
+This work is licensed under the Creative Commons Attribution-ShareAlike 3.0 Unported License. To view a copy of this license, visit http://creativecommons.org/licenses/by-sa/3.0/ or send a letter to Creative Commons, 444 Castro Street, Suite 900, Mountain View, California, 94041, USA.
 """
 from Bio import Entrez #Taxonomy lookup
 from Bio.Seq import Seq #Sequence manipulation
@@ -24,8 +23,8 @@ import time #For waiting between sequence downloads
 import argparse #For command line arguments
 import webbrowser #Load website on request
 import sys #To exit on errors
-import pdb #Debugging
-import warnings
+import copy #Getting subtrees
+import warnings, pdb
 maxCheck = 4
 def unrootPhylomatic(tree):
 	Phylo.write(tree, 'unrootingOutput.tre', 'newick')
@@ -631,7 +630,7 @@ def sequenceDisplay(seqList, speciesNames, geneNames, seqDetect=None):
 		print "'^^^' and '___' denote particularly long or short sequences\n"
 		header = "Sp. ID " + "Input name".ljust(maxInputName)
 		for i, each in enumerate(geneNames):
-			header += each.ljust(geneNameLengths[i]) + "	 "
+			header += each.ljust(geneNameLengths[i]) + "    "
 		print header
 		for i in range(len(seqList)):
 			stars = []
@@ -642,10 +641,10 @@ def sequenceDisplay(seqList, speciesNames, geneNames, seqDetect=None):
 					elif seqDetect['lowerQuantile'][k][i]:
 						stars.append("___")
 					else:
-						stars.append("	 ")
+						stars.append("   ")
 				else:
 					#What *does* happen to empty sequences?
-					stars.append("	 ")
+					stars.append("   ")
 			
 			row = str(i).ljust(len("Sp. ID ")) + str(speciesNames[i]).ljust(maxInputName)
 			for k in range(len(seqList[i])):
@@ -665,15 +664,23 @@ def sequenceDisplay(seqList, speciesNames, geneNames, seqDetect=None):
 			print row
 	print ""
 
-def alignmentDisplay(alignments, alignMethods, geneNames, alignDetect=None):
+def alignmentDisplay(alignments, alignMethods, geneNames, alignDetect=None, seqLengths=False):
 	assert len(alignments)==len(geneNames)
 	assert len(alignments[0])==len(alignMethods)
 	for alignNo, alignList in enumerate(alignments):
-		print "\nGene:", geneNames[alignNo]
+		print "\nGene: ", geneNames[alignNo]
 		if alignDetect:
-			print "ID", "Alignment".ljust(12), "Length".ljust(10), "Med. Gaps".ljust(15), "SD Gaps".ljust(15), "Min-Max Gaps".ljust(15), "Med. Gap Frac.".ljust(15), "Max Gap Frac.".ljust(15)
+			print "ID", "Alignment".ljust(12), "Length".ljust(10), "Med. Gaps".ljust(15), "SD Gaps".ljust(15), "Min-Max Gaps".ljust(15), "Med. Gap Frac.".ljust(15), "M-M Gap Frac.".ljust(15), "Warn?"
 			for i in range(len(alignList)):
-				print  '{ID:3}{alignment:<13}{length:<11}{medGaps:<16.1f}{sdGaps:<16.2f}{minMaxGaps:16}{medGapsFrac:<16.2f}{minMaxGapsFrac:15}'.format(ID=str(i), alignment=alignMethods[i], length=alignDetect['length'][alignNo][i], medGaps=alignDetect['noGaps'][alignNo]['median'][i], sdGaps=alignDetect['noGaps'][alignNo]['sd'][i], minMaxGaps=str(str(round(alignDetect['noGaps'][alignNo]['min'][i],3))+" - "+str(round(alignDetect['noGaps'][alignNo]['max'][i],3))), medGapsFrac=alignDetect['gapFraction'][alignNo]['median'][i], minMaxGapsFrac=str(str(round(alignDetect['gapFraction'][alignNo]['min'][i],3))+"-"+str(round(alignDetect['gapFraction'][alignNo]['max'][i],3))))
+				if seqLengths:
+					warning = alignDetect['length'][alignNo][i] > seqLengths[alignNo] * 1.15
+					if warning:
+						print  '{ID:3}{alignment:<13}{length:<11}{medGaps:<16.1f}{sdGaps:<16.2f}{minMaxGaps:16}{medGapsFrac:<16.2f}{minMaxGapsFrac:15} !!!!'.format(ID=str(i), alignment=alignMethods[i], length=alignDetect['length'][alignNo][i], medGaps=alignDetect['noGaps'][alignNo]['median'][i], sdGaps=alignDetect['noGaps'][alignNo]['sd'][i], minMaxGaps=str(str(round(alignDetect['noGaps'][alignNo]['min'][i],3))+" - "+str(round(alignDetect['noGaps'][alignNo]['max'][i],3))), medGapsFrac=alignDetect['gapFraction'][alignNo]['median'][i], minMaxGapsFrac=str(str(round(alignDetect['gapFraction'][alignNo]['min'][i],3))+"-"+str(round(alignDetect['gapFraction'][alignNo]['max'][i],3))))
+					else:
+						print  '{ID:3}{alignment:<13}{length:<11}{medGaps:<16.1f}{sdGaps:<16.2f}{minMaxGaps:16}{medGapsFrac:<16.2f}{minMaxGapsFrac:15}'.format(ID=str(i), alignment=alignMethods[i], length=alignDetect['length'][alignNo][i], medGaps=alignDetect['noGaps'][alignNo]['median'][i], sdGaps=alignDetect['noGaps'][alignNo]['sd'][i], minMaxGaps=str(str(round(alignDetect['noGaps'][alignNo]['min'][i],3))+" - "+str(round(alignDetect['noGaps'][alignNo]['max'][i],3))), medGapsFrac=alignDetect['gapFraction'][alignNo]['median'][i], minMaxGapsFrac=str(str(round(alignDetect['gapFraction'][alignNo]['min'][i],3))+"-"+str(round(alignDetect['gapFraction'][alignNo]['max'][i],3))))
+				else:
+					print  '{ID:3}{alignment:<13}{length:<11}{medGaps:<16.1f}{sdGaps:<16.2f}{minMaxGaps:16}{medGapsFrac:<16.2f}{minMaxGapsFrac:15}'.format(ID=str(i), alignment=alignMethods[i], length=alignDetect['length'][alignNo][i], medGaps=alignDetect['noGaps'][alignNo]['median'][i], sdGaps=alignDetect['noGaps'][alignNo]['sd'][i], minMaxGaps=str(str(round(alignDetect['noGaps'][alignNo]['min'][i],3))+" - "+str(round(alignDetect['noGaps'][alignNo]['max'][i],3))), medGapsFrac=alignDetect['gapFraction'][alignNo]['median'][i], minMaxGapsFrac=str(str(round(alignDetect['gapFraction'][alignNo]['min'][i],3))+"-"+str(round(alignDetect['gapFraction'][alignNo]['max'][i],3))))
+				
 		else:
 			print "ID", "Alignment", "Length"
 			for i in range(len(alignList)):
@@ -877,7 +884,10 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 				if len(temp) > 1:
 					clades.append(temp)
 					cladesNames.append(clade.name)
-					cladesAges.append(clade.branch_length)
+					#Sadly, this is the best way to get a clade's age, apparently...
+					tempClade = copy.deepcopy(clade)
+					tempClade.collapse_all()
+					cladesAges.append(tempClade.depths().values()[0])
 			if len(set([item for sublist in clades for item in sublist])) == len(constraint.get_terminals()):
 				completeConstraint = True
 			for i,clade in enumerate(clades):
@@ -1500,7 +1510,10 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 		burnin = int(burnin * (chainLength / logRate))
 		commandLine = 'treeannotator -burnin ' + str(burnin) + ' -heights median ' + tempStem + '.trees ' + tempStem + 'Final.tre'
 		pipeAnotate = TerminationPipe(commandLine, timeout)
-		pipeAnotate.run(changeDir=False)
+		if sys.platform == "win32":
+			pipeAnotate.run(silent=False, changeDir=False)
+		else:
+			pipeAnotate.run(silent=False)
 		if not pipeAnotate.failure:
 			if cleanup:
 				os.remove(tempStem + "_BEAST.xml")
@@ -1570,12 +1583,18 @@ def findGeneInSeq(seq, gene, trimSeq=False, DNAtype='Standard', gapType='-', ver
 			if verbose: warnings.warn("Gene '" + gene + "' not found in sequence")
 			return ()
 	else:
-		raise RuntimeError('No sequence features found: are you using a GenBank record?')
+		print "...can't find annotations for sequence", seq.id, gene
+		return ()
 
 def cleanSequenceWrapper(seq, gene, DNAtype='Standard', gapType='-'):
 	output = findGeneInSeq(seq, gene, DNAtype=DNAtype, gapType=gapType, verbose=False)
 	if len(output) == len(seq):
 		output = trimSequence(seq, DNAtype=DNAtype, gapType=gapType)
+		if len(output):
+			return output
+		else:
+			print "......can't find ORF in ", seq.id, gene, " - check gene type"
+			return seq
 	return output
 
 def rateSmooth(phylo, method='PATHd8', nodes=tuple(), sequenceLength=int(), tempStem='temp', timeout=999999):
@@ -1807,6 +1826,7 @@ class PhyloGenerator:
 		self.constraintFile = False
 		self.smoothPhylogeny = False
 		self.smoothPhylogenyMerged = False
+		
 		#Backup working directory
 		self.oldDirectory = os.getcwd()
 		
@@ -2195,10 +2215,11 @@ class PhyloGenerator:
 			inputSeq = raw_input("DNA Editing (trim):")
 			if inputSeq:
 				try:
-					if int(inputSeq) in range(len(self.speciesNames)):
-						for i,each in enumerate(self.sequences[int(inputSeq)]):
-							if self.sequences[int(inputSeq)]:
-								self.sequences[int(inputSeq)][i] = cleanSequenceWrapper(self.sequences[int(inputSeq)][i], self.genes[i], DNAtype=self.codonModels[i], gapType='-')
+					seqNo = int(inputSeq)
+					if seqNo in range(len(self.speciesNames)):
+						for i,each in enumerate(self.sequences[seqNo]):
+							if each:
+								self.sequences[seqNo][i] = cleanSequenceWrapper(self.sequences[seqNo][i], self.genes[i], DNAtype=self.codonModels[i], gapType='-')
 						print "Re-calulating summary statistics..."
 						self.dnaChecking()
 						return 'trim', False
@@ -2554,12 +2575,19 @@ class PhyloGenerator:
 			return False
 	
 	def alignmentEditing(self):
-		alignmentDisplay(self.alignment, self.alignmentMethods, self.genes, checkAlignmentList(self.alignment, method='everything'))
+		seqLengths = [0]*len(self.genes)
+		for i,sp in enumerate(self.sequences):
+			for j,gene in enumerate(sp):
+				if gene:
+					if len(gene) > seqLengths[j]:
+						seqLengths[j] = len(gene)
+		
+		alignmentDisplay(self.alignment, self.alignmentMethods, self.genes, checkAlignmentList(self.alignment, method='everything'), seqLengths)
 		print "\n\t'output' - write out alignments. I recommend you look at your alignment before continuing"
 		print "\t'DNA' - return to DNA editing stage"
 		print "\t'align' - return to alignment stage, discarding current alignments."
 		print "\t'trimal' - automatically trim your sequences using trimAl"
-		print "\t'raxml=X' - run X RAxML runs for each alignment, and calculate the R-F distances between the trees and alignments"
+		print "\t'raxml=X' - run X RAxML runs for each alignment, and calculate the R-F distances between the trees and alignments (slow)"
 		print "\t'metal' - calculate SSP distances between alignments using metal"
 		print "Hit enter to continue and choose one final alignment per gene\n"
 		locker = True
@@ -2595,20 +2623,19 @@ class PhyloGenerator:
 					else:
 						self.metal = metal(self.alignment)
 						#Make the header row for each gene
-						header = ['		 ']
+						header = ['       ']
 						for i,method in enumerate(self.alignmentMethods[1:]):
-							header.append(method[0:5])
-						header = " ".join(header)
+							header.append(method[0:5] + '  ')
+						header = "".join(header)
 						print "\nSSP distances between alignments:"
 						x = 1
-						pdb.set_trace()
-						print self.genes[i] + ":"
-						print header
 						for i,gene in enumerate(self.metal):
+							print self.genes[i] + ":"
+							print header
 							for j,method in enumerate(gene):
 								row = self.alignmentMethods[j][0:5].ljust(7)
 								for k,comparison in enumerate(method):
-									row += '	   ' * j
+									row += '       ' * j
 									row += str(round(comparison, 4)).ljust(7)
 								print row
 				elif 'raxml' in inputAlign:
@@ -2617,10 +2644,10 @@ class PhyloGenerator:
 					else:
 						try:
 							#Make the header row for each gene
-							header = ['		 ']
+							header = ['       ']
 							for i,method in enumerate(self.alignmentMethods):
-								header.append(method[0:5])
-							header = " ".join(header)
+								header.append(method[0:5] + '  ')
+							header = "".join(header)
 							noTrees = int(inputAlign.replace('raxml=', ''))
 							trees = []
 							for i,gene in enumerate(self.alignment):
@@ -2639,7 +2666,7 @@ class PhyloGenerator:
 								print header
 								for x,first in enumerate(geneTrees):
 									row = self.alignmentMethods[x][0:5].ljust(7)
-									row += '	   ' * x
+									row += '       ' * x
 									for y in range(x, len(geneTrees)):
 										distances = treeDistances(first + geneTrees[y], nReps=noTrees)
 										if (x==y):
@@ -2897,7 +2924,7 @@ class PhyloGenerator:
 		def PATHd8():
 			if sys.platform == 'win32':
 				try:
-					subprocess.Popen("requires\\PATHd8.exe" + self.cmd, stdout=subprocess.PIPE, shell=True, stderr=subprocess.PIPE)
+					subprocess.Popen("requires\\PATHd8.exe", stdout=subprocess.PIPE, shell=True, stderr=subprocess.PIPE)
 				except:
 					print "\n*ERROR*\n"
 					print "PATHd8 requires 'cygwin' to be installed, and you don't have it."
@@ -3304,7 +3331,7 @@ class PhyloGenerator:
 				print "\nYour constraint phylogeny is incompatible with RAxML, which probably means you used a rooted phylogeny with Phylomatic."
 				print "Your constraint has been written out as 'temp_contraint.tre'. You can edit it if you wish."
 				return True
-			print "To run RAxML searches with and without your constraint, and compare mean Robinson-Foulds distances between their results, enter the number of times to search below."
+			print "To run RAxML searches with and without your constraint, and compare mean Robinson-Foulds distances between their results, enter the number of times to search below. This can take a while!"
 			print "Press enter to continue without this."
 			checkLocker = True
 			while checkLocker:
@@ -3349,9 +3376,9 @@ class PhyloGenerator:
 											constrainedConstrained.append(self.constraintRFs[x])
 									x += 1
 									bFree = not bFree
-							print "\tConstrained mean distance:	  ", str(round(mean(constrainedConstrained),2)), " (SD: ", str(round(std(constrainedConstrained), 4)), ")"
-							print "\tUnconstrained mean distance: ", str(round(mean(freeFree),2)), " (SD: ", str(round(std(freeFree), 4)), ")"
-							print "\tMean distance between them:  ", str(round(mean(freeConstrained),2)), " (SD: ", str(round(std(freeConstrained), 4)), ")"
+							print "\tConstrained mean distance:   ", str(round(mean(constrainedConstrained),2)).ljust(3), " (SD: ", str(round(std(constrainedConstrained), 4)).ljust(5), ")"
+							print "\tUnconstrained mean distance: ", str(round(mean(freeFree),2)).ljust(3), " (SD: ", str(round(std(freeFree), 4)).ljust(5), ")"
+							print "\tMean distance between them:  ", str(round(mean(freeConstrained),2)).ljust(3), " (SD: ", str(round(std(freeConstrained), 4)).ljust(5), ")"
 						checkLocker = False
 					except:
 						print "Sorry, I didn't get that. Please try again."

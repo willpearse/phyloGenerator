@@ -1,24 +1,28 @@
 README phyloGenerator
 Will Pearse (will.pearse@gmail.com)
+This work is licensed under the Creative Commons Attribution-ShareAlike 3.0 Unported License. To view a copy of this license, visit http://creativecommons.org/licenses/by-sa/3.0/ or send a letter to Creative Commons, 444 Castro Street, Suite 900, Mountain View, California, 94041, USA.
 
-A way to make phylogenies quickly and easily if you're an ecologist. Think of it as 'Phylomatic 2.0'.
+Automated phylogeny generation for ecologists.
 
 EASY USE:
-* Download a pre-packaged binary for whatever system you're on (Mac, Windows, Linux, ...)
+* Download a pre-packaged binary for whatever system you're on (Mac, Windows)
 * Mac: Open Terminal, run the file 'phyloGenerator.app/Contents/MacOS/phyloGenerator' - note that double clicking it will generate an error! For example, if I'd installed phyloGenerator into my home directory, I'd type '/Users/will/phyloGenerator.app/Contents/MacOS/phyloGenerator'.
-* PC: TO-DO
-* Linux: TO-DO
-* Check the website for details of the command-line options - or just run the program and let it guide you through everything.
+* PC: Either double-click 'phyloGenerator.exe', or open up command prompt, change directory (cd) into the 'phyloGenerator' directory and type 'phyloGenerator.exe'. This way when the program finishes you'll still have all the messages it generates on screen.
+* Linux: No easy-use, sorry! Follow the instructions below for 'compiling' it.
 
-HARD USE (COMPILING IT):
+'COMPILING' IT:
+Short answer: Install Python >=2.6; Numpy and SciPy for Python; Biopython >=2.5. Set up a folder ('requires') in the same folder as 'phyloGenerator.py' that contains the programs you'll use - check http://willpearse.github.com/phyloGenerator/install.html#compiling for the names of the programs.
+Long answer: go to http://willpearse.github.com/phyloGenerator/install.html
 
-Requires Python >=2.6; Biopython >=2.5; NumPy; SciPy.
-For install instructions, just check out the webiste: http://willpearse.github.com/phyloGenerator/
+EXAMPLES:
+There should be a 'Demos' folder with your distribution - if not, *please email me*. Inside each folder there's either a file called 'demo.txt' or 'demo.sh' - open whichever one you have. Have a look at 'Silwood_Plants' first. There're walkthrough videos online (http://willpearse.github.com/phyloGenerator/guide.html#screencasts).
 
-Running it is simple; make sure phyloGenerator.py has permission to execute, then run it. If you use 'test.txt' for species to lookup, and 'test.fasta' as pre-made DNA to include, the whole thing should run through. It's far from perfect, so don't be surprised if you get error messages. I'm still working on it!
+QUESTIONS:
+Please feel free to drop me an email, or put any feature requests/bugs online at https://github.com/willpearse/phyloGenerator/issues.
 
-This is not a comprehensive readme! If you've got any questions, just ask me. Any feature requests, just pop them on the website.
+CITATION:
+Currently, this is under review, so contact me for citation information.
 
-Thanks for your time,
+I hope you enjoy phyloGenerator!
 
 Will Pearse (will.pearse@gmail.com)
