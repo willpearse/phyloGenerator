@@ -239,7 +239,7 @@ def sequenceDownload(spName, geneName=None, thorough=False, rettype='gb', titleT
 					else:
 						return eFetchSeqID(chosenIDs, rettype=rettype)
 				elif seqChoice == 'minLength':
-					if noSeqs > 1: raise RuntimeError("You can't return more than one median-length sequence...")
+					if noSeqs > 1: raise RuntimeError("You can't return more than one minimum-length sequence...")
 					currentMinLength = 1000000
 					currentBest = 0
 					for index, seq in enumerate(firstSearch['IdList']):
@@ -269,8 +269,9 @@ def sequenceDownload(spName, geneName=None, thorough=False, rettype='gb', titleT
 					currentBest = 0
 					for index, length in enumerate(lengths):
 						if abs(length - medianLength) < currentMinLength:
-							currentBest = firstSearch['IdList'][index]
-					return eFetchSeqID(currentBest, rettype=rettype)
+							currentBest = index
+							currentMinLength = abs(length - medianLength)
+					return eFetchSeqID(firstSearch['IdList'][currentBest], rettype=rettype)
 				else:
 					raise RuntimeError("Unrecognised sequence selection method")
 			else:
@@ -630,7 +631,7 @@ def sequenceDisplay(seqList, speciesNames, geneNames, seqDetect=None):
 		print "'^^^' and '___' denote particularly long or short sequences\n"
 		header = "Sp. ID " + "Input name".ljust(maxInputName)
 		for i, each in enumerate(geneNames):
-			header += each.ljust(geneNameLengths[i]) + "    "
+			header += each.ljust(geneNameLengths[i]) + "     "
 		print header
 		for i in range(len(seqList)):
 			stars = []
@@ -2133,15 +2134,52 @@ class PhyloGenerator:
 				print "\tSpID - reload all sequences for one species, e.g. '0'"
 				print "\tSeqID GeneName - reload one gene for one species, e.g. '0rbcL'"
 				print "\t>X / <X - reload all sequences longer/shorter than X, e.g. '>900' / '<900'"
+				print "\tnCheck=X - how many sequences to download form GenBank for each search, e.g. 'nChecl=20' (default)"
+				print "\trnd - randomly choose one sequence of those downloaded from GenBank="
+				print "\tmedian - choose the sequence closest to the median length of those downloaded from GenBank"
+				print "\ttarget=X,Y - choose the sequence closest to length X "
 				print "\tEVERYTHING - reload all sequences (search will be more thorough)"
 				print "Other modes: 'delete', 'trim', 'replace', 'merge'. Hit enter to continue.\n"
+			targetLength = [x[2] for x in self.dnaCheck['quantileLengths']]
 			inputSeq = raw_input("DNA Editing (reload):")
 			if inputSeq:
+				if 'nCheck' in inputSeq:
+					try:
+						inputSeq = inputSeq.replace('nCheck=', '')
+						newRetMax = int(inputSeq)
+						if newRetMax:
+							self.genBankRetMax = newRetMax
+							print "...downloading", self.genBankMax, "sequences each time from GenBank"
+							return 'reload', False
+					except:
+						pass
+				if 'rnd' in inputSeq:
+					self.replaceSeqChoice = 'random'
+					print "...sequence choice is random of first", self.genBankRetMax, "sequences"
+					return 'reload', False
+				if 'median' in inputSeq:
+					self.replaceSeqChoice = 'medianLength'
+					print "...sequence choice is median length sequence of first", self.genBankRetMax, "sequences"
+					return 'reload', False
+				if 'target' in inputSeq:
+					try:
+						inputSeq = inputSeq.replace('target=', '')
+						newLengths = inputSeq.split(',')
+						output = "...gene lengths are - "
+						if len(newLengths) == len(self.genes):
+							for i,length in enumerate(newLengths):
+								targetLength[i] = int(length)
+								output += self.genes[i] + ' (' + str(length) +') '
+							self.replaceSeqChoice = 'targetLength'
+							print output
+							return 'reload', False
+					except:
+						pass
 				try:
 					if int(inputSeq) in range(len(self.speciesNames)):
 						for i,each in enumerate(self.sequences[int(inputSeq)]):
 							self.APICheck()
-							self.sequences[int(inputSeq)][i] = sequenceDownload(self.speciesNames[int(inputSeq)], self.genes[i], thorough=True, retMax=self.genBankRetMax, seqChoice=self.replaceSeqChoice, targetLength=self.dnaCheck['quantileLengths'][i][2])
+							self.sequences[int(inputSeq)][i] = sequenceDownload(self.speciesNames[int(inputSeq)], self.genes[i], thorough=True, retMax=self.genBankRetMax, seqChoice=self.replaceSeqChoice, targetLength=targetLength[i])
 						print "Re-calulating summary statistics..."
 						self.dnaChecking()
 						return 'reload', False
