@@ -90,20 +90,30 @@
 		  <li><a href="http://trimal.cgenomics.org/">TrimAl - 1.2rev59</a></li>
 		 </ul>
 		 <p>But you <b>must</b> cite <a href="http://www.biopython.org/wiki/Main_Page">BioPython</a>. Sorry not to be more help than this, but it's best the authors tell you what to cite so I don't get in trouble!</p>
+		<h3>My phylogeny doesn't look anything like it should do. What's gone wrong?</h3>
+		<p>In my experience, it's rare for phyloGenerator not to give you a good result, but bear in mind that no one can write an automated program that works every time with something like this - otherwise there wouldn't be phylogeneticists in the first place! For difficult projects, there's not likely to be a quick solution. Sorry. Please do contact me because I like to know when runs haven't worked. However, there are two major sources of error that phyloGenerator can help with: absence of a constraint tree, or a bad alignment.</p>
+		<p>Use Phylomatic to make a constraint, take one from a paper - whatever - that way you <emph>can't</emph> get something you wouldn't expect. If you're using a dated phylogeny, make sure you <emph>name</emph> the dated clades in your phylogeny - something like '((A:2,B:2), C:3)Named.clade:5' as oppose to '((A:2, B:2), C:3):5'.</p>
+		<p>Check your alignment. phyloGenerator will warn you (the column marked 'warn') if your alignments seem too long. Output them, open them in a program like Clustal-X2, and see if there are long stretches of gaps, or an alignment that doesn't look like a set of neatly-lined-up sequences. If you find that, go back to the sequence download stage, trim your sequences, check the lengths, and maybe think about using TrimAl in the alignment stage.</p>
 		 <h3>How can I exit phyloGenerator in the middle of a run?</h3>
-		 <p>Press 'control-c' a few times. On a PC, you'll get a dialogue box warning of an error - just hit enter and ignore it.</p>
+		 <p>Press 'control-c' a few times. On a PC, you'll get a dialogue box warning of an error - just hit enter and ignore it. Doing so during a RAxML run will cause problems - see below</p>
+		<h3>I exited phyloGenerator in the middle of a RAxML run, and now it won't work.</h3>
+		<p>You've got a temporary file on your computer that's stopping RAxML running. Search for all files containing 'RAxML_' (note the capitalisation), and remove them if they're anywhere near phyloGenerator or have the word 'temp' in them. Otherwise, just install a fresh copy of phyloGenerator.</p>
 		 <h3>I can't load any files, despite putting in the right path to them</h3>
-		 <p>Make sure you are using the cirrect, full, absolute path. For example, 'Demos/Silwood_Plants/sequences.fasta' is an incomplete absolute path, but '/Users/will/Documents/phyloGenerator/Demo/Silwood_Plants/sequences.fasta' is a complete, full path.</p>
+		 <p>Make sure you are using the correct, full, absolute path. For example, 'Demos/Silwood_Plants/sequences.fasta' is an incomplete absolute path, but '/Users/will/Documents/phyloGenerator/Demo/Silwood_Plants/sequences.fasta' is a complete, full path.</p>
 		 <p>Also, if you're dragging and dropping files into phyloGenerator when it asks for them, make sure there are no trailing spaces at the end of your filename. If in doubt, press delete - if the file path doesn't appear to change, you had some trailing spaces.</p>
 		 <h3>It warns me that a blank input wasn't recognised, or an input I typed in doesn't work.</h3>
 		 <p>You might have hit a button while the program was running earlier and it remembered that. Try entering the command again, but if you still get problems <a href="http://imperial.academia.edu/WillPearse">contact me</a>.</p>
 		 <h3>phyloGenerator keeps hanging and not doing anything!</h3>
 		 <p>I've set phyloGenerator to pause every ten times it downloads something for ten seconds, so as not to overload the NCBI database. However, I'm being massively conservative, and if you want to alter that (at your own risk!) then play around with the 'delay' argument when running phyloGenerator. Many of the programs phyloGenerator calls take quite a while too - if you can hear your computer whirring, it's probably just building your phylogeny.</p>
 		 <p>If you're aligning sequences and it seems to be taking forever, make sure there are no abnormally long sequences in your dataset. If most of your sequences are 1000bp long, and one or two are >10000bp long, you'll need to trim the sequences or you'll crash most alignment programs.</p>
-		 <h3>I keep getting warned about server errrors</h3>
+		<h3>I keep getting funny characters in my species names (backslashes, accented characters, etc.)</h3>
+		<p>Make sure you have <emph>no formatting whatsoever</emph> in your input files. You may non-breaking spaces or meta-characters inserted by Microsoft Word. If in doubt, copy and paste your input file into a really simple text editor (Notepad, TextEdit, something like that) and manually type in the species that are giving you problems.</p>
+		 <h3>I keep getting warned about server errors</h3>
 		 <p>This is nothing to worry about, unless it crashes phyloGenerator or causes it to exit. If either of those things happen, consider not downloading as many species (more than six hundred seems to cause it problems, and I've not designed this program to handle that many), but please do <a href="http://imperial.academia.edu/WillPearse">send me an email</a> about it.</p>
 		 <h3>Can I run two instances of phyloGenerator at a time!</h3>
 		 <p>Sorry, you can't. Only one run at a time, as the temporary files phyloGenerator uses can get confused and you can get strange results.</p>
+		<h3>How do I make the command prompt larger (Windows only)</h3>
+		<p>Click on command prompt's icon (top-left of the screen), click properties, then got to layout and change the screen width.</p>
 		 <h3>I don't understand what this program does! Help!</h3>
 		 <p>Have a read through the walkthrough. If that doesn't help, drop me an email. I'm afraid I can't explain the whole of phylogenetics to you (sorry!) but I'm quite likely to help you if you send me a polite email. Even more so if you promise me a beer!</p>
 		 <h3>I don't think this program is a good idea. It doesn't include method X / philsophically it's a bad idea / etc.</h3>
