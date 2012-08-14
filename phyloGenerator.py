@@ -52,9 +52,12 @@ def taxonIDLookup(taxonID):
 				print "!!!Server error - retrying..."
 				finished += 1
 				time.sleep(10)
-			if finished == maxCheck:
+			elif finished == maxCheck:
 				print "!!!!!!Unreachable. Returning nothing."
 				return(tuple())
+			else:
+				finished += 1
+				time.sleep(10)
 	scientificName = resultsDownload[0]['ScientificName']
 	lineage = resultsDownload[0]['Lineage'].split("; ")
 	lineage.reverse()
@@ -76,9 +79,12 @@ def commonLookup(spName):
 				print "!!!Server error checking", spName, " - retrying..."
 				finished += 1
 				time.sleep(10)
-			if finished == maxCheck:
+			elif finished == maxCheck:
 				print "!!!!!!Unreachable. Returning nothing."
 				return(tuple())
+			else:
+				finished += 1
+				time.sleep(10)
 	if resultsSearch['IdList']:
 		return taxonIDLookup(resultsSearch['IdList'][0])
 	else:
@@ -97,9 +103,12 @@ def cladeSpecies(cladeName):
 				print "!!!Server error checking", cladeName, " - retrying..."
 				finished += 1
 				time.sleep(10)
-			if finished == maxCheck:
+			elif finished == maxCheck:
 				print "!!!!!!Unreachable. Returning nothing."
 				return()
+			else:
+				finished += 1
+				time.sleep(10)
 	if resultsSearch['IdList']:
 		output = []
 		for spId in resultsSearch['IdList']:
@@ -113,7 +122,7 @@ def findLineage(spName):
 		handleSpName = Entrez.esearch(db="taxonomy", term=spName)
 		resultsSpName = Entrez.read(handleSpName)
 		handleSpName.close()
-		handleID = Entrez.efetch(db="Taxonomy", id=resultsSpName['IdList'], retmode="xml")
+		handleID = Entrez.efetch(db="taxonomy", id=resultsSpName['IdList'], retmode="xml")
 		resultsSpID = Entrez.read(handleID)
 		lineage = resultsSpID[0]["Lineage"].split("; ")
 		lineage.append(spName)
@@ -159,11 +168,13 @@ def eSearch(term, retStart=0, retMax=20, usehistory="y"):
 		except:
 			if finished == 0:
 				print "!!!Server error checking", term, " - retrying..."
-				finished += 1
-				time.sleep(1)
-			if finished == maxCheck:
+				time.sleep(10)
+			elif finished == maxCheck:
 				print "!!!!!!Unreachable. Returning nothing."
 				return()
+			else:
+				finished += 1
+				time.sleep(10)
 	return results
 
 def eFetchSeqID(seqID, rettype='gb'):
@@ -223,7 +234,7 @@ def eSummary(seqID):
 def sequenceDownload(spName, geneName=None, thorough=False, rettype='gb', titleText=None, noSeqs=1, seqChoice='random', download=True, retStart=0, retMax=20, targetLength=None, trimSeq=False, DNAtype='Standard', gapType='-', includeGenome=True, includePartial=True):
 	def dwnSeq(includeGenome, includePartial):
 		searchTerm = spName + "[Organism]"
-		if geneName: searchTerm = "(" + searchTerm + ") AND " + geneName + "[Gene Name]"
+		if geneName: searchTerm = "(" + searchTerm + ") AND " + geneName + "[Gene]"
 		if titleText: searchTerm = "(" + searchTerm + ") AND " + titleText + " [Title]"
 		if not includePartial: searchTerm = "(" + searchTerm + ") NOT " + "partial [Title]"
 		if not includeGenome: searchTerm = "(" + searchTerm + ") NOT " + "genome [Title]"
@@ -245,8 +256,18 @@ def sequenceDownload(spName, geneName=None, thorough=False, rettype='gb', titleT
 					for index, seq in enumerate(firstSearch['IdList']):
 						currentLength = eSummary(seq)['Length']
 						if currentLength < currentMinLength:
-							currentMinLength = index
-							currentBest = 0
+							currentMinLength = currentLength
+							currentBest = index
+					return eFetchSeqID(firstSearch['IdList'][currentBest], rettype=rettype)
+				elif seqChoice == 'maxLength':
+					if noSeqs > 1: raise RuntimeError("You can't return more than one minimum-length sequence...")
+					currentMinLength = 1000000
+					currentBest = 0
+					for index, seq in enumerate(firstSearch['IdList']):
+						currentLength = eSummary(seq)['Length']
+						if currentLength > currentMinLength:
+							currentMinLength = currentLength
+							currentBest = index
 					return eFetchSeqID(firstSearch['IdList'][currentBest], rettype=rettype)
 				elif seqChoice == 'targetLength' and targetLength:
 					if noSeqs > 1: raise RuntimeError("You can't return more than one best-length sequence...")
@@ -674,7 +695,7 @@ def alignmentDisplay(alignments, alignMethods, geneNames, alignDetect=None, seqL
 			print "ID", "Alignment".ljust(12), "Length".ljust(10), "Med. Gaps".ljust(15), "SD Gaps".ljust(15), "Min-Max Gaps".ljust(15), "Med. Gap Frac.".ljust(15), "M-M Gap Frac.".ljust(15), "Warn?"
 			for i in range(len(alignList)):
 				if seqLengths:
-					warning = alignDetect['length'][alignNo][i] > seqLengths[alignNo] * 1.15
+					warning = alignDetect['length'][alignNo][i] > seqLengths[alignNo] * 1.1
 					if warning:
 						print  '{ID:3}{alignment:<13}{length:<11}{medGaps:<16.1f}{sdGaps:<16.2f}{minMaxGaps:16}{medGapsFrac:<16.2f}{minMaxGapsFrac:15} !!!!'.format(ID=str(i), alignment=alignMethods[i], length=alignDetect['length'][alignNo][i], medGaps=alignDetect['noGaps'][alignNo]['median'][i], sdGaps=alignDetect['noGaps'][alignNo]['sd'][i], minMaxGaps=str(str(round(alignDetect['noGaps'][alignNo]['min'][i],3))+" - "+str(round(alignDetect['noGaps'][alignNo]['max'][i],3))), medGapsFrac=alignDetect['gapFraction'][alignNo]['median'][i], minMaxGapsFrac=str(str(round(alignDetect['gapFraction'][alignNo]['min'][i],3))+"-"+str(round(alignDetect['gapFraction'][alignNo]['max'][i],3))))
 					else:
@@ -888,7 +909,7 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 					#Sadly, this is the best way to get a clade's age, apparently...
 					tempClade = copy.deepcopy(clade)
 					tempClade.collapse_all()
-					cladesAges.append(tempClade.depths().values()[0])
+					cladesAges.append(max(tempClade.depths().values()))
 			if len(set([item for sublist in clades for item in sublist])) == len(constraint.get_terminals()):
 				completeConstraint = True
 			for i,clade in enumerate(clades):
@@ -1815,8 +1836,7 @@ class PhyloGenerator:
 		self.codonModels = []
 		self.taxonomy = []
 		self.phylogenyMethods = ''
-		self.initialSeqChoice = 'medianLength'
-		self.replaceSeqChoice = 'targetLength'
+		self.seqChoice = 'random'
 		self.uniqueTaxonomy = []
 		self.tracker = 0
 		self.rateSmoothMethods = ''
@@ -1827,6 +1847,7 @@ class PhyloGenerator:
 		self.constraintFile = False
 		self.smoothPhylogeny = False
 		self.smoothPhylogenyMerged = False
+		self.targetLength = False
 		
 		#Backup working directory
 		self.oldDirectory = os.getcwd()
@@ -1936,13 +1957,13 @@ class PhyloGenerator:
 				elif 'RAxML' in line:
 					self.raxml = line
 				elif 'GenBank.initialSeqChoice' in line:
-					self.initialSeqChoice = line.replace("GenBank.initialSeqChoice=", "")
+					self.seqChoice = line.replace("GenBank.initialSeqChoice=", "")
 				elif 'GenBank.replaceSeqChoice' in line:
 					temp = line.replace("GenBank.repalceSeqChoice=", "")
 					if temp == 'geneMedianLength':
-						self.replaceSeqChoice = 'targetLength'
+						self.seqChoice = 'targetLength'
 					else:
-						self.replaceSeqChoice = temp
+						self.seqChoice = temp
 	
 	def loadDNAFile(self, inputFile=""):
 		if inputFile:
@@ -2037,7 +2058,7 @@ class PhyloGenerator:
 					else:
 						locker = False
 			if self.genes:
-				self.sequences, self.genes = findGenes(self.speciesNames, self.genes, seqChoice=self.initialSeqChoice, verbose=True, download=True, thorough=True, targetNoGenes=self.nGenes, spacer=self.spacer, delay=self.delay)
+				self.sequences, self.genes = findGenes(self.speciesNames, self.genes, seqChoice=self.seqChoice, verbose=True, download=True, thorough=True, targetNoGenes=self.nGenes, spacer=self.spacer, delay=self.delay)
 	
 	def dnaChecking(self, tolerance=0.1):
 		self.tolerance = tolerance
@@ -2134,13 +2155,17 @@ class PhyloGenerator:
 				print "\tSpID - reload all sequences for one species, e.g. '0'"
 				print "\tSeqID GeneName - reload one gene for one species, e.g. '0rbcL'"
 				print "\t>X / <X - reload all sequences longer/shorter than X, e.g. '>900' / '<900'"
-				print "\tnCheck=X - how many sequences to download form GenBank for each search, e.g. 'nChecl=20' (default)"
-				print "\trnd - randomly choose one sequence of those downloaded from GenBank="
+				print "\tnCheck=X - how many sequences to download form GenBank for each search, e.g. 'nCheck=20' (default)"
+				print "\trnd - randomly choose one sequence of those downloaded from GenBank (default)"
 				print "\tmedian - choose the sequence closest to the median length of those downloaded from GenBank"
+				print "\tmin - choose the shortest sequence"
+				print "\tmax - choose the longest sequence"
 				print "\ttarget=X,Y - choose the sequence closest to length X "
-				print "\tEVERYTHING - reload all sequences (search will be more thorough)"
+				print "\tEVERYTHING - reload all sequences"
 				print "Other modes: 'delete', 'trim', 'replace', 'merge'. Hit enter to continue.\n"
-			targetLength = [x[2] for x in self.dnaCheck['quantileLengths']]
+			
+			if not self.targetLength:
+				self.targetLength = [x[2] for x in self.dnaCheck['quantileLengths']]
 			inputSeq = raw_input("DNA Editing (reload):")
 			if inputSeq:
 				if 'nCheck' in inputSeq:
@@ -2149,19 +2174,27 @@ class PhyloGenerator:
 						newRetMax = int(inputSeq)
 						if newRetMax:
 							self.genBankRetMax = newRetMax
-							print "...downloading", self.genBankMax, "sequences each time from GenBank"
+							print "...downloading", self.genBankRetMax, "sequences each time from GenBank"
 							return 'reload', False
 					except:
 						pass
-				if 'rnd' in inputSeq:
-					self.replaceSeqChoice = 'random'
+				elif 'rnd' == inputSeq:
+					self.seqChoice = 'random'
 					print "...sequence choice is random of first", self.genBankRetMax, "sequences"
 					return 'reload', False
-				if 'median' in inputSeq:
-					self.replaceSeqChoice = 'medianLength'
+				elif 'min' == inputSeq:
+					self.seqChoice = 'minLength'
+					print "...sequence choice is shortest of first", self.genBankRetMax, "sequences"
+					return 'reload', False
+				elif 'max' == inputSeq:
+					self.seqChoice = 'random'
+					print "...sequence choice is longest of first", self.genBankRetMax, "sequences"
+					return 'reload', False
+				elif 'median' == inputSeq:
+					self.seqChoice = 'medianLength'
 					print "...sequence choice is median length sequence of first", self.genBankRetMax, "sequences"
 					return 'reload', False
-				if 'target' in inputSeq:
+				elif 'target' in inputSeq:
 					try:
 						inputSeq = inputSeq.replace('target=', '')
 						newLengths = inputSeq.split(',')
@@ -2170,16 +2203,22 @@ class PhyloGenerator:
 							for i,length in enumerate(newLengths):
 								targetLength[i] = int(length)
 								output += self.genes[i] + ' (' + str(length) +') '
-							self.replaceSeqChoice = 'targetLength'
+							self.seqChoice = 'targetLength'
+							self.targetLength = targetLength
 							print output
 							return 'reload', False
 					except:
 						pass
+				
 				try:
 					if int(inputSeq) in range(len(self.speciesNames)):
-						for i,each in enumerate(self.sequences[int(inputSeq)]):
+						index = int(inputSeq)
+						for i,each in enumerate(self.sequences[index]):
 							self.APICheck()
-							self.sequences[int(inputSeq)][i] = sequenceDownload(self.speciesNames[int(inputSeq)], self.genes[i], thorough=True, retMax=self.genBankRetMax, seqChoice=self.replaceSeqChoice, targetLength=targetLength[i])
+							self.sequences[index][i] = sequenceDownload(self.speciesNames[index], self.genes[i], thorough=True, retMax=self.genBankRetMax, seqChoice=self.seqChoice, targetLength=self.targetLength[i])
+							if self.genBankIDs:
+								self.genBankIDs[index][i] = self.sequences[index][i].id
+								self.sequences[index][i].id = self.speciesNames[i]
 						print "Re-calulating summary statistics..."
 						self.dnaChecking()
 						return 'reload', False
@@ -2193,7 +2232,10 @@ class PhyloGenerator:
 							if seqID and seqID < len(self.sequences):
 								print "Reloading SeqID", seqID, "gene", gene
 								self.APICheck()
-								self.sequences[seqID][i] = sequenceDownload(self.speciesNames[seqID], self.genes[i], thorough=True, retMax=self.genBankRetMax, seqChoice=self.replaceSeqChoice, targetLength=self.dnaCheck['quantileLengths'][i][2])
+								self.sequences[seqID][i] = sequenceDownload(self.speciesNames[seqID], self.genes[i], thorough=True, retMax=self.genBankRetMax, seqChoice=self.seqChoice, targetLength=self.targetLength[i])
+								if self.genBankIDs:
+									self.genBankIDs[seqID][i] = self.sequences[seqID][i].id
+									self.sequences[seqID][i].id = self.speciesNames[seqID]
 								print "Re-calulating summary statistics..."
 								self.dnaChecking()
 								return 'reload', False
@@ -2205,7 +2247,10 @@ class PhyloGenerator:
 						for j,gene in enumerate(sp):
 							if len(self.sequences[i][j]) > threshold:
 								self.APICheck()
-								self.sequences[i][j] = sequenceDownload(self.speciesNames[i], self.genes[j], thorough=True, retMax=self.genBankRetMax, seqChoice=self.replaceSeqChoice, targetLength=self.dnaCheck['quantileLengths'][j][2])
+								self.sequences[i][j] = sequenceDownload(self.speciesNames[i], self.genes[j], thorough=True, retMax=self.genBankRetMax, seqChoice=self.seqChoice, targetLength=self.targetLength[j])
+								if self.genBankIDs:
+									self.genBankIDs[i][j] = self.sequences[i][j].id
+									self.sequences[i][j].id = self.speciesNames[i]
 					print "Re-calulating summary statistics..."
 					self.dnaChecking()
 					return 'reload', False
@@ -2215,12 +2260,18 @@ class PhyloGenerator:
 						for j,gene in enumerate(sp):
 							if len(self.sequences[i][j]) < threshold:
 								self.APICheck()
-								self.sequences[i][j] = sequenceDownload(self.speciesNames[i], self.genes[j], thorough=True, retMax=self.genBankRetMax, seqChoice=self.replaceSeqChoice, targetLength=self.dnaCheck['quantileLengths'][j][2])
+								self.sequences[i][j] = sequenceDownload(self.speciesNames[i], self.genes[j], thorough=True, retMax=self.genBankRetMax, seqChoice=self.seqChoice, targetLength=self.targetLength[j])
+								if self.genBankIDs:
+									self.genBankIDs[i][j] = self.sequences[i][j].id
+									self.sequences[i][j].id = self.speciesNames[i]
 					print "Re-calulating summary statistics..."
 					self.dnaChecking()
 					return 'reload', False
 				if inputSeq == "EVERYTHING":
-					geneOutput = findGenes(self.speciesNames, self.genes, seqChoice=self.replaceSeqChoice, verbose=True, thorough=True, download=True, retMax=self.genBankRetMax, targetNoGenes=self.nGenes, delay=self.delay, spacer=self.spacer)
+					geneOutput = findGenes(self.speciesNames, self.genes, seqChoice=self.seqChoice, verbose=True, thorough=True, download=True, retMax=self.genBankRetMax, targetNoGenes=self.nGenes, delay=self.delay, spacer=self.spacer)
+					if self.genBankIDs:
+						self.genBankIDs = False
+						self.renameSequences()
 					self.sequences = geneOutput[0]
 					self.genes = geneOutput[1]
 					print "Re-calulating summary statistics..."
@@ -2248,7 +2299,7 @@ class PhyloGenerator:
 				print "\t>X / <X - trims all sequences greater/lesser than X, e.g. '>1000' or '<1000'"
 				print "\t'EVERYTHING' - trim all sequences"
 				print "\t'type' - *IMPORTANT* select the type of gene (mitochondrial, nuclear, etc.) you've downloaded."
-				print "First time you trim, I will use sequence annotations, the second time, I will search for ORFs. Check documentation for details "
+				print "First time you trim, trimming uses sequence annotations, the second time, ORFs. Sequences empty after trimming indicate no coding regions could be found."
 				print "Other modes: 'delete', 'reload', 'replace', 'merge'. Hit enter to continue.\n"
 			inputSeq = raw_input("DNA Editing (trim):")
 			if inputSeq:
@@ -2281,6 +2332,15 @@ class PhyloGenerator:
 					for i,sp in enumerate(self.sequences):
 						for j,gene in enumerate(sp):
 							if len(self.sequences[i][j]) > threshold:
+								self.sequences[i][j] = cleanSequenceWrapper(self.sequences[i][j], self.genes[j], DNAtype=self.codonModels[j], gapType='-')
+					print "Re-calulating summary statistics..."
+					self.dnaChecking()
+					return 'trim', False
+				if "<" in inputSeq:
+					threshold = int(inputSeq.replace('<', ''))
+					for i,sp in enumerate(self.sequences):
+						for j,gene in enumerate(sp):
+							if len(self.sequences[i][j]) < threshold:
 								self.sequences[i][j] = cleanSequenceWrapper(self.sequences[i][j], self.genes[j], DNAtype=self.codonModels[j], gapType='-')
 					print "Re-calulating summary statistics..."
 					self.dnaChecking()
@@ -2627,6 +2687,14 @@ class PhyloGenerator:
 		print "\t'trimal' - automatically trim your sequences using trimAl"
 		print "\t'raxml=X' - run X RAxML runs for each alignment, and calculate the R-F distances between the trees and alignments (slow)"
 		print "\t'metal' - calculate SSP distances between alignments using metal"
+		print "\t'clustal-x2' - open the Clustal-X2 website to download this alignment viewer"
+		print ""
+		print "TIPS:"
+		print "****If the column 'Warn?' has '!!!' in it, BEWARE! Your alignment likely has problems.***"
+		print "\tBad sequences cause bad alignments. Be careful in the DNA check stage, and return there now if necessary"
+		print "\t'output' your alignments, and open them in something like Clustal-X2. You will immediately see sequences that should be RELOADed or TRIMMed"
+		print "\tWhen downloading Clustal, make sure you get the graphical Clustal-X2, not the command line version"
+		print ""
 		print "Hit enter to continue and choose one final alignment per gene\n"
 		locker = True
 		while locker:
@@ -2668,6 +2736,7 @@ class PhyloGenerator:
 						print "\nSSP distances between alignments:"
 						x = 1
 						for i,gene in enumerate(self.metal):
+							print ""
 							print self.genes[i] + ":"
 							print header
 							for j,method in enumerate(gene):
@@ -2719,6 +2788,8 @@ class PhyloGenerator:
 						except ValueError:
 							print "Sorry, how many times? Try again - something like 'raxml=5'."
 				
+				elif inputAlign == 'clustal-x2':
+					webbrowser.open('http://www.clustal.org/clustal2/#Download')
 				else:
 					print "Sorry, I don't understand", inputAlign, "- please try again."
 			else:
@@ -2762,7 +2833,6 @@ class PhyloGenerator:
 					self.alignmentMethod = 'mafft'
 					locker = False
 		print "Starting alignment..."
-
 		self.alignment = alignSequences(seqList=self.sequences, sppNames=self.speciesNames, method=self.alignmentMethod, tempStem='temp', timeout=99999999, nGenes=len(self.genes))
 		print "\nAlignment complete!"
 		if self.alignmentMethod == 'everything':
@@ -2811,7 +2881,10 @@ class PhyloGenerator:
 				print "\t 'restart=X' - conduct X number of full ML searches (!)"
 				print "\t 'partitions' - concatenate all genes into a single partition (not the default)"
 				print "Specify multiple options with hyphens (e.g., 'restart=5-partitions'), but do not mix options marked with '(!)'"
-				print "Hit enter to conduct one search\n"
+				print "Hit enter to conduct one search"
+				print ""
+				print "TIPS:"
+				print "\tThe integrated boostrap method is fast, and gives confidence intervals on your tree, and a value of 1000 is probably more than adequate for most trees"
 				raxmlLock = True
 				while raxmlLock:
 					raxmlInput = raw_input("Phylogeny Building (RAxML): ")
@@ -2904,7 +2977,12 @@ class PhyloGenerator:
 				#print "\t 'restart=X' - conduct X independent searches"
 				print "You must specify a DNA model (GTR or HKY) if defining your own parameters"
 				print "Specify multiple options with hyphens (e.g., 'GTR-GAMMA=chainLength=2000000'), but do not mix options marked with '(!)'"
-				print "Hit enter to use the defaults\n"
+				print "Hit enter to use the defaults"
+				print ""
+				print "TIPS:"
+				print "\tMake sure you check your runs for convergence"
+				print "\tYour BEAST XML file we be outputted at the end, so you can run multiple runs yourself easily"
+				print ""
 				beastLock = True
 				while beastLock:
 					beastInput = raw_input("Phylogeny Building (BEAST): ")
@@ -2926,6 +3004,7 @@ class PhyloGenerator:
 				self.phylogenyMethods += '-GTR-GAMMA'
 			print "...running BEAST with options ", self.phylogenyMethods
 			if len(self.alignment) > 1:
+				pdb.set_trace()
 				self.phylogeny, self.beastXML, self.beastTrees, self.beastLogs = BEAST(self.alignment, method=self.phylogenyMethods, constraint=self.constraint, timeout=999999, chainLength=chainLength, logRate=logRate, screenRate=screenRate, overwrite=overwrite, burnin=burnin)
 			else:
 				self.phylogeny, self.beastXML, self.beastTrees, self.beastLogs	= BEAST(self.alignment[0], method=self.phylogenyMethods, constraint=self.constraint, timeout=999999, chainLength=chainLength, logRate=logRate, screenRate=screenRate, overwrite=overwrite, burnin=burnin)
@@ -2940,7 +3019,10 @@ class PhyloGenerator:
 				self.phylogenyMethods = ''
 		
 		if not self.phylogenyMethods:
-			print "You can either build a maximum likelihood tree ('raxml') or a Bayesian tree ('beast'). If unsure, hit enter to use RAxML\n"
+			print "You can either build a maximum likelihood tree ('raxml') or a Bayesian tree ('beast')"
+			print "If unsure, hit enter to use RAxML - using BEAST safely will require some knowledge of phylogenetics"
+			print ""
+			
 			locker = True
 			while locker:
 				phyloInput = raw_input("Phylogeny Building: ")
@@ -2967,10 +3049,13 @@ class PhyloGenerator:
 					print "\n*ERROR*\n"
 					print "PATHd8 requires 'cygwin' to be installed, and you don't have it."
 					print "'website' - open cygwin website (so you can install it)"
+					print "'dll' - download Cygwin1.dll - copy this into the 'requires' folder inside your phyloGenerator distribution if installing Cygwin doesn't work for you"
 					print "...or... anything else to return to the rate-smoothing prompt"
 					cygwin = raw_input('Rate-smoothing (Cygwin): ')
 					if cygwin and cygwin == 'website':
 						webbrowser.open('http://www.cygwin.com/')
+					elif cygwin and cygwin == 'dll':
+						webbrowser.open('https://github.com/downloads/willpearse/phyloGenerator/cygwin1.dll')
 					else:
 						return False
 			print "\nPlease enter an outgroup for your phylogeny, 'species' to see the tips in your phylogeny, or just hit enter to cancel and continue."
@@ -3315,11 +3400,12 @@ class PhyloGenerator:
 				self.email = raw_input("Email: ")
 				Entrez.email = self.email
 			print "\nCreating a 'taxonomy' for your species from GenBank"
-			print "\tNote: this will be saved as a file, but will not generate a constraint tree (yet...)"
+			#print "\tNote: this will be saved as a file, but will not generate a constraint tree (yet...)"
 			for sp in self.speciesNames:
 				self.APICheck()
 				self.taxonomy.append(findLineage(sp))
 			print "...lineages found!"
+			return True
 		
 		stopper = True
 		if not self.constraintMethod:
@@ -3328,7 +3414,13 @@ class PhyloGenerator:
 			print "\t'phylomatic' - use Phylomatic to generate a tree"
 			print "\t'taxonomy' - download the NCBI taxonomy for your species (does not generate a constraint tree)"
 			print "Warning: Phylomatic can trim the end off species names, causing conflicts with phyloGenerator that are hard to detect. Rooted phylogenies are *not* valid constraints."
-			print "Otherwise, press enter to continue without a constraint tree.\n"
+			print "Otherwise, press enter to continue without a constraint tree."
+			print ""
+			print "TIPS:"
+			print "\tIf you choose 'taxonomy', it will be written out to your working directory now. Use that to make a constraint tree!"
+			print "\tIf you have access to a reference phylogeny, try using Phylomatic"
+			print "\tA constraint tree makes your phylogeny much more likely to be right. Use one!"
+			print ""
 			stopper = True
 			while stopper:
 				constraintInput = raw_input("Constraint Method: ")
@@ -3339,6 +3431,14 @@ class PhyloGenerator:
 						stopper = phylomatic()
 					elif constraintInput == 'taxonomy':
 						stopper = taxonomy()
+						oldWD = os.getcwd()
+						os.chdir(self.workingDirectory)
+						with open(self.stem+"_taxonomy.txt", 'w') as f:
+							f.write("Species Name, Taxonomy...\n")
+							for i,each in enumerate(self.taxonomy):
+								if each:
+									f.write(",".join(each) + "\n")
+						os.chdir(oldWD)
 					else:
 						print "Sorry, I didn't get that. Please try again."
 				else:
@@ -3352,6 +3452,7 @@ class PhyloGenerator:
 				phylomatic()
 			elif self.constraintMethod == 'taxonomy':
 				taxonomy()
+				
 			else:
 				print "Error in constraint tree method name."
 				#do something better here please!
@@ -3523,7 +3624,12 @@ def main():
 		currentState.dnaChecking()
 		print "You may now edit the sequences you are using. Deleting species may change species' IDs"
 		print "Huge variation in lengths of sequences (e.g., thousands of base pairs) crashes many alignment programs"
-		print "All species without sequence data will be ignored when continuing to the next step."
+		print "All species without sequence data will be ignored when continuing to the next step"
+		print "\nTIPS:"
+		print "\tCheck for long sequences, and TRIM them (use the '>' command). Make sure you've set the 'type' of gene you're using first"
+		print "\tTry RELOADing short sequences (use the '>' command). Consider searching for the 'max' length sequences"
+		print "\tREPLACE species for which you can't find sequence data (use the 'THOROUGH' command)"
+		print "\tIf you have alignment problems, you can return to this stage"
 		currentState.dnaEditing()
 		
 		#DNA Cleanup and renaming

@@ -15,7 +15,7 @@
 #Consider trimming Anagallis_arvensis, and see what the effect of not setting the gene type beforehand is
 
 #Simple search with dated constraint tree (NOTE: using downloaded sequences now)
-./phyloGenerator.app/Contents/MacOS/phyloGenerator -name silwoodConstrained -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene rbcL -dna FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/sequences.fasta -alignment mafft -phylogen beast-GTR-GAMMA
+./phyloGenerator.app/Contents/MacOS/phyloGenerator -name silwoodConstrained -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene rbcL -dna FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/sequences.fasta -alignment mafft -phylogen beast-GTR-GAMMA -consTree FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/constraint.tre
 
 #More complex search, with dated constraint tree - used in paper
 ./phyloGenerator.app/Contents/MacOS/phyloGenerator -name silwoodConstrainedTwoGenes -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene rbcL,matK -species FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/species.txt -alignment quick -phylogen beast-GTR-GAMMA
