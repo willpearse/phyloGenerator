@@ -118,13 +118,13 @@
   </div>
   <div class="row">
     <div class="span6">
-		<p>Some people like video walkthroughs, so here are two. In the first (below left), I show the basics of running phyloGenerator.</p>
+		<p>Some people prefer video walkthroughs, so I've made two below. In the first (below left), I show the basics of running phyloGenerator.</p>
     	<p><iframe src="http://www.screenr.com/embed/Pcq8" width="650" height="396" frameborder="0"></iframe></p>
 	</div>
     <div class="span6">
 		<p>In the second (below right), I show how to use the sequence checking options, and a brief introduction to alignment checking.</p>
 		<p><iframe src="http://www.screenr.com/embed/KFq8" width="650" height="396" frameborder="0"></iframe></p>
-		<p>...I'm sorry about my slightly croaky voice in these videos, I wasn't feeling very well!</p>
+		<p>If you want any more, please just ask. I'm sorry about my slightly croaky voice in these videos, I wasn't feeling very well!</p>
     </div>
     <div class="span4">
 		
@@ -168,25 +168,34 @@
     <h1>DNA Checking</h1>
   </div>
   <div class="row">
-    <div class="span6">
-		<p>This table shows each DNA sequence's 'ID', name used when searching GenBank (if appropriate), the name it was given on GenBank (usually an ID number), and its length. Sequences that are in the top or bottom 5% of sequence lengths are highlighted in the list. Be sensible: if you've downloaded an entire mitochondrial genome (~16000 base pairs) then this won't happily align with a single gene, and you'll crash most of the programs that phyloGenerator uses. Trim those long sequences!</p>
+    <div class="span4">
+		<p>This table shows each DNA sequence's 'ID', name used when searching GenBank (if appropriate), the name it was given on GenBank (usually an ID number), and its length. Sequences that are in the top or bottom 5% of sequence lengths are highlighted in the list. Be sensible: if you've downloaded an entire mitochondrial genome (~16000 base pairs) then this won't happily align with a single gene, and you'll crash most of the programs that phyloGenerator uses. Trim those long sequences! Remember that there will always be a 'longest' sequence - but by trimming your sequences you can be sure they're not too long.</p>
    	<p>There are five modes when 'checking' DNA: <em>delete</em>, <em>reload</em>, <em>trim</em>, <em>replace</em>, and <em>merge</em>. You can enter any of the modes by typing their names. To continue, simply hit enter.</p>
-	</div>
-    <div class="span6">
 	<dl>
 		<dt>delete</dt>
 		<dd>Enter a single sequence's 'Seq ID' to delete it.</dd>
 		<dd>Enter 'gene' and then a gene name to delete that gene entirely. This makes it easy to check to see what genes are available on GenBank for your species, without committing you to use those sequences. Note that you can also run phyloGenerator with the 'nGene' argument to let phyloGenerator select the n genes that give the best coverage of your species from the list of possible genes you provide.</dd>
+		<dd>Enter 'output' to write out the sequences you've downloaded so far; but note they will all be outputted at the end of the run anyway.</dl>
+		</dl>
+	</div>
+    <div class="span4">
+	<dl>
 		<dt>reload</dt>
-		<dd>Enter a single sequence's 'Seq ID' to download another sequence from GenBank with the search term originally used. If you put a gene name after the SeqID, e.g. '0rbcL', you'll just reload one gene. By default, phyloGenerator will look through more sequences and take the sequence with the length closest to median of the others.</dd>
+		<dd>Enter a single sequence's 'Seq ID' to download another sequence from GenBank with the search term originally used. If you put a gene name after the SeqID, e.g. '0rbcL', you'll just reload one gene. You can also use the '>' and '>' operators to reload unusually large/small sequences.</dd>
+		<dd>You also have a number of options 'rnd', 'median', 'max', 'min', 'targetLength' that determine how phyloGenerator picks sequences for you from GenBank. For example, if you have an 'nCheck' of 20 and had selected 'median', phyloGenerator will download the first 20 sequences it finds for your species from GenBank (...fewer if there aren't that many!) and use the sequence whose length is closest to the median of them. This can be useful if you're trying to replace your shorter sequences with longer ones.</dl>
 		<dt>trim</dt>
 		<dd>Enter a single sequence's 'Seq ID' to trim a sequence down, first using any annotations the people who uploaded it to GenBank gave it, and then secondly to its Open Reading Frame (ORF). phyloGenerator will only do one of these things each time you ask it to trim - so if you're still not happy with a gene, try trimming again. However, I would warn that you're unlikely to get a good result from a sequence that wasn't annotated correctly. If you want to trim all the sequences (often a good idea), enter 'ALL' and press enter. <b>DO NOT</b> attempt to trim a non-coding gene down to its ORF - it doesn't have one!</a>
 			<dd>To change the translation table for the sequence you're working with (it might be from a plant's chloroplast, for example), type <em>translation</em> and select the appropriate number for each gene.It's important you do this <b>before</b> trimming, because the translation table determines what a sequence's ORF is.</dd>
-		<dt>replace</dt>
-		<dd>If there are no sequences for a species on GenBank, type its SeqID to replace it with a congener. Alternatively, type 'EVERYTHING' to replace all missing species with a congener, or 'THOROUGH' to replace all species without any sequences with a relative it is more related to than any other species according to the GenBank taxonomy. This will work even if a species isn't on GenBank at all, but typically not if there's no congener in the database.</dd>
-		<dt>merge</dt>
-		<dd>If there are no sequences for a species on GenBank, you can merge it/them with another species that do. phyloGenerator will replace the merged species with a polytomy at the end of the run, splitting them half-way along the species with sequence data's branch. Just enter the SeqIDs of the species you want to merge, separated by commas.</dd>
-	</dl>
+			</dl>
+	</div>
+	<div class="row">
+    <div class="span4">
+		<dl>
+			<dt>replace</dt>
+			<dd>If there are no sequences for a species on GenBank, type its SeqID to replace it with a congener. Alternatively, type 'EVERYTHING' to replace all missing species with a congener, or 'THOROUGH' to replace all species without any sequences with a relative it is more related to than any other species according to the GenBank taxonomy. This will work even if a species isn't on GenBank at all, but typically not if there's no congener in the database.</dd>
+			<dt>merge</dt>
+			<dd>If there are no sequences for a species on GenBank, you can merge it/them with another species that do. phyloGenerator will replace the merged species with a polytomy at the end of the run, splitting them half-way along the species with sequence data's branch. Just enter the SeqIDs of the species you want to merge, separated by commas.</dd>
+		</dl>
 	</div>
 </section>
 
@@ -208,7 +217,7 @@
 	    <div class="span4">
 			<h4>Alignment Checking</h4>
 				<p>It is strongly recommended that you look at your alignment before using it. Summary statistics for your alignment(s) have been outputted, and you may notice that one alignment has more gaps than another, or that they all seem OK. You can write out your alignment(s) by typing <em>output</em>. If you wish to return to the alignment or DNA download states, just type <em>DNA</em> or <em>align</em>. There are several other options available to you: <em>trimAl</em>, <em>raxml=X</em> and <em>metal</em>.</p>
-				<p>For each alignment, 'Med. Gaps' is its median number of gaps, 'SD Gaps' the standard deviation of the mean number of gaps, 'Min-Max Gaps' the smallest and largest number of gaps in one sequence in it, 'Med. Gap Fraction' is the median of the fraction of sequences with gaps, 'M-M Gap Fraction' the smallest and largest fraction of sequences with gaps, and 'Warn?' indicates if your alignment is unusually long, given the maximum length of the sequences going into it. Look at these numbers; in particular, warning flags are something to think about.</p>
+				<p>Among all the sequences in the alignments, 'Med. Gaps' is its median number of gaps, 'SD Gaps' the standard deviation of the mean number of gaps, 'Min-Max Gaps' the smallest and largest number of gaps in one sequence, 'Med. Gap Fraction' is the median of the fraction of the sequences made of gaps, 'M-M Gap Fraction' the smallest and largest fraction of sequences with gaps, and 'Warn?' indicates if your alignment is unusually long, given the maximum length of the sequences going into it. Look at these numbers; in particular, warning flags are something to think about.</p>
 				</div>
 	    <div class="span4">					
 				<dl>
@@ -218,6 +227,8 @@
 					<dd>Different alignments give different results when run through phylogeny-building programs. RAxML is very quick, and so you can use it to run a number (replace the 'X' with the number of runs you want) of searches and examine the mean Robinson-Folds distance between trees built using the different alignments. Depending on how many alignments and genes you have, this can take quite some time, so do a small run (maybe 5) to guage how long this will take. You'll be shown a distance matrix, where each element is the mean distance between runs.</dd>
 					<dt>metal</dt>
 					<dd>Comparing sequence alignments is tricky, but <a href="http://kumiho.smith.man.ac.uk/whelan/software/metal/">metal</a> calculates the 'SSP' summary statistic for you and gives a distance matrix, like with RAxML.</dd>
+					<dt>clustal-x2</dt>
+					<dd>This will open the Clustal X-2 website in your browser, so you can view your alignments more easily if you've outputted them.</dd>
 				</dl>
 				</div>
 </section>
@@ -237,11 +248,11 @@
     <div class="span4">
 	<h4>Building a Constraint Tree</h4>
 		<p>To build a constraint tree with Phylomatic, type <em>phylomatic</em>, then give the path to the reference phylogeny and taxonomy when asked. These need to match up perfectly with what you've entered into phyloGenerator, which can be difficult if you've merged taxa. Phylomatic can be a little fiddly, but phyloGenerator attempts to make some changes to the phylogeny to make things run smoothly. You might like to try using Phylomatic outside phyloGenerator if you hit any major problems.</p>
-		<p>You can also use GenBank's taxonomy service to find the taxonomy of the species in your phylogeny. At the moment this can't be used to generate a constraint tree, but a number of people requested this feature so here it is. Just type 'taxonomy', wait a while, and at the end of your phyloGenerator run a taxonomy of your species will be outputted.</p>
+		<p>You can also use GenBank's taxonomy service to find the taxonomy of the species in your phylogeny. Just type 'taxonomy', wait a while, and at the end of your phyloGenerator run a taxonomy of your species will be outputted. You can use this to manually construct a constraint tree, perhaps putting members of the same family together.</p>
 	</div>
     <div class="span4">
 	<h4>Checking</h4>
-		<p>Constraint trees alter the way BEAST and RAxML search for trees, and alter your result. In an ideal world, the genes you've picked convey the 'truth' about the phylogeny of your species, but you might want to know whether that's true. If so, just enter the number of times you want to run a RAxML search both with and without the constraint tree (hit enter to not bother), and you'll be given the mean Robinson-Folds distance between searches with and without constraints, as well as the variation within the searches.</p>
+		<p>Constraint trees alter the way BEAST and RAxML search for trees, and alter your result. In an ideal world, the genes you've picked convey the 'truth' about the phylogeny of your species, but you might want to know whether that's true. If so, just enter the number of times you want to run a RAxML search both with and without the constraint tree (hit enter to not do so), and you'll be given the mean Robinson-Foulds distance between searches with and without constraints, as well as the variation within the searches.</p>
 	</div>
 </section>
 
@@ -263,7 +274,7 @@
     <div class="span4">
 	<h4>RAxML</h4>
     	<p>You need to chain the options you want to use together, for example <em>accelBootstrap-noPartitions</em>.</p>
-		<p>If you want a good result, you'll have to 'restart' your search a few times (processing power is cheap; why not 100?). Alternatively, you can use the 'accelBootstrap' method, which will conduct multiple searches and also give bootrapped confidences on each of the nodes of your phylogeny; this is my prefered option and tends to be quicker than restarts, so why not do this 200 times?</p>
+		<p>If you want a good result, you'll have to 'restart' your search a few times (processing power is cheap; why not 100?). Alternatively, you can use the 'accelBootstrap' method, which will conduct multiple searches and also give bootrapped confidences on each of the nodes of your phylogeny; this is my preferred option and tends to be quicker than restarts, so why not do this 200 times?</p>
 	</div>
     <div class="row">
       <div class="span4">
