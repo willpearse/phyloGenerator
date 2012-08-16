@@ -24,7 +24,7 @@ import argparse #For command line arguments
 import webbrowser #Load website on request
 import sys #To exit on errors
 import copy #Getting subtrees
-import warnings, pdb
+import warnings
 maxCheck = 4
 def unrootPhylomatic(tree):
 	Phylo.write(tree, 'unrootingOutput.tre', 'newick')
@@ -3004,7 +3004,6 @@ class PhyloGenerator:
 				self.phylogenyMethods += '-GTR-GAMMA'
 			print "...running BEAST with options ", self.phylogenyMethods
 			if len(self.alignment) > 1:
-				pdb.set_trace()
 				self.phylogeny, self.beastXML, self.beastTrees, self.beastLogs = BEAST(self.alignment, method=self.phylogenyMethods, constraint=self.constraint, timeout=999999, chainLength=chainLength, logRate=logRate, screenRate=screenRate, overwrite=overwrite, burnin=burnin)
 			else:
 				self.phylogeny, self.beastXML, self.beastTrees, self.beastLogs	= BEAST(self.alignment[0], method=self.phylogenyMethods, constraint=self.constraint, timeout=999999, chainLength=chainLength, logRate=logRate, screenRate=screenRate, overwrite=overwrite, burnin=burnin)
