@@ -2123,11 +2123,10 @@ class PhyloGenerator:
 					if self.sequences:
 						for i,gene in enumerate(self.genes):
 							currentGene = []
-							if self.sequences[i]:
-								for j,seq in enumerate(self.sequences[i]):
-									if self.sequences[i][j]:
-										currentGene.append(self.sequences[i][j])
-							SeqIO.write(currentGene, self.stem+"_WIP_"+gene+".fasta", 'fasta')
+							for seq in self.sequences:
+								if seq[i]:
+									currentGene.append(seq[i])
+									SeqIO.write(currentGene, self.stem+"_"+gene+".fasta", 'fasta')
 					os.chdir(oldWD)
 					print "Raw sequences written out!"
 					return 'delete', False
