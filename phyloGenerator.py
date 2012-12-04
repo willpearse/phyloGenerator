@@ -24,7 +24,7 @@ import argparse #For command line arguments
 import webbrowser #Load website on request
 import sys #To exit on errors
 import copy #Getting subtrees
-import warnings
+import warnings, pdb
 maxCheck = 4
 def unrootPhylomatic(tree):
 	Phylo.write(tree, 'unrootingOutput.tre', 'newick')
@@ -131,10 +131,10 @@ def findLineage(spName):
 	except:
 		return ()
 
-def findRelativeSequence(spName, geneName=None, cladeDepth=0, thorough=False, rettype='gb', titleText=None, noSeqs=1, seqChoice='random', download=True, retStart=0, retMax=20, targetLength=None, trimSeq=False, DNAtype='Standard', gapType='-', includeGenome=True, includePartial=True):
+def findRelativeSequence(spName, geneName=None, cladeDepth=0, thorough=False, rettype='gb', noSeqs=1, seqChoice='random', download=True, retStart=0, retMax=20, targetLength=None, trimSeq=False, DNAtype='Standard', gapType='-', includeGenome=True, includePartial=True):
 	genusName = spName.partition(' ')[0]
 	namesTried = [genusName]
-	genusDownload = sequenceDownload(spName, geneName, thorough, rettype, titleText, noSeqs, seqChoice, download, retStart, retMax, targetLength, trimSeq, DNAtype, gapType, includeGenome, includePartial)
+	genusDownload, _ = sequenceDownload(spName, geneName, thorough, rettype, noSeqs, seqChoice, download, retStart, retMax, targetLength, trimSeq, DNAtype, gapType, includeGenome, includePartial)
 	if genusDownload:
 		return (genusDownload, namesTried)
 	else:
@@ -145,7 +145,7 @@ def findRelativeSequence(spName, geneName=None, cladeDepth=0, thorough=False, re
 			del cladeNames[0]
 		currentClade = 0
 		while cladeDepth:
-			attempt = sequenceDownload(cladeNames[currentClade], geneName, thorough, rettype, titleText, noSeqs, seqChoice, download, retStart, retMax, targetLength, trimSeq, DNAtype, gapType, includeGenome, includePartial)
+			attempt, _ = sequenceDownload(cladeNames[currentClade], geneName, thorough, rettype, noSeqs, seqChoice, download, retStart, retMax, targetLength, trimSeq, DNAtype, gapType, includeGenome, includePartial)
 			namesTried.append(cladeNames[currentClade])
 			currentClade = currentClade + 1
 			if attempt:
@@ -231,10 +231,10 @@ def eSummary(seqID):
 				return(tuple())
 	return results[0]
 
-def sequenceDownload(spName, geneName=None, thorough=False, rettype='gb', titleText=None, noSeqs=1, seqChoice='random', download=True, retStart=0, retMax=20, targetLength=None, trimSeq=False, DNAtype='Standard', gapType='-', includeGenome=True, includePartial=True):
-	def dwnSeq(includeGenome, includePartial):
+def sequenceDownload(spName, geneName, thorough=False, rettype='gb', noSeqs=1, seqChoice='random', download=True, retStart=0, retMax=20, targetLength=None, trimSeq=False, DNAtype='Standard', gapType='-', includeGenome=True, includePartial=True):
+	def dwnSeq(includeGenome, includePartial, gene):
 		searchTerm = spName + "[Organism]"
-		if geneName: searchTerm = "(" + searchTerm + ") AND " + geneName + "[Gene]"
+		if gene: searchTerm = "(" + searchTerm + ") AND " + gene + "[Gene]"
 		if titleText: searchTerm = "(" + searchTerm + ") AND " + titleText + " [Title]"
 		if not includePartial: searchTerm = "(" + searchTerm + ") NOT " + "partial [Title]"
 		if not includeGenome: searchTerm = "(" + searchTerm + ") NOT " + "genome [Title]"
@@ -302,64 +302,59 @@ def sequenceDownload(spName, geneName=None, thorough=False, rettype='gb', titleT
 				return (firstSearch['WebEnv'], firstSearch['QueryKey'], int(firstSearch['Count']))
 			else:
 				return ()
-	
+	titleText = ''
 	if thorough:
-		seq = dwnSeq(includeGenome=False, includePartial=False)
-		if seq:
-			return seq
-		else:
-			seq = dwnSeq(includeGenome=True, includePartial=False)
+		for gene in geneName:
+			seq = dwnSeq(includeGenome=False, includePartial=False, gene=gene)
 			if seq:
-				#Need to check to see if this gene is actually in this sequence (...)
-				try:
-					seq = findGeneInSeq(seq, geneName, trimSeq=trimSeq, DNAtype=DNAtype, gapType=gapType)
-				except:
-					seq = dwnSeq(includeGenome=True, includePartial=True)
-					if seq:
-						return seq
-					else:
-						return ()
-				return seq
+				return (seq, gene)
 			else:
-				seq = dwnSeq(includeGenome=True, includePartial=True)
+				seq = dwnSeq(includeGenome=True, includePartial=False, gene=gene)
 				if seq:
-					return seq
-				else:
-					if geneName:
-						#Now we're checking to see if they haven't labelled the sequence with a gene, and instead are checking in the title for the gene
-						if titleText:
-							titleText += " " + geneName
-						else:
-							titleText = geneName
-						geneName = None
-						seq = dwnSeq(includeGenome=False, includePartial=False)
+					#Need to check to see if this gene is actually in this sequence (...)
+					try:
+						seq = findGeneInSeq(seq, gene, trimSeq=trimSeq, DNAtype=DNAtype, gapType=gapType)
+					except:
+						seq = dwnSeq(includeGenome=True, includePartial=True, gene=gene)
 						if seq:
-							return seq
+							return (seq, gene)
 						else:
-							seq = dwnSeq(includeGenome=True, includePartial=False)
-							if seq:
-								#Need to check to see if this gene is actually in this sequence (...)
-								try:
-									seq = findGeneInSeq(seq, geneName, trimSeq=trimSeq, DNAtype=DNAtype, gapType=gapType)
-								except:
-									seq = dwnSeq(includeGenome=True, includePartial=True)
-									if seq:
-										return seq
-									else:
-										return ()
-								return seq
-							else:
-								seq = dwnSeq(includeGenome=True, includePartial=True)
-								if seq:
-									return seq
-								else:
-									return ()
+							return ((), ())
+					return (seq, gene)
+				else:
+					seq = dwnSeq(includeGenome=True, includePartial=True, gene=gene)
+					if seq:
+						return (seq, gene)
 					else:
-						return ()
+						if geneName:
+							#Now we're checking to see if they haven't labelled the sequence with a gene, and instead are checking in the title for the gene
+							titleText = gene
+							seq = dwnSeq(includeGenome=False, includePartial=False, gene=None)
+							if seq:
+								return (seq, gene)
+							else:
+								seq = dwnSeq(includeGenome=True, includePartial=False, gene=gene)
+								if seq:
+									#Need to check to see if this gene is actually in this sequence (...)
+									try:
+										seq = findGeneInSeq(seq, geneName, trimSeq=trimSeq, DNAtype=DNAtype, gapType=gapType)
+									except:
+										seq = dwnSeq(includeGenome=True, includePartial=True, gene=gene)
+										if seq:
+											return (seq, gene)
+								else:
+									seq = dwnSeq(includeGenome=True, includePartial=True, gene=None)
+									if seq:
+										return (seq, gene)
+		else:
+			return ((), ())
 	else:
-		return dwnSeq(includeGenome, includePartial)
+		for gene in geneName:
+			seq = dwnSeq(includeGenome, includePartial, gene=gene)
+			if seq:
+				return (seq, gene)
 
-def findGenes(speciesList, geneNames, download=False, titleText=None, targetNoGenes=-1, noSeqs=1, includePartial=True, includeGenome=True, seqChoice='random', verbose=True, thorough=False, spacer=10, delay=5):
+def findGenes(speciesList, geneNames, download=False, targetNoGenes=-1, noSeqs=1, includePartial=True, includeGenome=True, seqChoice='random', verbose=True, thorough=False, spacer=10, delay=5):
 	def findBestGene(foundSeqsArray):
 		geneHits = foundSeqsArray.sum(axis=0)
 		for i in range(len(geneHits)):
@@ -379,7 +374,7 @@ def findGenes(speciesList, geneNames, download=False, titleText=None, targetNoGe
 			if verbose: print "Searching for:", speciesList[i]
 			speciesGenes = []
 			for k in range(len(geneNames)):
-				sequence = sequenceDownload(speciesList[i], geneNames[k], titleText=titleText, noSeqs=noSeqs, includePartial=includePartial, includeGenome=includeGenome, seqChoice=seqChoice, download=download, thorough=thorough)
+				sequence, _ = sequenceDownload(speciesList[i], geneNames[k], noSeqs=noSeqs, includePartial=includePartial, includeGenome=includeGenome, seqChoice=seqChoice, download=download, thorough=thorough)
 				counter += 1
 				if counter == spacer:
 					time.sleep(delay)
@@ -418,7 +413,7 @@ def findGenes(speciesList, geneNames, download=False, titleText=None, targetNoGe
 	else:
 		output = []
 		for species in speciesList:
-			sequence = sequenceDownload(species, geneNames, titleText=titleText, noSeqs=noSeqs, includePartial=includePartial, includeGenome=includeGenome, seqChoice=seqChoice, download=download, thorough=thorough)
+			sequence, _ = sequenceDownload(species, geneNames, noSeqs=noSeqs, includePartial=includePartial, includeGenome=includeGenome, seqChoice=seqChoice, download=download, thorough=thorough)
 			if download:
 				output.append(sequence)
 			else:
@@ -628,6 +623,8 @@ def checkSequenceList(seqList, method='length', tolerance=None):
 		raise RuntimeError("No valid alignment checking method requested")
 
 def sequenceDisplay(seqList, speciesNames, geneNames, seqDetect=None):
+	#Change names to use only the first elements
+	geneNames = [x[0] for x in geneNames]
 	#Get longest species name
 	maxInputName = 0
 	for each in speciesNames:
@@ -1882,19 +1879,36 @@ class PhyloGenerator:
 		#Gene
 		self.nGenes = -1
 		if args.gene:
-			self.genes = args.gene.split(',')
-			print "\nUsing gene(s)", self.genes
+			self.genes = [x.split('-') for x in args.gene.split(',')]
+			self.genes = [[x.replace('_', '!') for x in y] for y in self.genes]
+			print '\nUsing genes:'
+			for each in self.genes:
+				if len(each) > 1:
+					print "\t", each[0], "with aliases:", ','.join(each[1:])
+				else:
+					print "\t", each[0]
 			self.codonModels = ['Standard'] * len(self.genes)
 		else:
 			print "Please enter the gene(s) you want to use (e.g., 'COI' for cytochrome oxidase one')"
+			print "If you wish to use the defaults for your taxa, please enter 'plant', 'invertebrate', or 'vertebrate' instead"
 			print "Each gene on a separate line, and an empty line to continue\n"
 			locker = True
 			self.genes = []
 			while locker:
 				inputGene = raw_input("")
 				if inputGene:
-					self.genes.append(inputGene)
-					self.codonModels.append('Standard')
+					if inputGene == "invertebate":
+						self.genes = [['COI']]
+						self.codonModels.append('Vertebrate Mitochondrial')
+					elif inputGene == "vertebate":
+						self.genes = [['COI']]
+						self.codonModels.append('Invertebrate Mitochondrial')
+					elif inputGene == "plant":
+						self.genes = [['rbcL', 'matK']]
+						self.codonModels.append('Plant Plastid')
+					else:
+						self.genes.append([inputGene])
+						self.codonModels.append('Standard')
 				else:
 					if self.genes:
 						locker = False
@@ -1976,7 +1990,7 @@ class PhyloGenerator:
 				print "...DNA loaded"
 				if not self.genes:
 					print "Please enter the name of the gene you're using below\n"
-					self.genes.append(raw_input("Gene name: "))
+					self.genes.append([raw_input("Gene name: ")])
 					self.nGenes = 1
 				self.codonModels.append('Standard')
 			except IOError:
@@ -1997,7 +2011,7 @@ class PhyloGenerator:
 						self.fastaFile = inputFile
 						if not self.genes:
 							print "DNA loaded; please enter the name of the gene you're using below"
-							self.genes.append(raw_input("Gene name: "))
+							self.genes.append([raw_input("Gene name: ")])
 							self.nGenes = 1
 						self.codonModels.append('Standard')
 						print "DNA loaded"
@@ -2052,7 +2066,7 @@ class PhyloGenerator:
 				while locker:
 					inputGene = raw_input("")
 					if inputGene:
-						self.genes.append(inputGene)
+						self.genes.append([inputGene])
 						self.codonModels.append('Standard')
 						self.nGenes += 1
 					else:
@@ -2095,6 +2109,7 @@ class PhyloGenerator:
 						while geneLocker:
 							print "Enter the name of the gene you want to delete, or just hit enter to cancel."
 							geneInput = raw_input("DNA Editing (delete gene): ")
+							
 							if geneInput:
 								if geneInput in self.genes:
 									for i,species in enumerate(self.sequences):
@@ -2214,7 +2229,7 @@ class PhyloGenerator:
 						index = int(inputSeq)
 						for i,each in enumerate(self.sequences[index]):
 							self.APICheck()
-							self.sequences[index][i] = sequenceDownload(self.speciesNames[index], self.genes[i], thorough=True, retMax=self.genBankRetMax, seqChoice=self.seqChoice, targetLength=self.targetLength[i])
+							self.sequences[index][i], _ = sequenceDownload(self.speciesNames[index], self.genes[i], thorough=True, retMax=self.genBankRetMax, seqChoice=self.seqChoice, targetLength=self.targetLength[i])
 							if self.genBankIDs:
 								self.genBankIDs[index][i] = self.sequences[index][i].id
 								self.sequences[index][i].id = self.speciesNames[i]
@@ -2231,7 +2246,7 @@ class PhyloGenerator:
 							if seqID and seqID < len(self.sequences):
 								print "Reloading SeqID", seqID, "gene", gene
 								self.APICheck()
-								self.sequences[seqID][i] = sequenceDownload(self.speciesNames[seqID], self.genes[i], thorough=True, retMax=self.genBankRetMax, seqChoice=self.seqChoice, targetLength=self.targetLength[i])
+								self.sequences[seqID][i], _ = sequenceDownload(self.speciesNames[seqID], self.genes[i], thorough=True, retMax=self.genBankRetMax, seqChoice=self.seqChoice, targetLength=self.targetLength[i])
 								if self.genBankIDs:
 									self.genBankIDs[seqID][i] = self.sequences[seqID][i].id
 									self.sequences[seqID][i].id = self.speciesNames[seqID]
@@ -2246,7 +2261,7 @@ class PhyloGenerator:
 						for j,gene in enumerate(sp):
 							if len(self.sequences[i][j]) > threshold:
 								self.APICheck()
-								self.sequences[i][j] = sequenceDownload(self.speciesNames[i], self.genes[j], thorough=True, retMax=self.genBankRetMax, seqChoice=self.seqChoice, targetLength=self.targetLength[j])
+								self.sequences[i][j], _ = sequenceDownload(self.speciesNames[i], self.genes[j], thorough=True, retMax=self.genBankRetMax, seqChoice=self.seqChoice, targetLength=self.targetLength[j])
 								if self.genBankIDs:
 									self.genBankIDs[i][j] = self.sequences[i][j].id
 									self.sequences[i][j].id = self.speciesNames[i]
@@ -2259,7 +2274,7 @@ class PhyloGenerator:
 						for j,gene in enumerate(sp):
 							if len(self.sequences[i][j]) < threshold:
 								self.APICheck()
-								self.sequences[i][j] = sequenceDownload(self.speciesNames[i], self.genes[j], thorough=True, retMax=self.genBankRetMax, seqChoice=self.seqChoice, targetLength=self.targetLength[j])
+								self.sequences[i][j], _ = sequenceDownload(self.speciesNames[i], self.genes[j], thorough=True, retMax=self.genBankRetMax, seqChoice=self.seqChoice, targetLength=self.targetLength[j])
 								if self.genBankIDs:
 									self.genBankIDs[i][j] = self.sequences[i][j].id
 									self.sequences[i][j].id = self.speciesNames[i]
@@ -2313,7 +2328,7 @@ class PhyloGenerator:
 						return 'trim', False
 				except:
 					pass
-				for i,gene in enumerate(self.genes):
+				for i,gene in enumerate(self.geneNames()):
 					if gene in inputSeq:
 						try:
 							seqID = re.search("[0-9]*", inputSeq).group()
@@ -2350,7 +2365,7 @@ class PhyloGenerator:
 					for i,x in enumerate(CodonTable.unambiguous_dna_by_name.keys()):
 						print str(i).ljust(2), x
 					print "\nIn the prompt below is the name of a gene. Type the ID number of the codon model for that gene you'd like to use. Note that the standard (default) model is usually number 10."
-					for i,gene in enumerate(self.genes):
+					for i,gene in enumerate(self.geneNames()):
 						locker = True
 						while locker:
 							choice = raw_input(gene+": ")
@@ -2408,7 +2423,7 @@ class PhyloGenerator:
 								locker = False
 								for j,gene in enumerate(self.genes):
 									self.APICheck()
-									temp.append(sequenceDownload(candidate[0], gene))
+									temp.append(sequenceDownload(candidate[0], gene)[0])
 									if temp[j]:
 										locker = True
 								if locker:
@@ -2433,7 +2448,7 @@ class PhyloGenerator:
 										name = 'ERROR'
 										locker = False
 										for gene in self.genes:
-											temp.append(sequenceDownload(candidate[0], gene))
+											temp.append(sequenceDownload(candidate[0], gene)[0])
 											if temp:
 												locker = True
 										if locker:
@@ -2468,7 +2483,7 @@ class PhyloGenerator:
 								locker = False
 								for gene in self.genes:
 									self.APICheck()
-									temp.append(sequenceDownload(candidate[0], gene))
+									temp.append(sequenceDownload(candidate[0], gene)[0])
 									if temp:
 										locker = True
 								if locker:
@@ -2513,7 +2528,7 @@ class PhyloGenerator:
 									locker = False
 									for gene in self.genes:
 										self.APICheck()
-										temp = sequenceDownload(candidate, gene)
+										temp, _ = sequenceDownload(candidate, gene)
 										geneList.append(temp)
 										if temp:
 											self.speciesNames[i] = self.speciesNames[i]
@@ -2679,7 +2694,7 @@ class PhyloGenerator:
 					if len(gene) > seqLengths[j]:
 						seqLengths[j] = len(gene)
 		
-		alignmentDisplay(self.alignment, self.alignmentMethods, self.genes, checkAlignmentList(self.alignment, method='everything'), seqLengths)
+		alignmentDisplay(self.alignment, self.alignmentMethods, self.geneNames(), checkAlignmentList(self.alignment, method='everything'), seqLengths)
 		print "\n\t'output' - write out alignments. I recommend you look at your alignment before continuing"
 		print "\t'DNA' - return to DNA editing stage"
 		print "\t'align' - return to alignment stage, discarding current alignments."
@@ -2702,7 +2717,7 @@ class PhyloGenerator:
 				if inputAlign == 'output':
 					oldWD = os.getcwd()
 					os.chdir(self.workingDirectory)
-					for i,gene in enumerate(self.genes):
+					for i,gene in enumerate(self.geneNames()):
 						for j,method in enumerate(self.alignmentMethods):
 							AlignIO.write(self.alignment[i][j], self.stem+"_"+gene+"_"+method+".fasta", 'fasta')
 					os.chdir(oldWD)
@@ -2713,15 +2728,15 @@ class PhyloGenerator:
 					self.dnaChecking()
 					self.dnaEditing()
 					self.align()
-					alignmentDisplay(self.alignment, self.alignmentMethods, self.genes, checkAlignmentList(self.alignment, method='everything'))
+					alignmentDisplay(self.alignment, self.alignmentMethods, self.geneNames(), checkAlignmentList(self.alignment, method='everything'))
 				elif inputAlign == 'align':
 					self.alignmentMethod = False
 					self.alignment = []
 					self.align()
-					alignmentDisplay(self.alignment, self.alignmentMethods, self.genes, checkAlignmentList(self.alignment, method='everything'))
+					alignmentDisplay(self.alignment, self.alignmentMethods, self.geneNames(), checkAlignmentList(self.alignment, method='everything'))
 				elif inputAlign == 'trimal':
 					self.alignment = cleanAlignment(self.alignment, timeout=99999)
-					alignmentDisplay(self.alignment, self.alignmentMethods, self.genes, checkAlignmentList(self.alignment, method='everything'))
+					alignmentDisplay(self.alignment, self.alignmentMethods, self.geneNames(), checkAlignmentList(self.alignment, method='everything'))
 				elif inputAlign == 'metal':
 					if len(self.alignmentMethods) == 1 and len(self.genes) == 1:
 						print "You've only used one alignment method, and one gene!"
@@ -2736,7 +2751,7 @@ class PhyloGenerator:
 						x = 1
 						for i,gene in enumerate(self.metal):
 							print ""
-							print self.genes[i] + ":"
+							print self.geneNames()[i] + ":"
 							print header
 							for j,method in enumerate(gene):
 								row = self.alignmentMethods[j][0:5].ljust(7)
@@ -2768,7 +2783,7 @@ class PhyloGenerator:
 								
 								#Now calculate distances between methods
 								print "Mean within gene distances:"
-								print self.genes[i] + ":"
+								print self.geneNames()[i] + ":"
 								print header
 								for x,first in enumerate(geneTrees):
 									row = self.alignmentMethods[x][0:5].ljust(7)
@@ -2795,7 +2810,7 @@ class PhyloGenerator:
 				locker = False
 		if len(self.alignmentMethods) > 1:
 			print "\nIn the prompt below is the name of a gene. Type the ID number of the alignment you'd like to use for that gene."
-			for i,gene in enumerate(self.genes):
+			for i,gene in enumerate(self.geneNames()):
 				locker = True
 				while locker:
 					choice = raw_input(gene+": ")
@@ -3235,7 +3250,7 @@ class PhyloGenerator:
 		#Log - TO-DO
 		#Sequences
 		if self.sequences:
-			for i,gene in enumerate(self.genes):
+			for i,gene in enumerate(self.geneNames()):
 				currentGene = []
 				for seq in self.sequences:
 					if seq[i]:
@@ -3245,14 +3260,14 @@ class PhyloGenerator:
 		#Alignment
 		if type(self.alignment) is list:
 			for i,align in enumerate(self.alignment):
-				AlignIO.write(align, self.stem+"_"+self.genes[i]+"_alignment.fasta", 'fasta')
+				AlignIO.write(align, self.stem+"_"+self.geneNames()[i]+"_alignment.fasta", 'fasta')
 		else:
 			AlignIO.write(self.alignment, self.stem+"_alignment.fasta", 'fasta')
 		
 		#Sequence info
 		if self.genBankIDs:
-			for i,gene in enumerate(self.genes):
-				with open(self.stem+"_"+self.genes[i]+"_sequence_info.txt", 'w') as f:
+			for i,gene in enumerate(self.geneNames()):
+				with open(self.stem+"_"+gene+"_sequence_info.txt", 'w') as f:
 					f.write("Species Name, Sequence ID\n")
 					for j,name in enumerate(self.speciesNames):
 						f.write(name + "_" + self.genBankIDs[j][i] + "\n")
@@ -3260,10 +3275,10 @@ class PhyloGenerator:
 		#Phylogeny
 		if self.phylogenyMerged:
 			if 'BEAST' in self.phylogenyMethods:
-				os.rename(self.oldDirectory + '/' + self.phylogeny, self.stem+"_"+self.genes[i]+"_RAW_phylogeny.nex")
-				os.rename(self.oldDirectory + '/' + self.beastXML, self.stem+"_"+self.genes[i]+"_RAW_BEAST.xml")
-				os.rename(self.oldDirectory + '/' + self.beastTrees, self.stem+"_"+self.genes[i]+"_RAW_BEAST.trees")
-				os.rename(self.oldDirectory + '/' + self.beastLogs, self.stem+"_"+self.genes[i]+"_RAW_BEAST.log")
+				os.rename(self.oldDirectory + '/' + self.phylogeny, self.stem+"_"+self.geneNames()[i]+"_RAW_phylogeny.nex")
+				os.rename(self.oldDirectory + '/' + self.beastXML, self.stem+"_"+self.geneNames()[i]+"_RAW_BEAST.xml")
+				os.rename(self.oldDirectory + '/' + self.beastTrees, self.stem+"_"+self.geneNames()[i]+"_RAW_BEAST.trees")
+				os.rename(self.oldDirectory + '/' + self.beastLogs, self.stem+"_"+self.geneNames()[i]+"_RAW_BEAST.log")
 				Phylo.write(self.phylogenyMerged, self.stem+"_MERGED_phylogeny.tre", 'newick')
 			else:
 				Phylo.write(self.phylogenyMerged, self.stem+"_MERGED_phylogeny.tre", 'newick')
@@ -3272,10 +3287,10 @@ class PhyloGenerator:
 		else:
 			if self.phylogeny:
 				if 'BEAST' in self.phylogenyMethods:
-					os.rename(self.oldDirectory + '/' + self.phylogeny, self.stem+"_"+self.genes[i]+"_phylogeny.nex")
-					os.rename(self.oldDirectory + '/' + self.beastXML, self.stem+"_"+self.genes[i]+"_RAW_BEAST.xml")
-					os.rename(self.oldDirectory + '/' + self.beastTrees, self.stem+"_"+self.genes[i]+"_RAW_BEAST.trees")
-					os.rename(self.oldDirectory + '/' + self.beastLogs, self.stem+"_"+self.genes[i]+"_RAW_BEAST.log")
+					os.rename(self.oldDirectory + '/' + self.phylogeny, self.stem+"_"+self.geneNames()[i]+"_phylogeny.nex")
+					os.rename(self.oldDirectory + '/' + self.beastXML, self.stem+"_"+self.geneNames()[i]+"_RAW_BEAST.xml")
+					os.rename(self.oldDirectory + '/' + self.beastTrees, self.stem+"_"+self.geneNames()[i]+"_RAW_BEAST.trees")
+					os.rename(self.oldDirectory + '/' + self.beastLogs, self.stem+"_"+self.geneNames()[i]+"_RAW_BEAST.log")
 				else:
 					Phylo.write(self.phylogeny, self.stem+"_phylogeny.tre", 'newick')
 		
@@ -3295,20 +3310,20 @@ class PhyloGenerator:
 		if self.smoothPhylogeny:
 			if self.smoothPhylogenyMerged:
 				if 'BEAST' in self.rateSmoothMethods:
-					os.rename(self.oldDirectory + '/' + self.smoothPhylogeny, self.stem+"_"+self.genes[i]+"_RAW_smoothed_phylogeny.nex")
-					os.rename(self.oldDirectory + '/' + self.smoothBeastXML, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.xml")
-					os.rename(self.oldDirectory + '/' + self.smoothBeastTrees, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.trees")
-					os.rename(self.oldDirectory + '/' + self.smoothBeastLogs, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.log")
-					Phylo.write(self.smoothPhylogenyMerged, self.stem+"_"+self.genes[i]+"_MERGED_smoothed_phylogeny.tre", 'newick')
+					os.rename(self.oldDirectory + '/' + self.smoothPhylogeny, self.stem+"_"+self.geneNames()[i]+"_RAW_smoothed_phylogeny.nex")
+					os.rename(self.oldDirectory + '/' + self.smoothBeastXML, self.stem+"_"+self.geneNames()[i]+"_RAW_smoothed_BEAST.xml")
+					os.rename(self.oldDirectory + '/' + self.smoothBeastTrees, self.stem+"_"+self.geneNames()[i]+"_RAW_smoothed_BEAST.trees")
+					os.rename(self.oldDirectory + '/' + self.smoothBeastLogs, self.stem+"_"+self.geneNames()[i]+"_RAW_smoothed_BEAST.log")
+					Phylo.write(self.smoothPhylogenyMerged, self.stem+"_"+self.geneNames()[i]+"_MERGED_smoothed_phylogeny.tre", 'newick')
 				else:
 					Phylo.write(self.smoothPhylogeny, self.stem+"_RAW_smoothed_phylogeny.tre", 'newick')
 					Phylo.write(self.smoothPhylogenyMerged, self.stem+"_MERGED_smoothed_phylogeny.tre", 'newick')
 			else:
 				if 'BEAST' in self.rateSmoothMethods:
-					os.rename(self.oldDirectory + '/' + self.smoothPhylogeny, self.stem+"_"+self.genes[i]+"_RAW_smoothed_phylogeny.nex")
-					os.rename(self.oldDirectory + '/' + self.smoothBeastXML, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.xml")
-					os.rename(self.oldDirectory + '/' + self.smoothBeastTrees, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.trees")
-					os.rename(self.oldDirectory + '/' + self.smoothBeastLogs, self.stem+"_"+self.genes[i]+"_RAW_smoothed_BEAST.log")
+					os.rename(self.oldDirectory + '/' + self.smoothPhylogeny, self.stem+"_"+self.geneNames()[i]+"_RAW_smoothed_phylogeny.nex")
+					os.rename(self.oldDirectory + '/' + self.smoothBeastXML, self.stem+"_"+self.geneNames()[i]+"_RAW_smoothed_BEAST.xml")
+					os.rename(self.oldDirectory + '/' + self.smoothBeastTrees, self.stem+"_"+self.geneNames()[i]+"_RAW_smoothed_BEAST.trees")
+					os.rename(self.oldDirectory + '/' + self.smoothBeastLogs, self.stem+"_"+self.geneNames()[i]+"_RAW_smoothed_BEAST.log")
 				else:
 					Phylo.write(self.smoothPhylogeny, self.stem+"_smoothed_phylogeny.tre", 'newick')
 	
@@ -3586,6 +3601,9 @@ class PhyloGenerator:
 			self.tracker = 0
 		else:
 			self.tracker += 1
+
+	def geneNames(self):
+		return [x[0] for x in self.genes]
 	
 
 def main():
