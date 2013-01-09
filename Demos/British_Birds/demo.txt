@@ -1,0 +1,16 @@
+#Bird example
+# - species list taken from the phylogeny of Gavin H Thomas (2008) - Phylogenetic distributions of British birds of conservation concern. Proc. R. Soc. B.  275 (1647) 2077-2083; doi:10.1098/rspb.2008.0549
+# - this is the dataset used in the paper for the demonstrations of the execution speed of the program
+
+#DESCRIPTION
+#'species.txt' - list of bird species in the UK
+#'speciesShorter.txt' - list of 100 bird species in the UK (a random subset of the above)
+#'sequences.fasta' - COI sequences for the majority of bird species in the UK
+#'sequencesShorter.fasta' - COI sequences for the random subset of bird species in the UK
+
+#Long search
+./phyloGenerator.app/Contents/MacOS/phyloGenerator -name birdLong -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene COI -species FILLINTHERESTOFTHISPATH/Demos/British_Birds/species.txt -alignment mafft -phylogen raxml-integratedBootstrap=100
+#This should look something like this, once you've filled in the bits I've put in capitals: ./phyloGenerator.app/Contents/MacOS/phyloGenerator -name britishBirds -wd /Users/bob/phyloGenTest -email bob@university.ac.uk -gene COI -species /Users/bob/phyloGenTest/Demos/British_Birds/species.txt -alignment mafft -phylogen beast-GTR-GAMMA
+
+#Short search - using already downloaded sequences
+./phyloGenerator.app/Contents/MacOS/phyloGenerator -name birdShort -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene COI -dna FILLINTHERESTOFTHISPATH/Demos/British_Birds/sequencesShorter.fasta -alignment mafft -phylogen raxml-integratedBootstrap=100

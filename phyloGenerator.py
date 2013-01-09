@@ -2141,7 +2141,7 @@ class PhyloGenerator:
 							for seq in self.sequences:
 								if seq[i]:
 									currentGene.append(seq[i])
-									SeqIO.write(currentGene, self.stem+"_"+gene+".fasta", 'fasta')
+									SeqIO.write(currentGene, self.stem+"_"+gene[0]+".fasta", 'fasta')
 					os.chdir(oldWD)
 					print "Raw sequences written out!"
 					return 'delete', False
@@ -2541,6 +2541,29 @@ class PhyloGenerator:
 					print "Re-calulating summary statistics..."
 					self.dnaChecking()
 					return 'replace', False
+				#elif inputSeq == "GENUS":
+				#	self.speciesGenera = [x.partition('_')[0] for x in self.speciesNames]
+				#	genusCounts = {x: self.speciesGenera.count(x) for x in self.speciesGenera}
+				#	genusProcessed = {x: False for x in self.speciesGenera}
+				#	for i,genus in enumerate(self.speciesNames):
+				#		if not genusProcessed[genus]:
+				#			if genusCounts[genus] > 1:
+				#				pass
+				#			else:
+				#				for gene in self.genes:
+				#					temp.append(sequenceDownload(candidate[0], gene)[0])
+				#					if temp:
+				#						locker = True
+				#					if locker:
+				#						self.sequences[i] = temp
+				#	#Identify genera
+				#	#If:
+				#	# - singleton genera
+				#	# -------- no sequence => try genus search
+				#	# - multiple genera
+				#	# -------- single sequence => merge genus
+				#	# -------- multiple sequences => use all sequences; mark clade as one to be replaced with polytomy later
+				#	# -------- no sequences => try genus search
 				elif inputSeq == "delete":
 					return "delete", True
 				elif inputSeq == "reload":
