@@ -353,8 +353,10 @@ def sequenceDownload(spName, geneName, thorough=False, rettype='gb', noSeqs=1, s
 			seq = dwnSeq(includeGenome, includePartial, gene=gene)
 			if seq:
 				return (seq, gene)
+			else:
+				return ((), ())
 
-def findGenes(speciesList, geneNames, download=False, targetNoGenes=-1, noSeqs=1, includePartial=True, includeGenome=True, seqChoice='random', verbose=True, thorough=False, spacer=10, delay=5):
+def findGenes(speciesList, geneNames, download=False, targetNoGenes=-1, noSeqs=1, includePartial=True, includeGenome=True, seqChoice='random', verbose=True, thorough=False, spacer=10, delay=5, retMax=20):
 	def findBestGene(foundSeqsArray):
 		geneHits = foundSeqsArray.sum(axis=0)
 		for i in range(len(geneHits)):
@@ -374,7 +376,7 @@ def findGenes(speciesList, geneNames, download=False, targetNoGenes=-1, noSeqs=1
 			if verbose: print "Searching for:", speciesList[i]
 			speciesGenes = []
 			for k in range(len(geneNames)):
-				sequence, _ = sequenceDownload(speciesList[i], geneNames[k], noSeqs=noSeqs, includePartial=includePartial, includeGenome=includeGenome, seqChoice=seqChoice, download=download, thorough=thorough)
+				sequence, _ = sequenceDownload(speciesList[i], geneNames[k], noSeqs=noSeqs, includePartial=includePartial, includeGenome=includeGenome, seqChoice=seqChoice, download=download, thorough=thorough, retMax=retMax)
 				counter += 1
 				if counter == spacer:
 					time.sleep(delay)
@@ -413,7 +415,7 @@ def findGenes(speciesList, geneNames, download=False, targetNoGenes=-1, noSeqs=1
 	else:
 		output = []
 		for species in speciesList:
-			sequence, _ = sequenceDownload(species, geneNames, noSeqs=noSeqs, includePartial=includePartial, includeGenome=includeGenome, seqChoice=seqChoice, download=download, thorough=thorough)
+			sequence, _ = sequenceDownload(species, geneNames, noSeqs=noSeqs, includePartial=includePartial, includeGenome=includeGenome, seqChoice=seqChoice, download=download, thorough=thorough, retMax=retMax)
 			if download:
 				output.append(sequence)
 			else:
@@ -1591,7 +1593,7 @@ def findGeneInSeq(seq, gene, trimSeq=False, DNAtype='Standard', gapType='-', ver
 	if seq.features:
 		for feature in seq.features:
 			if 'gene' in feature.qualifiers.keys():
-				if gene in feature.qualifiers['gene']:
+				if gene[0] in feature.qualifiers['gene']:
 					extractor = SeqFeature(feature.location)
 					foundSeq = extractor.extract(seq)
 					if trimSeq:
@@ -1599,7 +1601,7 @@ def findGeneInSeq(seq, gene, trimSeq=False, DNAtype='Standard', gapType='-', ver
 					else:
 						return foundSeq
 		else:
-			if verbose: warnings.warn("Gene '" + gene + "' not found in sequence")
+			if verbose: warnings.warn("Gene '" + gene[0] + "' not found in sequence")
 			return ()
 	else:
 		print "...can't find annotations for sequence", seq.id, gene
@@ -1880,7 +1882,7 @@ class PhyloGenerator:
 		self.nGenes = -1
 		if args.gene:
 			self.genes = [x.split('-') for x in args.gene.split(',')]
-			self.genes = [[x.replace('_', '!') for x in y] for y in self.genes]
+			self.genes = [[x.replace('_', ' ') for x in y] for y in self.genes]
 			print '\nUsing genes:'
 			for each in self.genes:
 				if len(each) > 1:
@@ -2111,13 +2113,14 @@ class PhyloGenerator:
 							geneInput = raw_input("DNA Editing (delete gene): ")
 							
 							if geneInput:
-								if geneInput in self.genes:
+								possibleGenes = [x[0] for x in self.genes]
+								if geneInput in possibleGenes:
 									for i,species in enumerate(self.sequences):
 										for j,gene in enumerate(species):
-											if self.genes[j] == geneInput:
+											if self.genes[j][0] == geneInput:
 												del self.sequences[i][j]
 												continue
-									for i,gene in enumerate(self.genes):
+									for i,gene in enumerate(self.geneNames()):
 										if gene == geneInput:
 											del self.genes[i]
 											break
@@ -2238,7 +2241,7 @@ class PhyloGenerator:
 						return 'reload', False
 				except:
 					pass
-				for i,gene in enumerate(self.genes):
+				for i,gene in enumerate(self.geneNames()):
 					if gene in inputSeq:
 						try:
 							seqID = re.search("[0-9]*", inputSeq).group()
@@ -2431,9 +2434,9 @@ class PhyloGenerator:
 									print "......alternative found:", candidate[0], "re-caluclating summary statistics..."
 									self.dnaChecking()
 									return 'replace', False
-							else:
-								print "No alternative found."
-								return 'replace', False
+								else:
+									print "No alternative found."
+									return 'replace', False
 						else:
 							print "...Cannot find any entry in GenBank with that name."
 							if " " in self.speciesNames[i]:
@@ -2761,8 +2764,8 @@ class PhyloGenerator:
 					self.alignment = cleanAlignment(self.alignment, timeout=99999)
 					alignmentDisplay(self.alignment, self.alignmentMethods, self.geneNames(), checkAlignmentList(self.alignment, method='everything'))
 				elif inputAlign == 'metal':
-					if len(self.alignmentMethods) == 1 and len(self.genes) == 1:
-						print "You've only used one alignment method, and one gene!"
+					if len(self.alignmentMethods) == 1:
+						print "You've only used one alignment method! You can only compare alignment methods within the same gene!"
 					else:
 						self.metal = metal(self.alignment)
 						#Make the header row for each gene
@@ -2854,8 +2857,8 @@ class PhyloGenerator:
 		methods = ['muscle', 'mafft', 'clustalo', 'prank', 'everything', 'quick']
 		if not self.alignmentMethod:
 			print "\nChoose one alignment method ('muscle', 'mafft', 'clustalo', 'prank'), or..."
-			print "\t'everything' -	 all four and compare their outputs"
-			print "\t'quick' to do only the first three"
+			print "\t'everything' - all four and compare their outputs"
+			print "\t'quick' - do only the first three"
 			print "Return will use MAFFT; prank is very slow!\n"
 			locker = True
 			while locker:
