@@ -648,6 +648,7 @@ def sequenceDisplay(seqList, speciesNames, geneNames, seqDetect=None):
 		#else:
 		#	print "Sequence lengths *outside* specified tolerance"
 		print "\nSequence summary:"
+		print "'0' indicates no sequence could be found"
 		print "'^^^' and '___' denote particularly long or short sequences\n"
 		header = "Sp. ID " + "Input name".ljust(maxInputName)
 		for i, each in enumerate(geneNames):
@@ -2438,21 +2439,20 @@ class PhyloGenerator:
 									print "No alternative found."
 									return 'replace', False
 						else:
-							print "...Cannot find any entry in GenBank with that name."
+							print "...Cannot find any entry in NCBI taxonomy with that species' name.."
 							if " " in self.speciesNames[i]:
 								newName = self.speciesNames[i].split(' ')[0]
-								print "......Trying to find an entry for...", newName
-								self.APICheck()
-								lineage = findLineage(newName[i])
+								print "......Trying to find an entry for", newName
+								lineage = findLineage(newName)
 								if lineage:
 									replacements = cladeSpecies(lineage[0])
-									print "...looking for alternatives for", newName[i], "in clade", lineage[1]
+									print ".........looking for alternatives for", self.speciesNames[i], "in clade", lineage[0]
+									temp = []
 									for candidate in replacements:
-										name = 'ERROR'
 										locker = False
-										for gene in self.genes:
+										for j,gene in enumerate(self.genes):
 											temp.append(sequenceDownload(candidate[0], gene)[0])
-											if temp:
+											if temp[j]:
 												locker = True
 										if locker:
 											self.sequences[i] = temp
@@ -2464,6 +2464,7 @@ class PhyloGenerator:
 										return 'replace', False
 								else:
 									print "......Cannot find any entry in GenBank with that name."
+									return 'replace', False
 							else:
 								print "......Can't auto-detect a suitable generic name to search for."
 								return 'replace', False
