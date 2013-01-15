@@ -76,6 +76,8 @@
       <h1>Necessities</h1>
       <h3>Who should I cite?</h3>
 	  <p>At the moment no one, and you're not permitted to edit any of the source code, or indeed to publish anything generated from or written in this package without the express permission of the author. Once the paper is out, however, all this will change.</p>
+  <h3>Where can I find out more details of how this program runs?</h3>
+  <p>A paper describing phyloGenerator is currently under review, but once (if!) it's accepted somewhere a link to the paper will appear on the site. Until then, a copy of the manuscript is <a href="http://imperial.academia.edu/WillPearse ">available from the lead author on request</a>.</p>
       <h3>What programs does this use? And how do I cite them?</h3>
 	  <p>Only cite the programs you use from the following list:</p>
 	  <ul>
@@ -103,13 +105,14 @@
 		 <p>Press 'control-c' a few times. On a PC, you'll get a dialogue box warning of an error - just hit enter and ignore it. Doing so during a RAxML run will cause problems - see below</p>
 		<h3>I exited phyloGenerator in the middle of a RAxML run, and now it won't work.</h3>
 		<p>You've got a temporary file on your computer that's stopping RAxML running. Search for all files containing 'RAxML_' (note the capitalisation), and remove them if they're anywhere near phyloGenerator or have the word 'temp' in them. Otherwise, just install a fresh copy of phyloGenerator.</p>
-		 <h3>I can't load any files, despite putting in the right path to them</h3>
+		 <h3>I can't load any files, or even start phyloGenerator, despite using the correct path</h3>
 		 <p>Make sure you are using the correct, full, absolute path. For example, 'Demos/Silwood_Plants/sequences.fasta' is an incomplete absolute path, but '/Users/will/Documents/phyloGenerator/Demo/Silwood_Plants/sequences.fasta' is a complete, full path.</p>
 		 <p>Also, if you're dragging and dropping files into phyloGenerator when it asks for them, make sure there are no trailing spaces at the end of your filename. If in doubt, press delete - if the file path doesn't appear to change, you had some trailing spaces.</p>
+<p>If your folders or files have spaces in them, most computer programs (including phyloGenerator) run into problems. On a Windows computer, putting the file and its path in double quotes (e.g., "C:\My folder\My file.txt"), and on a Mac/UNIX 'escaping' the space with a backslash (e.g., "/My\ Path/My\ file.txt") will help. If in doubt, drag-and-drop the file into your Terminal/Command Prompt to see how your computer wants the file referenced.</p>
 		 <h3>It warns me that a blank input wasn't recognised, or an input I typed in doesn't work.</h3>
 		 <p>You might have hit a button while the program was running earlier and it remembered that. Try entering the command again, but if you still get problems <a href="http://imperial.academia.edu/WillPearse">contact me</a>.</p>
 		 <h3>phyloGenerator keeps hanging and not doing anything!</h3>
-		 <p>I've set phyloGenerator to pause every ten times it downloads something for ten seconds, so as not to overload the NCBI database. However, I'm being massively conservative, and if you want to alter that (at your own risk!) then play around with the 'delay' argument when running phyloGenerator. Many of the programs phyloGenerator calls take quite a while too - if you can hear your computer whirring, it's probably just building your phylogeny.</p>
+		 <p>I've set phyloGenerator to pause every ten times it downloads something for five seconds, so as not to overload the NCBI database. However, I'm being massively conservative, and if you want to alter that (at your own risk!) then play around with the 'delay' argument when running phyloGenerator. Many of the programs phyloGenerator calls take quite a while too - if you can hear your computer whirring, it's probably just building your phylogeny.</p>
 		 <p>If you're aligning sequences and it seems to be taking forever, make sure there are no abnormally long sequences in your dataset. If most of your sequences are 1000bp long, and one or two are >10000bp long, you'll need to trim the sequences or you'll crash most alignment programs.</p>
 		<h3>I keep getting funny characters in my species names (backslashes, accented characters, etc.)</h3>
 		<p>Make sure you have <emph>no formatting whatsoever</emph> in your input files. You may non-breaking spaces or meta-characters inserted by Microsoft Word. If in doubt, copy and paste your input file into a really simple text editor (Notepad, TextEdit, something like that) and manually type in the species that are giving you problems.</p>

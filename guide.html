@@ -147,7 +147,8 @@
 		<h4>Working Directory</h4>
 		<p>phyloGenerator needs to know where to put your files. Give a full, absolute path.
 		<h4>Gene Name(s)</h4>
-		<p>Enter the abbreviated names of the genes you're interested in, one per line, and then hit enter on a blank line to continue. Good choices for plants are usually <em>rbcL</em> and/or <em>matK</em>, for animals <em>COI</em>.
+		<p>Enter the abbreviated names of the genes you're interested in, one per line, and then hit enter on a blank line to continue. You can also use presets for plants (<em>rbcL</em> and <em>matK</em>), and for animals (<em>COI</em>).</p>
+	  <p>Not all sequences on GenBank are annotated in the same way; for example, a cytochrome oxidase one sequence might be labelled as a 'COI', 'Cox1', or 'cytochrome oxidase one' sequence. You can use 'gene aliasing' to account for this, in this example specifying the gene's name as "COI-Cox1-cytochrome_oxidase_one" - aliases are split using '-', and spaces are replaced with '_'.</p>
 		<h4>DNA Input</h4>
 			<p>If you've already downloaded or sequenced your data, but not aligned it, tell phyloGenerator where that FASTA formatted file is now. Otherwise, just press enter.</p>
 			</div>
