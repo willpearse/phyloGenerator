@@ -1902,7 +1902,7 @@ class PhyloGenerator:
 		else:
 			print "\nPlease input a working directory for all your output"
 			print "\t(hit enter to use current working directory)"
-			self.workingDirectory = raw_input("Working directory: ")
+			self.workingDirectory = raw_input("Working directory (default - current WD): ")
 			if not self.workingDirectory:
 				self.workingDirectory = os.getcwd()
 		
@@ -2901,7 +2901,7 @@ class PhyloGenerator:
 			print "Return will use MAFFT; prank is very slow!\n"
 			locker = True
 			while locker:
-				alignInput = raw_input("DNA Alignment: ")
+				alignInput = raw_input("DNA Alignment (default - mafft): ")
 				if alignInput:
 					if alignInput in methods:
 						self.alignmentMethod = alignInput
@@ -2966,7 +2966,7 @@ class PhyloGenerator:
 				print "\tThe integrated boostrap method is fast, and gives confidence intervals on your tree, and a value of 1000 is probably more than adequate for most trees"
 				raxmlLock = True
 				while raxmlLock:
-					raxmlInput = raw_input("Phylogeny Building (RAxML): ")
+					raxmlInput = raw_input("Phylogeny Building (RAxML - default 1 search): ")
 					if raxmlInput:
 						methods = parseOptions(raxmlInput)
 						if not methods:
@@ -3064,7 +3064,7 @@ class PhyloGenerator:
 				print ""
 				beastLock = True
 				while beastLock:
-					beastInput = raw_input("Phylogeny Building (BEAST): ")
+					beastInput = raw_input("Phylogeny Building (BEAST - default GTR-GAMMA-chainLength=1000000): ")
 					methods = ''
 					if beastInput:
 						self.phylogenyMethods, logRate, screenRate, chainLength, overwrite, burnin = parseOptions(beastInput)
@@ -3103,7 +3103,7 @@ class PhyloGenerator:
 			
 			locker = True
 			while locker:
-				phyloInput = raw_input("Phylogeny Building: ")
+				phyloInput = raw_input("Phylogeny Building (default raxml): ")
 				if phyloInput:
 					if phyloInput == 'raxml':
 						raxmlSetup()
@@ -3181,7 +3181,7 @@ class PhyloGenerator:
 			print "Hit enter to use the defaults\n"
 			beastLock = True
 			while beastLock:
-				beastInput = raw_input("Rate-Smoothing (BEAST): ")
+				beastInput = raw_input("Rate-Smoothing (BEAST - default GTR-GAMMA-chainLength=1000000): ")
 				methods = ''
 				chainLength = 1000000
 				logRate = 1000
@@ -3681,6 +3681,12 @@ def main():
 		print "\n\nWelcome to phyloGenerator! Let's make a phylogeny!"
 		print "---Please go to http://willpearse.github.com/phyloGenerator for help"
 		print "---Written by Will Pearse (will.pearse@gmail.com)"
+		print ""
+		print "This program is easier to use with a wider console window"
+		print "Mac/Linux: Drag the edge of your terminal window with the mouse"
+		print "PC: Right click the command prompt icon, select properties,"
+		print "\tclick the 'layout' tab, and increase 'screen buffer'"
+		print "\tand 'window' widths to at least '160'"
 		
 		#Startup
 		currentState = PhyloGenerator(args)
