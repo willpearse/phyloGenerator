@@ -11,7 +11,7 @@ EASY USE:
 * Linux: No easy-use, sorry! Follow the instructions below for 'compiling' it.
 
 'COMPILING' IT:
-Short answer: Install Python >=2.6; Numpy and SciPy for Python; Biopython >=2.5. Set up a folder ('requires') in the same folder as 'phyloGenerator.py' that contains the programs you'll use - check http://willpearse.github.com/phyloGenerator/install.html#compiling for the names of the programs.
+Short answer: Install Python 2.6.x or 2.7.x (NOT 3.x); Numpy and SciPy for Python; Biopython >=1.6. Set up a folder ('requires') in the same folder as 'phyloGenerator.py' that contains the programs you'll use - check http://willpearse.github.com/phyloGenerator/install.html#compiling for the names of the programs.
 Long answer: go to http://willpearse.github.com/phyloGenerator/install.html
 
 EXAMPLES:

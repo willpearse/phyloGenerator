@@ -2,7 +2,11 @@
 # encoding: utf-8
 """
 phyloGenerator.py
-This work is licensed under the Creative Commons Attribution-ShareAlike 3.0 Unported License. To view a copy of this license, visit http://creativecommons.org/licenses/by-sa/3.0/ or send a letter to Creative Commons, 444 Castro Street, Suite 900, Mountain View, California, 94041, USA.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. The following restriction to the GNU GPL applies: contact the author of this program (http://willpearse.github.com/phyloGenerator) for a suitable citation when using the code.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 from Bio import Entrez #Taxonomy lookup
 from Bio.Seq import Seq #Sequence manipulation
@@ -182,7 +186,10 @@ def eFetchSeqID(seqID, rettype='gb'):
 	while finished <= maxCheck:
 		try:
 			handle = Entrez.efetch(db="nucleotide", rettype=rettype, retmode="text", id=seqID)
-			results = SeqIO.read(handle,rettype)
+			resultsIter = SeqIO.parse(handle,rettype)
+			results = [x for x in resultsIter]
+			if len(results) == 1:
+				results = results[0]
 			handle.close()
 			finished = maxCheck + 1
 		except:
@@ -200,7 +207,10 @@ def eFetchESearch(eSearchOutput, rettype='gb'):
 	while finished <= maxCheck:
 		try:
 			handle = Entrez.efetch(db="nucleotide", rettype=rettype, retmode="text", webenv=eSearchOutput['WebEnv'], query_key=eSearchOutput['QueryKey'])
-			results = SeqIO.read(handle, rettype)
+			resultsIter = SeqIO.parse(handle,rettype)
+			results = [x for x in resultsIter]
+			if len(results) == 1:
+				results = results[0]
 			handle.close()
 			finished = maxCheck + 1
 		except:
@@ -240,7 +250,7 @@ def sequenceDownload(spName, geneName, thorough=False, rettype='gb', noSeqs=1, s
 		if not includeGenome: searchTerm = "(" + searchTerm + ") NOT " + "genome [Title]"
 		firstSearch = eSearch(searchTerm, retStart, retMax)
 		if firstSearch:
-			if int(firstSearch['Count']) == noSeqs:
+			if int(firstSearch['Count']) <= noSeqs:
 				return eFetchESearch(firstSearch)
 			elif int(firstSearch['Count']) > noSeqs:
 				if seqChoice == 'random':
@@ -356,6 +366,31 @@ def sequenceDownload(spName, geneName, thorough=False, rettype='gb', noSeqs=1, s
 			else:
 				return ((), ())
 
+
+#Doesn't handle species without sequences, or check iteratively (yet!)
+def referenceSearch(speciesList, geneName, referenceAlignment, iterCheck=20, failSp=10, tolerance=20, method='mafft', targetLength=None, trimSeq=False, DNAtype='Standard', gapType='-', includeGenome=True, includePartial=True, thorough=True):
+	finalSeqs = []
+	#Strip the reference alignment for re-alignment
+	strippedAlignment = []
+	for i,seq in enumerate(referenceAlignment):
+		strippedAlignment.append(SeqRecord(Seq(seq.seq.tostring().replace("-", "")), id=str(i)))
+	
+	#Loop through the species to be downloaded
+	for i,sp in enumerate(speciesList):
+		seqs, _ = sequenceDownload(sp, [geneName], noSeqs=failSp, targetLength=targetLength, trimSeq=trimSeq, DNAtype=DNAtype, includeGenome=includeGenome, includePartial=includePartial, thorough=thorough)
+		for each in seqs:
+			currSeqs = strippedAlignment + [each]
+			#alignSequences expects a phyloGenerator sequence list, so manually alter
+			currSeqs = [[x] for x in currSeqs]
+			currAlign = alignSequences(currSeqs, method=method)
+			#Similarly, must handle a phyloGenerator alignment list...
+			if (referenceAlignment.get_alignment_length() - currAlign[0][0].get_alignment_length()) < tolerance:
+				finalSeqs.append(each)
+				break
+	
+	return alignSequences([[x] for x in finalSeqs], method=method)
+
+
 def findGenes(speciesList, geneNames, download=False, targetNoGenes=-1, noSeqs=1, includePartial=True, includeGenome=True, seqChoice='random', verbose=True, thorough=False, spacer=10, delay=5, retMax=20):
 	def findBestGene(foundSeqsArray):
 		geneHits = foundSeqsArray.sum(axis=0)
@@ -430,7 +465,7 @@ def argsCheck(arguments, parameter, argSplit='-', paramSplit=' '):
 		else:
 			raise RuntimeError("A match value for '" + paramter + "' was not found in the call '" + arguments + "'")
 
-def alignSequences(seqList, sppNames, method='muscle', tempStem='temp', timeout=99999999, silent=False, nGenes=1, verbose=True):
+def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, silent=False, nGenes=1, verbose=True):
 	finalOutput = []
 	output = []
 	alignedSomething = False
@@ -1865,8 +1900,11 @@ class PhyloGenerator:
 			self.workingDirectory = args.wd
 			print "\nUsing working directory '" + args.wd + "' ..."
 		else:
-			print "\nPlease input a working directory for all your output\n"
+			print "\nPlease input a working directory for all your output"
+			print "\t(hit enter to use current working directory)"
 			self.workingDirectory = raw_input("Working directory: ")
+			if not self.workingDirectory:
+				self.workingDirectory = os.getcwd()
 		
 		#Email
 		if args.email:
@@ -2874,7 +2912,7 @@ class PhyloGenerator:
 					self.alignmentMethod = 'mafft'
 					locker = False
 		print "Starting alignment..."
-		self.alignment = alignSequences(seqList=self.sequences, sppNames=self.speciesNames, method=self.alignmentMethod, tempStem='temp', timeout=99999999, nGenes=len(self.genes))
+		self.alignment = alignSequences(seqList=self.sequences, method=self.alignmentMethod, tempStem='temp', timeout=99999999, nGenes=len(self.genes))
 		print "\nAlignment complete!"
 		if self.alignmentMethod == 'everything':
 			self.alignmentMethods = ['muscle', 'mafft', 'clustalo', 'prank']
