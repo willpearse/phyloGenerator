@@ -68,11 +68,13 @@
 ================================================== -->
 <header class="jumbotron subhead" id="overview">
   <h1>Install</h1>
-  <p class="lead">Download everything in one click for Windows and Mac, or compile from source for everything else</p>
+  <p class="lead">Download everything in one click for Windows and
+	      Mac, and for everything else use the Linux install
+	      script.</p>
   <div class="subnav">
     <ul class="nav nav-pills">
 	  <li><a href="#oneClick">One-Click Install</a></li>
-	  <li><a href="#compiling">Compiling</a></li>
+	  <li><a href="#compiling">Linux</a></li>
     </ul>
   </div>
 </header>
@@ -100,10 +102,6 @@
 		<p>Tested on Mac OS 10.6 and 10.7 (Snow Leopard and
       Lion)</p>
       <p>Note: this is the latest (v1.1) version of phyloGenerator. Should you encounter errors, please <a href="https://github.com/willpearse/phyloGenerator/issues">report them</a>, and (in the interim) use <a href="https://www.dropbox.com/s/toqaxh4fzzlh99r/phyloGeneratorMac_1-0.zip">version 1.0</a>.</div>
-    <div class="span4">
-      <h3>Linux</h3>
-      <p>Coming soon... For now you'll have to compile it by hand (see below). Sorry!</p>
-    </div>
 </section>
 
 
@@ -112,26 +110,55 @@
 <a name="compiling"></a>
 <section id="compiling">
   <div class="page-header">
-    <h1>Compiling from Source</h1>
+    <h1>Linux setup</h1>
   </div>
   <div class="row">
     <div class="span4">
       <h3>Overview</h3>
-      <p>There're two main steps to this: setting up Python and the packages phyloGenerator uses, and setting up all the phylogenetics programs that phyloGenerator uses. It's not technically challenging, but it is fiddly. Sorry!</p>
-	  <p>Once everything's set up, just run the file 'phyloGenerator.py'. That's it!</p>
+      <p>Download the <a
+      href="https://github.com/willpearse/phyloGenerator/archive/master.zip">source
+      code from GitHub here</a>, and (from Terminal) run the
+      <em>linuxSsetup.py</em> script (something like <em>python
+      linuxSetup.py</em>. If you don't have python installed, try
+      <em>sudo apt-get install python</em>.</p>
+	  <p>This will not work first time! The script will tell you
+      what things are yet to be installed, and give you a web link to
+      follow that will have the download you need, or recommend
+      something to type into your console to set that component up for
+      you.</p>
+      <p>The script is setting up symbolic links
+      for the programs you're downloading in a folder called 'requires'. This means that moving the
+      programs once you've set up phyloGenerator will cause
+      phyloGenerator not to work. So put those programmes somewhere
+      safe, like inside your phyloGenerator folder.</p>
+      <p>When running the setup script, make sure you tell it where
+      these programs are by supplying their paths as arguments. You
+      can specify as many paths as you like. Make sure you
+      specifically tell it where your BEAST folder is - something
+      like: <em>python setupLinux.py /work/will/phyloGenerator/
+      /work/will/phyloGenerator/BEASTv1.7.1</em>.</p>
     </div>
-    <div class="span4">
-      <h3>Python and its packages</h3>
-		<ol>
-		<li>Python. <a href="http://www.python.org/getit/">Grab the latest version of Python 2.7</a>. <b>Do not</b> download any Python version starting with a 3.</li>
-		<li>NumPy. <a href="http://sourceforge.net/projects/numpy/files/">Grab it from here</a> - make sure to get the version for Python 2.7, not 2.6 (SourceForge tends to take you there by default.)</li>
-		<li>SciPy. <a href="http://sourceforge.net/projects/scipy/files/">Grab it from here</a> - make sure to get the version for Python 2.7, not 2.6 (SourceForge tends to take you there by default.)</li>
-		<li>BioPython. <a href="http://biopython.org/wiki/Download">Grab it from here</a>.</li>
-		</ol>
-    </div>
+        <div class="span4">
+      <h3>Common Problems</h3>
+      <p>The script should be able to auto-detect the names of the
+      programs it's looking for in each of your folders. This could go
+      wrong - if it does, change the name of the program to that shown
+      in the next column. For example, ideally Clustal-Omega would be
+      called 'clustalo', and renaming the program to that should solve
+      any problems.</p>
+      <p>If the name is right, but the script still isn't working,
+      make sure the program's permissions are set up right to let your
+      computer execute it. Just type something like <em>chmod 777
+      NAMEOFPROGRAM</em> and phyloGenerator will be able to execute
+the program.</p>
+	  </div>
     <div class="span4">
       <h3>Phylogenetics Software</h3>
-      <p>You don't need all of these programs (...only the ones you're going to use...) but the complete list is below. Once you've compiled them, put them all inside a folder named 'requires' in the same folder as 'phyloGenerator.py'. Some of the binaries need to be named something specific - this name is given after the name of the program (which is a link to its location).</p>
+      <p>You don't necessarily need all of these programs (...only the ones you're
+      going to use...) but the complete list is below. Once you've
+      compiled them, put all of them in safe folder and run
+      setupLinux.py with that folder as an argument (see the column to
+      the left).</p>
 	  <ul>
 		  <li><a href="https://github.com/stamatak/standard-RAxML">RAxML</a> - raxml</li>
 		  <li><a href="http://beast.bio.ed.ac.uk/Main_Page">BEAST</a> - beast. You need to alter the script in the 'bin' folder of the BEAST distribution, as I've done in the source code (the file 'beast').</li>
