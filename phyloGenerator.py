@@ -648,7 +648,7 @@ def checkSequenceList(seqList, method='length', tolerance=None):
 			raise RuntimeError("Tolerance level not passed to 'checkASequenceList'")
 		output = quantiles(seqList)
 		output['tolerable'] = []
-		for i,each in enumerate(seqList):	
+		for i,each in enumerate(seqList):
 			upperLimit = output['maxLength'][i] - output['quantileLengths'][i][2]
 			lowerLimit = output['quantileLengths'][i][2] - output['minLength'][i]
 			if upperLimit > tolerance or lowerLimit > tolerance:
@@ -737,7 +737,7 @@ def alignmentDisplay(alignments, alignMethods, geneNames, alignDetect=None, seqL
 						print  '{ID:3}{alignment:<13}{length:<11}{medGaps:<16.1f}{sdGaps:<16.2f}{minMaxGaps:16}{medGapsFrac:<16.2f}{minMaxGapsFrac:15}'.format(ID=str(i), alignment=alignMethods[i], length=alignDetect['length'][alignNo][i], medGaps=alignDetect['noGaps'][alignNo]['median'][i], sdGaps=alignDetect['noGaps'][alignNo]['sd'][i], minMaxGaps=str(str(round(alignDetect['noGaps'][alignNo]['min'][i],3))+" - "+str(round(alignDetect['noGaps'][alignNo]['max'][i],3))), medGapsFrac=alignDetect['gapFraction'][alignNo]['median'][i], minMaxGapsFrac=str(str(round(alignDetect['gapFraction'][alignNo]['min'][i],3))+"-"+str(round(alignDetect['gapFraction'][alignNo]['max'][i],3))))
 				else:
 					print  '{ID:3}{alignment:<13}{length:<11}{medGaps:<16.1f}{sdGaps:<16.2f}{minMaxGaps:16}{medGapsFrac:<16.2f}{minMaxGapsFrac:15}'.format(ID=str(i), alignment=alignMethods[i], length=alignDetect['length'][alignNo][i], medGaps=alignDetect['noGaps'][alignNo]['median'][i], sdGaps=alignDetect['noGaps'][alignNo]['sd'][i], minMaxGaps=str(str(round(alignDetect['noGaps'][alignNo]['min'][i],3))+" - "+str(round(alignDetect['noGaps'][alignNo]['max'][i],3))), medGapsFrac=alignDetect['gapFraction'][alignNo]['median'][i], minMaxGapsFrac=str(str(round(alignDetect['gapFraction'][alignNo]['min'][i],3))+"-"+str(round(alignDetect['gapFraction'][alignNo]['max'][i],3))))
-				
+		
 		else:
 			print "ID", "Alignment", "Length"
 			for i in range(len(alignList)):
@@ -1240,7 +1240,7 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 					raise RuntimeError("No valid DNA substituion model specified for BEAST.")
 				f.write('		</substitutionModel>\n')
 				f.write('	</siteModel>\n')
-				
+		
 		else:
 			f.write('	<!-- site model																 -->\n')
 			f.write('	<siteModel id="siteModel">\n')
@@ -1750,7 +1750,7 @@ def createConstraintTree(spNames, method="phylomaticTaxonomy", fileName='', temp
 			for gList in groupedLists:
 				for each in gList:
 					del each[1]
-		
+			
 			return "(" + ",".join([recursiveTree(x) for x in groupedLists]) + ")"
 	
 	if method == "phylomaticTaxonomy":
@@ -1765,7 +1765,7 @@ def createConstraintTree(spNames, method="phylomaticTaxonomy", fileName='', temp
 			return constraint
 		else:
 			raise RuntimeError("Phylomatic did not run correctly")
-		
+	
 	elif method == "GenBank":
 		print "THIS DOESN'T WORK!!!!!!!!"
 		lineages = [findLineage(x) for x in spNames]
@@ -2657,7 +2657,7 @@ class PhyloGenerator:
 							self.mergedSpp.append(merged)
 							print "Successfully merged species into", merged[0]
 							print "Re-calulating summary statistics..."
-							self.dnaChecking()			
+							self.dnaChecking()
 							return "merge", False
 						else:
 							print "One of the species you're merging must have DNA data"
@@ -3242,7 +3242,7 @@ class PhyloGenerator:
 					else:
 						self.smoothPhylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs = BEAST(self.alignment[0], method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, burnin=burnin, tempStem='beast_smooth')
 					beastLock = False
-					
+		
 		
 		print "\nYou can now rate-smooth your phylogeny (i.e., make its branch lengths proportional to evolutionary time)."
 		print "\t'pathd8' - rate-smooth using PATHd8 (fastest!)"
@@ -3348,7 +3348,7 @@ class PhyloGenerator:
 			else:
 				Phylo.write(self.phylogenyMerged, self.stem+"_MERGED_phylogeny.tre", 'newick')
 				Phylo.write(self.phylogeny, self.stem+"_RAW_phylogeny.tre", 'newick')
-			
+		
 		else:
 			if self.phylogeny:
 				if 'BEAST' in self.phylogenyMethods:
@@ -3530,7 +3530,7 @@ class PhyloGenerator:
 				phylomatic()
 			elif self.constraintMethod == 'taxonomy':
 				taxonomy()
-				
+			
 			else:
 				print "Error in constraint tree method name."
 				#do something better here please!
@@ -3666,15 +3666,15 @@ class PhyloGenerator:
 			self.tracker = 0
 		else:
 			self.tracker += 1
-
+	
 	def geneNames(self):
 		return [x[0] for x in self.genes]
-	
+
 
 def main():
 	args = parser.parse_args()
 	if args.version:
-		print "v0.1"
+		print "v1.1a"
 	elif args.manual:
 		 webbrowser.open("http://willpearse.github.com/phyloGenerator")
 	else:
@@ -3705,54 +3705,62 @@ def main():
 		if not len(currentState.sequences):
 			print "\nNo DNA, or list of species for which to download DNA, loaded. Exiting."
 			sys.exit()
+        
+        
+        #Gene number checking
+        if len(currentState.sequences[0]) != len(currentState.genes):
+            print "\nERROR: You have specified that you have more genes that you have data for."
+            print "In all likelihood, you've supplied your own DNA, but said you have more than one gene."
+            print "Unable to continue; exiting"
+            sys.exit()
 		
-		#DNA Checking
-		print "\nDNA CHECKING"
-		currentState.dnaChecking()
-		print "You may now edit the sequences you are using. Deleting species may change species' IDs"
-		print "Huge variation in lengths of sequences (e.g., thousands of base pairs) crashes many alignment programs"
-		print "All species without sequence data will be ignored when continuing to the next step"
-		print "\nTIPS:"
-		print "\tCheck for long sequences, and TRIM them (use the '>' command). Make sure you've set the 'type' of gene you're using first"
-		print "\tTry RELOADing short sequences (use the '>' command). Consider searching for the 'max' length sequences"
-		print "\tREPLACE species for which you can't find sequence data (use the 'THOROUGH' command)"
-		print "\tIf you have alignment problems, you can return to this stage"
-		currentState.dnaEditing()
+        #DNA Checking
+        print "\nDNA CHECKING"
+        currentState.dnaChecking()
+        print "You may now edit the sequences you are using. Deleting species may change species' IDs"
+        print "Huge variation in lengths of sequences (e.g., thousands of base pairs) crashes many alignment programs"
+        print "All species without sequence data will be ignored when continuing to the next step"
+        print "\nTIPS:"
+        print "\tCheck for long sequences, and TRIM them (use the '>' command). Make sure you've set the 'type' of gene you're using first"
+        print "\tTry RELOADing short sequences (use the '>' command). Consider searching for the 'max' length sequences"
+        print "\tREPLACE species for which you can't find sequence data (use the 'THOROUGH' command)"
+        print "\tIf you have alignment problems, you can return to this stage"
+        currentState.dnaEditing()
 		
-		#DNA Cleanup and renaming
-		currentState.cleanUpSequences()
-		currentState.renameSequences()
+        #DNA Cleanup and renaming
+        currentState.cleanUpSequences()
+        currentState.renameSequences()
 		
-		#Alignment
-		print "\nDNA ALIGNMENT"
-		currentState.align()
+        #Alignment
+        print "\nDNA ALIGNMENT"
+        currentState.align()
 		
-		print "\nALIGNMENT CHECKING"
-		currentState.alignmentEditing()
-		#Add blank alignment entries for BEAST/RAxML for the missing species
-		currentState.padAlignment()		
-		#Constraint tree
-		print "\nCONSTRAINT TREE"
-		currentState.getConstraint()
+        print "\nALIGNMENT CHECKING"
+        currentState.alignmentEditing()
+        #Add blank alignment entries for BEAST/RAxML for the missing species
+        currentState.padAlignment()
+        #Constraint tree
+        print "\nCONSTRAINT TREE"
+        currentState.getConstraint()
 		
-		#Phylogeny building
-		print "\nPHYLOGENY BUILDING"
-		currentState.phylogen()
+        #Phylogeny building
+        print "\nPHYLOGENY BUILDING"
+        currentState.phylogen()
 		
-		#Rate smoothing
-		if 'BEAST' in currentState.phylogenyMethods:
-			print "\nSKIPPING RATE SMOOTHING STEP"
-			print "\t(unecessary with BEAST phylogeny)"
-		else:
-			print "\nRATE SMOOTHING"
-			currentState.rateSmooth()
+        #Rate smoothing
+        if 'BEAST' in currentState.phylogenyMethods:
+        	print "\nSKIPPING RATE SMOOTHING STEP"
+        	print "\t(unecessary with BEAST phylogeny)"
+        else:
+        	print "\nRATE SMOOTHING"
+        	currentState.rateSmooth()
 		
-		#Handle merged species
-		currentState.unmerge()
+        #Handle merged species
+        currentState.unmerge()
 		
-		#Output
-		currentState.writeOutput()
-		print "\nCongratulations! Exiting phyloGenerator."
+        #Output
+        currentState.writeOutput()
+        print "\nCongratulations! Exiting phyloGenerator."
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description="phyloGenerator - phylogeny generation for ecologists.", epilog="Help at http://willpearse.github.com/phyloGenerator - written by Will Pearse")
