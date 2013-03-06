@@ -54,7 +54,7 @@
 	                <a href="./faq.html">FAQ</a>
 	              </li>
 	              <li class="">
-	                <a href="http://imperial.academia.edu/WillPearse">Who?</a>
+	                <a href="http://willpearse.com/">Who?</a>
 	              </li>
 	            </ul>
 	          </div>
@@ -86,29 +86,6 @@
   </div>
 </header>
 
-
-<!-- Overview
-================================================== -->
-<a name="warning"></a>
-<section id="warning">
-  <div class="page-header">
-    <h1>Warning!</h1>
-  </div>
-  <div class="row">
-    <div class="span6">
-		<p>In the last few hours, a user has kindly pointed me towards an issue that may affect a small number of people using the 'BEAST' option within phyloGenerator. The use of certain kinds of constraint tree may lead to BEAST conducting a biased search.</p>
-		<p>As always, you should not use the BEAST option unless you are comfortable checking its output. In all cases of this bug I have been able to generate, it is <em>extremely clear</em> from the output that there is a problem - the posterior contains only one tree topology!</p>
-		<p>I will be putting a revised version online in the next 48 hours. I am very happy to check your output if you are concerned this bug has affected you. Moreover, I plan to create a mailing list, which should announce issues such as this more widely.</p>
-	</div>
-    <div class="span6">
-		<p>I am extremely sorry for any inconvenience this error may cause - once again, please contact me (wdpearse@umn.edu) if you would like any help checking any datasets.<p>
-		<p>Thank you!</p>
-		<p>Will Pearse</p>
-    </div>
-    <div class="span4">
-		
-    </div>
-</section>
 
 <!-- Overview
 ================================================== -->
@@ -304,8 +281,9 @@
       <div class="span4">
   	<h4>BEAST</h4>
       	<p>The defaults (GTR-GAMMA) are likely to be fine for most uses. You'll be using a relaxed log-normal clock, and you won't be estimating any dates or rates of mutation. At this moment in time, phyloGenerator can't handle multiple searches - this will change in the future.</p>
-		<p>phyloGenerator does <b>not</b> check MCMC chains for convergence - you will need to do this yourself. This is a deliberate choice; a method that is never wrong does not exist, and I don't want to give people false hope. If someone finds a method (...) I'll incorporate it, and buy them an evening's worth of drinks. If you don't know what any of this means, I suggest you don't use BEAST!</p>
+		<p>phyloGenerator does <b>not</b> check MCMC chains for convergence - you will need to do this yourself. This is a deliberate choice; a method that is never wrong does not exist, and I don't want to give people false hope. If you are not comfortable checking the output of a BEAST run, then do not use this option. If someone finds a method (...) I'll incorporate it, and buy them an evening's worth of drinks.</p>
 		<p>If you use a constraint tree, phyloGenerator will set strong priors on the ages of all named nodes. For example, the node '(Quercus_robur:30, Quercus_ilex:30)Quercus:44' would be drawn from a normal distribution with a mean of 74 and an SD of 1.</p>
+		<p>A user kindly directed me to a bug that may have affected some BEAST runs using constraint trees in version 1.1a or lower of phyloGenerator. This bug is very easy to detect - all clades have posterior probabilities of 1, and only one topology is found in the posterior. This bug seems quite rare, but if you're in any way concerned please <a href="http://willpearse.com/">contact me</a> with a DropBox link to your output, and I will check your output for you, and re-run the analysis if necessary. I'm sorry for an inconvenience this may cause.</p>
     </div>
 </section>
 
@@ -353,7 +331,7 @@
   ================================================== -->
   <footer class="footer">
     <p class="pull-right"><a href="#">Back to top</a></p>
-	<p>(c) <a href="http://imperial.academia.edu/WillPearse">Will Pearse</a> (2012), PhD student in the Purvis Lab at Imperial College London.</p>
+	<p>(c) <a href="http://willpearse.com/">Will Pearse</a> (2012), PhD student in the Purvis Lab at Imperial College London.</p>
     <p>Website (heavily) based on Twitter's Bootstrap - thank you! Bootstrap was built by <a href="http://twitter.com/mdo" target="_blank">@mdo</a> and <a href="http://twitter.com/fat" target="_blank">@fat</a>, their code licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0" target="_blank">Apache License v2.0</a>.</p>
   </footer>
 
