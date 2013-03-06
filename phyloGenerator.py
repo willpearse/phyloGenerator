@@ -909,6 +909,8 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
 
 def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, constraint=None, cleanup=False, runNow=True, chainLength=10000, logRate=1000, screenRate=1000, overwrite=True, burnin=0.1, restart=None):
 	completeConstraint = False
+	if constraint and constraint.is_bifurcating():
+		completeConstraint = False
 	agedConstraint = False
 	if sys.platform == "win32":
 		oldWD = os.getcwd()
@@ -945,8 +947,6 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 					tempClade = copy.deepcopy(clade)
 					tempClade.collapse_all()
 					cladesAges.append(max(tempClade.depths().values()))
-			if len(set([item for sublist in clades for item in sublist])) == len(constraint.get_terminals()):
-				completeConstraint = True
 			for i,clade in enumerate(clades):
 				if cladesNames[i]:
 					ages.append(cladesAges[i])
@@ -1010,10 +1010,10 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 			f.write('	<!-- Generate a random starting tree under the coalescent process			 -->\n')
 			f.write('	<coalescentTree id="startingTree" rootHeight="0.092">\n')
 			if constraint:
+				f.write('	<constrainedTaxa>\n')
 				for i,clade in enumerate(clades):
-					f.write('	<constrainedTaxa>\n')
 					f.write('		<tmrca monophylletic="true">\n')
-					f.write('			<taxa idref="cladeNo' + str(i) + '">\n')
+					f.write('			<taxa idref="cladeNo' + str(i) + '"/>\n')
 					f.write('		</tmrca>\n')
 			f.write('		<taxa idref="taxa"/>\n')
 			if constraint:
