@@ -2,7 +2,8 @@
 # encoding: utf-8
 """
 phyloGenerator.py
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. The following restriction to the GNU GPL applies: contact the author of this program (http://willpearse.github.com/phyloGenerator) for a suitable citation when using the code.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+The following restriction to the GNU GPL applies: contact the author of this program (http://willpearse.github.com/phyloGenerator) for a suitable citation when publishing work that uses this code.
 
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
@@ -1900,11 +1901,14 @@ class PhyloGenerator:
 			self.workingDirectory = args.wd
 			print "\nUsing working directory '" + args.wd + "' ..."
 		else:
+			temp = os.getcwd()
+			if 'phyloGenerator.app/Contents/Resources' in temp:
+				temp = temp.replace('phyloGenerator.app/Contents/Resources', '')
 			print "\nPlease input a working directory for all your output"
-			print "\t(hit enter to use current working directory)"
-			self.workingDirectory = raw_input("Working directory (default - current WD): ")
+			print "\t(hit enter to use " + temp
+			self.workingDirectory = raw_input("Working directory (" + temp + "): ")
 			if not self.workingDirectory:
-				self.workingDirectory = os.getcwd()
+				self.workingDirectory = temp
 		
 		#Email
 		if args.email:
@@ -3674,7 +3678,7 @@ class PhyloGenerator:
 def main():
 	args = parser.parse_args()
 	if args.version:
-		print "v1.1a"
+		print "v1.1c"
 	elif args.manual:
 		 webbrowser.open("http://willpearse.github.com/phyloGenerator")
 	else:
@@ -3687,6 +3691,10 @@ def main():
 		print "PC: Right click the command prompt icon, select properties,"
 		print "\tclick the 'layout' tab, and increase 'screen buffer'"
 		print "\tand 'window' widths to at least '160'"
+        print ""
+        print "When downloading sequence data, you will see warnings relating to"
+        print "'missing DTD files. Do not be alarmed; this is normal, and will"
+        print "have no effect on your output."
 		
 		#Startup
 		currentState = PhyloGenerator(args)
