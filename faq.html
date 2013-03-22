@@ -56,6 +56,9 @@
 	              <li class="">
 	                <a href="http://willpearse.com/">Who?</a>
 	              </li>
+	              <li class="">
+	                <a href="https://groups.google.com/forum/#!forum/phylogenerator-users">Mailing List</a>
+	              </li>
 	            </ul>
 	          </div>
 	        </div>
@@ -75,7 +78,7 @@
 <div class="container">
       <h1>Necessities</h1>
       <h3>Who should I cite?</h3>
-	  <p>At the moment no one, and you're not permitted to edit any of the source code, or indeed to publish anything generated from or written in this package without the express permission of the author. Once the paper is out, however, all this will change.</p>
+	  <p>There is a Methods in Ecology and Evolution paper that is in press (coming out in a matter of days) that describes this program - please contact me for details if you need to cite the program right now. Please also ensure you cite the programs phyloGenerator uses (see below).</p>
   <h3>Where can I find out more details of how this program runs?</h3>
   <p>A paper describing phyloGenerator is currently under review, but once (if!) it's accepted somewhere a link to the paper will appear on the site. Until then, a copy of the manuscript is <a href="http://willpearse.com/ ">available from the lead author on request</a>.</p>
       <h3>What programs does this use? And how do I cite them?</h3>
@@ -92,6 +95,8 @@
 		  <li><a href="http://trimal.cgenomics.org/">TrimAl - 1.2rev59</a></li>
 		 </ul>
 		 <p>But you <b>must</b> cite <a href="http://www.biopython.org/wiki/Main_Page">BioPython</a>. Sorry not to be more help than this, but it's best the authors tell you what to cite so I don't get in trouble!</p>
+		<h3>I get errors when I download sequences - something about DTD files!</h3>
+		<p>This isn't a bug, it's a 'feature'. In other words, this doesn't affect your download. Just leave the program running; your sequences are being downloaded and interpreted correctly.</p>
 		<h3>My phylogeny doesn't look anything like it should do. What's gone wrong?</h3>
 		<p>In my experience, it's rare for phyloGenerator not to give you a good result, but bear in mind that no one can write an automated program that works every time with something like this - otherwise there wouldn't be phylogeneticists in the first place! For difficult projects, there's not likely to be a quick solution. Sorry. Please do contact me because I like to know when runs haven't worked. However, there are two major sources of error that phyloGenerator can help with: absence of a constraint tree, or a bad alignment.</p>
 		<p>Use Phylomatic to make a constraint, take one from a paper - whatever - that way you <emph>can't</emph> get something you wouldn't expect. If you're using a dated phylogeny, make sure you <emph>name</emph> the dated clades in your phylogeny - something like '((A:2,B:2), C:3)Named.clade:5' as oppose to '((A:2, B:2), C:3):5'.</p>
