@@ -3691,10 +3691,10 @@ def main():
 		print "PC: Right click the command prompt icon, select properties,"
 		print "\tclick the 'layout' tab, and increase 'screen buffer'"
 		print "\tand 'window' widths to at least '160'"
-        print ""
-        print "When downloading sequence data, you will see warnings relating to"
-        print "'missing DTD files. Do not be alarmed; this is normal, and will"
-        print "have no effect on your output."
+		print ""
+		print "When downloading sequence data, you will see warnings relating to"
+		print "'missing DTD files. Do not be alarmed; this is normal, and will"
+		print "have no effect on your output."
 		
 		#Startup
 		currentState = PhyloGenerator(args)
