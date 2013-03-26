@@ -1905,6 +1905,7 @@ class PhyloGenerator:
 			if 'phyloGenerator.app/Contents/Resources' in temp:
 				temp = temp.replace('phyloGenerator.app/Contents/Resources', '')
 			print "\nPlease input a working directory for all your output"
+			print "The specified directory must already pre-exist"
 			print "\t(hit enter to use " + temp
 			self.workingDirectory = raw_input("Working directory (" + temp + "): ")
 			if not self.workingDirectory:
