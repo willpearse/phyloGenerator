@@ -2972,8 +2972,8 @@ class PhyloGenerator:
 				while raxmlLock:
 					raxmlInput = raw_input("Phylogeny Building (RAxML - default 1 search): ")
 					if raxmlInput:
-						methods = parseOptions(raxmlInput)
-						if not methods:
+						self.phylogenyMethods = parseOptions(raxmlInput)
+						if not self.phylogenyMethods:
 							print "Sorry, I don't understand", raxmlInput, "- please try again."
 						raxmlLock = False
 					else:

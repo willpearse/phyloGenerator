@@ -8,6 +8,10 @@ print "\tand *which folder contains BEAST*"
 print "\te.g., './setupLinux.py /home/will/phyloGenerator /home/will/phyloGenerator/BEAST\ v1.7.4'"
 print "Make sure all programs are executable - if unsure, make them so"
 print "\te.g., 'chmod 777 NAMEOFPROGRAM'"
+print "The resulting 'requires' folder must contain only output from this script"
+print "Do not leave source code from the programs phyloGenerator uses in the same folder"
+print "\tas phyloGenerator.py, or (for safety) in your output 'working directory'"
+print "\tThis will cause obscure-looking errors from phyloGenerator!"
 
 #Modules
 import os, sys, subprocess
