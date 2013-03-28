@@ -72,7 +72,7 @@ tracker = checkProgram(['clustalo', 'clustal-o', 'clustalomega', 'clustal-omega'
 tracker = checkProgram(['metal'], 'metal', paths, requiresPath, "Download from here: 'http://kumiho.smith.man.ac.uk/blog/whelanlab/?page_id=396'") and tracker
 tracker = checkProgram(['trimal'], 'trimal', paths, requiresPath, "Download from here: 'http://trimal.cgenomics.org/downloads' and compile inside the folder 'source' with 'make'") and tracker
 tracker = checkProgram(['phylomatic'], 'phylomatic', paths, requiresPath, "Download from here: 'https://github.com/phylocom/phylocom/downloads' and compile inside the folder 'src' with 'make'") and tracker
-tracker = checkProgram(['pathd8', 'PATHd8', 'PATHD8'], 'pathd8', paths, requiresPath, "Download from here: 'http://www2.math.su.se/PATHd8/compile.html' and compile with 'cc PATHd8.c -O3 -lm -o PATHd8'") and tracker
+tracker = checkProgram(['pathd8', 'PATHd8', 'PATHD8'], 'PATHd8', paths, requiresPath, "Download from here: 'http://www2.math.su.se/PATHd8/compile.html' and compile with 'cc PATHd8.c -O3 -lm -o PATHd8'") and tracker
 tracker = checkProgram(['RAxML', 'raxml', 'raxmlHPC-SSE3', 'raxmlHPC'], 'raxml',  paths, requiresPath, "Download from here: 'https://github.com/stamatak/standard-RAxML' and compile the sequential version ('make -f Makefile.gcc')") and tracker
 #BEAST requires some additional trickery...
 beastPaths = [x+'bin/' for x in paths]
