@@ -3678,7 +3678,7 @@ class PhyloGenerator:
 def main():
 	args = parser.parse_args()
 	if args.version:
-		print "v1.1c"
+		print "v1.1d"
 	elif args.manual:
 		 webbrowser.open("http://willpearse.github.com/phyloGenerator")
 	else:
