@@ -2068,6 +2068,9 @@ class PhyloGenerator:
         
         if args.species:
             self.loadGenBank(args.species)
+
+        if args.existingAlignment:
+            self.loadDNAAlignment(args.existingAlignment)
         
         #Alignment method
         # - stupidly, this contrasts with 'self.alignmentMethods', which is a list... Fix this when you clean up the self.align method...
@@ -2121,6 +2124,26 @@ class PhyloGenerator:
                         self.seqChoice = 'targetLength'
                     else:
                         self.seqChoice = temp
+    
+    def loadDNAAlignment(self, inputFile=""):
+        files = inputFile.split(",")
+        try:
+            self.alignment = [AlignIO.read(file, 'fasta') for file in files]
+        except IOError:
+            print "\nFile(s) not found. Please try again!"
+            print "...Exiting..."
+            sys.exit()
+        for i,align in enumerate(self.alignment):
+            for j in reversed(range(len(align))):
+                if set(align[j].seq.tostring()) == set("-"):
+                    print "WARNING: sequence", align[j].name, "in alignment", str(i), "contains no information."
+                    print "If your alignment comes from phyloGenerator, this is no problem, because there is data for this species in another gene."
+                    print "If your data *do not* come from phyloGenerator, or you are using only a single gene from a previous phloGenerator run,"
+                    print "this run will crash. Please, do carry on, but you have been warned! :p"
+                    print "...I'm not going to check any more sequences..."
+                    print "...pausing the program for five seconds to make this warning obvious..."
+                    time.sleep(5)
+                    break
     
     def loadDNAFile(self, inputFile=""):
         def doWork(inputFile):
@@ -3857,53 +3880,61 @@ def main():
         
         #Startup
         currentState = PhyloGenerator(args)
-        
-        #DNA from file
-        if not len(currentState.sequences):
-            print "\nDNA INPUT"
-            currentState.loadDNAFile()
-                
-        #DNA from GenBank
-        if not len(currentState.sequences):
-            print "\nDNA DOWNLOAD"
-            currentState.loadGenBank()
-        
-        #DNA Assertion
-        if not len(currentState.sequences):
-            print "\nNo DNA, or list of species for which to download DNA, loaded. Exiting."
-            sys.exit()
-        
-        
-        #Gene number checking
-        if len(currentState.sequences[0]) != len(currentState.genes):
-            print "\nERROR: You have specified that you have more genes that you have data for."
-            print "In all likelihood, you've supplied your own DNA, but said you have more than one gene."
-            print "Unable to continue; exiting"
-            sys.exit()
-        
-        #DNA Checking
-        print "\nDNA CHECKING"
-        currentState.dnaChecking()
-        print "You may now edit the sequences you are using. Deleting species may change species' IDs"
-        print "Huge variation in lengths of sequences (e.g., thousands of base pairs) crashes many alignment programs"
-        print "All species without sequence data will be ignored when continuing to the next step"
-        print "\nTIPS:"
-        print "\tCheck for long sequences, and TRIM them (use the '>' command). Make sure you've set the 'type' of gene you're using first"
-        print "\tTry RELOADing short sequences (use the '>' command). Consider searching for the 'max' length sequences"
-        print "\tREPLACE species for which you can't find sequence data (use the 'THOROUGH' command)"
-        print "\tIf you have alignment problems, you can return to this stage"
-        currentState.dnaEditing()
-        
-        #DNA Cleanup and renaming
-        currentState.cleanUpSequences()
-        currentState.renameSequences()
-        
-        #Alignment
-        print "\nDNA ALIGNMENT"
-        currentState.align()
-        
-        print "\nALIGNMENT CHECKING"
-        currentState.alignmentEditing()
+
+        #Bypass DNA download if given alignment
+        if not currentState.alignment:
+            #DNA from file
+            if not len(currentState.sequences):
+                print "\nDNA INPUT"
+                currentState.loadDNAFile()
+            
+            #DNA from GenBank
+            if not len(currentState.sequences):
+                print "\nDNA DOWNLOAD"
+                currentState.loadGenBank()
+            
+            #DNA Assertion
+            if not len(currentState.sequences):
+                print "\nNo DNA, or list of species for which to download DNA, loaded. Exiting."
+                sys.exit()
+            
+            
+            #Gene number checking
+            if len(currentState.sequences[0]) != len(currentState.genes):
+                print "\nERROR: You have specified that you have more genes that you have data for."
+                print "In all likelihood, you've supplied your own DNA, but said you have more than one gene."
+                print "Unable to continue; exiting"
+                sys.exit()
+            
+            #DNA Checking
+            print "\nDNA CHECKING"
+            currentState.dnaChecking()
+            print "You may now edit the sequences you are using. Deleting species may change species' IDs"
+            print "Huge variation in lengths of sequences (e.g., thousands of base pairs) crashes many alignment programs"
+            print "All species without sequence data will be ignored when continuing to the next step"
+            print "\nTIPS:"
+            print "\tCheck for long sequences, and TRIM them (use the '>' command). Make sure you've set the 'type' of gene you're using first"
+            print "\tTry RELOADing short sequences (use the '>' command). Consider searching for the 'max' length sequences"
+            print "\tREPLACE species for which you can't find sequence data (use the 'THOROUGH' command)"
+            print "\tIf you have alignment problems, you can return to this stage"
+            currentState.dnaEditing()
+            
+            #DNA Cleanup and renaming
+            currentState.cleanUpSequences()
+            currentState.renameSequences()
+            
+            #Alignment
+            print "\nDNA ALIGNMENT"
+            currentState.align()
+            
+            print "\nALIGNMENT CHECKING"
+            currentState.alignmentEditing()
+        else:
+            #Pre-loaded alignment(s)
+            print ""
+            print "Alignment already provided; skipping all sequence editing"
+            print "\tWarning: proceeding without checking your alignment, either in pG or by hand, is a *very bad idea*!"
+            
         #Add blank alignment entries for BEAST/RAxML for the missing species
         currentState.padAlignment()
         #Constraint tree
@@ -3947,4 +3978,5 @@ if __name__ == '__main__':
     parser.add_argument("-options", "-o", help="Options file giving detailed instructions to phyloGen.")
     parser.add_argument("-delay", help="Delay (seconds) when pausing between any internet API calls.")
     parser.add_argument("-referenceDownload", help="Sequences for use in referenceDownload method. Must be of same length as 'genes' argument.")
+    parser.add_argument("-existingAlignment", help="Existing alignment(s) file locations (multiple files are comma-separated). Using this bypasses all sequence and alignment checking.")
     main()
