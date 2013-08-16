@@ -384,8 +384,20 @@ def sequenceDownload(spName, geneName, thorough=False, rettype='gb', noSeqs=1, s
 
 
 #Doesn't handle species without sequences, or check iteratively (yet!)
-def referenceSearch(speciesList, geneName, referenceAlignment, iterCheck=20, failSp=10, tolerance=20, method='mafft', targetLength=None, trimSeq=False, DNAtype='Standard', gapType='-', includeGenome=True, includePartial=True, thorough=True):
+def referenceSearch(speciesList, geneName, referenceAlignment, iterCheck=20, failSp=10, tolerance=20, method='mafft', targetLength=None, DNAtype='Standard', gapType='-', includeGenome=True, includePartial=True, thorough=True):
+    def checkSeq(seq, strippedAlignment, referenceAlignment, method, tolerance):
+        currSeqs = strippedAlignment + [seq]
+        #alignSequences expects a phyloGenerator sequence list, so manually alter
+        currSeqs = [[x] for x in currSeqs]
+        currAlign = alignSequences(currSeqs, method=method, verbose=False)
+        if (currAlign[0][0].get_alignment_length() - referenceAlignment.get_alignment_length()) < tolerance:
+            return True
+        else:
+            return False
+    
     finalSeqs = []
+    edit = []
+    species = []
     #Strip the reference alignment for re-alignment
     strippedAlignment = []
     for i,seq in enumerate(referenceAlignment):
@@ -393,22 +405,44 @@ def referenceSearch(speciesList, geneName, referenceAlignment, iterCheck=20, fai
     
     #Loop through the species to be downloaded
     for i,sp in enumerate(speciesList):
-        print sp
-        seqs, _ = sequenceDownload(sp, [geneName], noSeqs=failSp, targetLength=targetLength, trimSeq=trimSeq, DNAtype=DNAtype, includeGenome=includeGenome, includePartial=includePartial, thorough=thorough)
+        if (i % 10) == 0:
+            time.sleep(10)
+        seqs, _ = sequenceDownload(sp, [geneName], noSeqs=failSp, targetLength=targetLength, DNAtype=DNAtype, includeGenome=includeGenome, includePartial=includePartial, thorough=thorough)
         #...check whether we've only got one sequence (this is silly!)
-        if seqs and isinstance(seqs, SeqRecord):
-            seqs = [seqs]
+        if seqs:
+            if isinstance(seqs, SeqRecord):
+                seqs = [seqs]
+            else:
+                #It's a list, so sort it to deal with the longest first (and 'avoid' fragments...)
+                # - this should be quicker, because now when we see a good sequence it's genuinely good...
+                seqs = sorted(seqs, key=len, reverse=True)
         for each in seqs:
-            currSeqs = strippedAlignment + [each]
-            #alignSequences expects a phyloGenerator sequence list, so manually alter
-            currSeqs = [[x] for x in currSeqs]
-            currAlign = alignSequences(currSeqs, method=method)
-            #Similarly, must handle a phyloGenerator alignment list...
-            if (currAlign[0][0].get_alignment_length() - referenceAlignment.get_alignment_length()) < tolerance:
+            if checkSeq(each, strippedAlignment, referenceAlignment, method, tolerance):
+                print sp, len(each)
                 finalSeqs.append(each)
+                edit.append("None")
+                species.append(sp)
                 break
+            else:
+                each = findGeneInSeq(each, [geneName], trimSeq=False)
+                if checkSeq(each, strippedAlignment, referenceAlignment, method, tolerance):
+                    print sp, len(each)
+                    finalSeqs.append(each)
+                    edit.append("Annotation")
+                    species.append(sp)
+                    break
+                else:
+                    each = trimSequence(each, DNAtype=DNAtype, gapType=gapType)
+                    if checkSeq(each, strippedAlignment, referenceAlignment, method, tolerance):
+                        print sp, len(each)
+                        finalSeqs.append(each)
+                        edit.append("Annotated and Trimmed")
+                        species.append(sp)
+                        break
+        else:
+            print sp, "failure"
     
-    return alignSequences([[x] for x in finalSeqs], method=method)
+    return (finalSeqs, species, edit)
 
 
 def findGenes(speciesList, geneNames, download=False, targetNoGenes=-1, noSeqs=1, includePartial=True, includeGenome=True, seqChoice='random', verbose=True, thorough=False, spacer=10, delay=5, retMax=20):
@@ -1926,6 +1960,7 @@ class PhyloGenerator:
         self.smoothPhylogeny = []
         self.root = False
         self.genBankIDs = []
+        self.sequenceEdits = []
         self.constraint = False
         self.genBankRetMax = 50
         self.spacer = 10
@@ -2088,44 +2123,47 @@ class PhyloGenerator:
                         self.seqChoice = temp
     
     def loadDNAFile(self, inputFile=""):
-        if inputFile:
+        def doWork(inputFile):
+            self.fastaFile = inputFile
+            files = inputFile.split(",")
+            sequences = []
             try:
-                tempSeqs = list(SeqIO.parse(inputFile, 'fasta'))
-                for each in tempSeqs:
-                    self.sequences.append([each])
-                self.speciesNames.extend([x.name for x in tempSeqs])
-                self.fastaFile = inputFile
-                print "...DNA loaded"
-                if not self.genes:
-                    print "Please enter the name of the gene you're using below\n"
-                    self.genes.append([raw_input("Gene name: ")])
-                    self.nGenes = 1
-                self.codonModels.append('Standard')
+                files = [list(SeqIO.parse(file, 'fasta')) for file in files]
             except IOError:
-                print "\nDNA sequence file not found. Exiting..."
-                sys.exit()
+                print "\nFile not found. Please try again!"
+                return False
+                
+            #Get unique set of species, alphabetise, and link everything up
+            species = list(set([seq.name for seqs in files for seq in seqs]))
+            species.sort()
+            for i,sp in enumerate(species):
+                self.sequences.append([])
+                for seqs in files:
+                    for seq in seqs:
+                        if seq.name == sp:
+                            self.sequences[i].append(seq)
+                            break
+                    else:
+                        self.sequences[i].append([])
+            
+            self.sequenceEdits = [["" for i in each] for each in self.sequences]
+            self.codonModels = ["Standard" for each in self.sequences]
+            self.speciesNames = species
+            return True
+        
+        if inputFile:
+            check = doWork(inputFile)
+            if not check:
+                print "Exiting; change input arguments and try again!"
         else:
             locker = True
             print "\nIf you already have DNA sequences in a FASTA file, please enter its location"
+            print "If you have more than one set of sequences, please separate the file locations with commas"
             print "Otherwise, hit enter to continue\n"
             while locker:
-                inputFile = raw_input("")
+                inputFile = raw_input("File locations: ")
                 if inputFile:
-                    try:
-                        tempSeqs = list(SeqIO.parse(inputFile, 'fasta'))
-                        for each in tempSeqs:
-                            self.sequences.append([each])
-                        self.speciesNames.extend([x.name for x in tempSeqs])
-                        self.fastaFile = inputFile
-                        if not self.genes:
-                            print "DNA loaded; please enter the name of the gene you're using below"
-                            self.genes.append([raw_input("Gene name: ")])
-                            self.nGenes = 1
-                        self.codonModels.append('Standard')
-                        print "DNA loaded"
-                        locker = False
-                    except IOError:
-                        print "\nFile not found. Please try again!"
+                    locker = doWork(inputFile)
                 else:
                     print "\nNo DNA loaded"
                     locker = False
@@ -2181,6 +2219,55 @@ class PhyloGenerator:
                         locker = False
             if self.genes:
                 self.sequences, self.genes = findGenes(self.speciesNames, self.genes, seqChoice=self.seqChoice, verbose=True, download=True, thorough=True, targetNoGenes=self.nGenes, spacer=self.spacer, delay=self.delay)
+                self.sequenceEdits = [["" for i in each] for each in self.sequences]
+
+    def loadReferenceDownload(self):
+        if inputFile:
+            files = inputFile.split(",")
+            sequences = []
+            files = [list(SeqIO.parse(file, 'fasta')) for file in files]
+            for each in files[0]:
+                self.sequences.append([])
+                self.sequenceEdits.append([])
+            firstTime = True
+            self.referenceSequences = inputFile
+            self.speciesNames.extend([x.name for x in files[0]])
+            for i,seqs in enumerate(files):
+                for j,seq in enumerate(seqs):
+                    self.sequences[j].append(seq)
+                    self.sequenceEdits[j].append("")
+                self.codonModels.append('Standard')
+            if not self.genes:
+                print "ERROR. You need to specify the gene names you're using when loading multiple reference sequences"
+                print "Something like '-gene rbcL,matK'"
+                sys.exit()
+        else:
+            locker = True
+            print "\nIf you have a reference DNA sequence to aid the GenBank search, please enter its location."
+            while locker:
+                inputFile = raw_input("")
+                if inputFile:
+                    try:
+                        tempSeqs = list(SeqIO.parse(inputFile, 'fasta'))
+                        for each in tempSeqs:
+                            self.sequences.append([each])
+                            self.sequenceEdits.append([""])
+                        self.speciesNames.extend([x.name for x in tempSeqs])
+                        self.referenceSequences = [inputFile]
+                        if not self.genes:
+                            print "DNA loaded; please enter the name of the gene you're using below"
+                            self.genes.append([raw_input("Gene name: ")])
+                            self.nGenes = 1
+                        self.codonModels.append('Standard')
+                        print "DNA loaded"
+                        locker = False
+                    except IOError:
+                        print "\nFile not found. Please try again!"
+                else:
+                    print "\nNo DNA loaded"
+                    locker = False
+    
+    
     
     def dnaChecking(self, tolerance=0.1):
         self.tolerance = tolerance
@@ -2201,6 +2288,7 @@ class PhyloGenerator:
                     if int(inputSeq) in range(len(self.speciesNames)):
                         del self.sequences[int(inputSeq)]
                         del self.speciesNames[int(inputSeq)]
+                        del self.sequenceEdits[int(inputSeq)]
                         if self.taxonomy:
                             del self.taxonomy[int(inputSeq)]
                         print "SeqID", inputSeq, "Successfully deleted"
@@ -2225,6 +2313,7 @@ class PhyloGenerator:
                                         for j,gene in enumerate(species):
                                             if self.genes[j][0] == geneInput:
                                                 del self.sequences[i][j]
+                                                del self.sequenceEdits[i][j]
                                                 continue
                                     for i,gene in enumerate(self.geneNames()):
                                         if gene == geneInput:
@@ -2432,6 +2521,7 @@ class PhyloGenerator:
                         for i,each in enumerate(self.sequences[seqNo]):
                             if each:
                                 self.sequences[seqNo][i] = cleanSequenceWrapper(self.sequences[seqNo][i], self.genes[i], DNAtype=self.codonModels[i], gapType='-')
+                                self.sequenceEdits[seqNo][i] += "trim;"
                         print "Re-calulating summary statistics..."
                         self.dnaChecking()
                         return 'trim', False
@@ -2445,6 +2535,7 @@ class PhyloGenerator:
                             if seqID < len(self.sequences):
                                 print "Trimming SeqID", seqID, "gene", gene
                                 self.sequences[seqID][i] = cleanSequenceWrapper(self.sequences[seqID][i], self.genes[i], DNAtype=self.codonModels[i], gapType='-')
+                                self.sequenceEdits[seqNo][i] += "trim;"
                                 print "Re-calulating summary statistics..."
                                 self.dnaChecking()
                                 return 'trim', False
@@ -2456,6 +2547,7 @@ class PhyloGenerator:
                         for j,gene in enumerate(sp):
                             if len(self.sequences[i][j]) > threshold:
                                 self.sequences[i][j] = cleanSequenceWrapper(self.sequences[i][j], self.genes[j], DNAtype=self.codonModels[j], gapType='-')
+                                self.sequenceEdits[i][j] += "trim;"
                     print "Re-calulating summary statistics..."
                     self.dnaChecking()
                     return 'trim', False
@@ -2465,6 +2557,7 @@ class PhyloGenerator:
                         for j,gene in enumerate(sp):
                             if len(self.sequences[i][j]) < threshold:
                                 self.sequences[i][j] = cleanSequenceWrapper(self.sequences[i][j], self.genes[j], DNAtype=self.codonModels[j], gapType='-')
+                                self.sequenceEdits[i][j] += "trim;"
                     print "Re-calulating summary statistics..."
                     self.dnaChecking()
                     return 'trim', False
@@ -2498,6 +2591,7 @@ class PhyloGenerator:
                         for j,gene in enumerate(sp):
                             if self.sequences[i][j]:
                                 self.sequences[i][j] = cleanSequenceWrapper(self.sequences[i][j], self.genes[j], DNAtype=self.codonModels[j], gapType='-', )
+                                self.sequenceEdits[i][j] += "trim;"
                     print "Re-calulating summary statistics..."
                     self.dnaChecking()
                     return 'trim', False
@@ -2721,6 +2815,7 @@ class PhyloGenerator:
                                     merged.append(self.speciesNames[i])
                                     del self.sequences[i]
                                     del self.speciesNames[i]
+                                    del self.sequenceEdits[i]
                             self.mergedSpp.append(merged)
                             print "Successfully merged species into", merged[0]
                             print "Re-calulating summary statistics..."
@@ -3349,6 +3444,7 @@ class PhyloGenerator:
                 cleaned.append(self.speciesNames[i])
                 del self.sequences[i]
                 del self.speciesNames[i]
+                del self.sequenceEdits[i]
                 if self.taxonomy:
                     del self.taxonomy[i]
         
@@ -3400,9 +3496,9 @@ class PhyloGenerator:
         if self.genBankIDs:
             for i,gene in enumerate(self.geneNames()):
                 with open(self.stem+"_"+gene+"_sequence_info.txt", 'w') as f:
-                    f.write("Species Name, Sequence ID\n")
+                    f.write("Species Name, Sequence ID, Sequence Edits\n")
                     for j,name in enumerate(self.speciesNames):
-                        f.write(name + "_" + self.genBankIDs[j][i] + "\n")
+                        f.write(",".join([name, self.genBankIDs[j][i], self.sequenceEdits[j][i]]) + "\n")
         
         #Phylogeny
         if self.phylogenyMerged:
@@ -3766,7 +3862,7 @@ def main():
         if not len(currentState.sequences):
             print "\nDNA INPUT"
             currentState.loadDNAFile()
-        
+                
         #DNA from GenBank
         if not len(currentState.sequences):
             print "\nDNA DOWNLOAD"
@@ -3850,4 +3946,5 @@ if __name__ == '__main__':
     parser.add_argument("-email", "-e", help="Email address for GenBank searches.")
     parser.add_argument("-options", "-o", help="Options file giving detailed instructions to phyloGen.")
     parser.add_argument("-delay", help="Delay (seconds) when pausing between any internet API calls.")
+    parser.add_argument("-referenceDownload", help="Sequences for use in referenceDownload method. Must be of same length as 'genes' argument.")
     main()
