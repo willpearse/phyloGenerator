@@ -384,20 +384,21 @@ def sequenceDownload(spName, geneName, thorough=False, rettype='gb', noSeqs=1, s
 
 
 #Doesn't handle species without sequences, or check iteratively (yet!)
-def referenceSearch(speciesList, geneName, referenceAlignment, iterCheck=20, failSp=10, tolerance=20, method='mafft', targetLength=None, DNAtype='Standard', gapType='-', includeGenome=True, includePartial=True, thorough=True):
+def referenceDownload(speciesList, geneName, referenceAlignment, iterCheck=20, failSp=10, tolerance=20, method='mafft', targetLength=None, DNAtype='Standard', gapType='-', includeGenome=True, includePartial=True, thorough=True, delay=10, interval=10):
     def checkSeq(seq, strippedAlignment, referenceAlignment, method, tolerance):
-        currSeqs = strippedAlignment + [seq]
-        #alignSequences expects a phyloGenerator sequence list, so manually alter
-        currSeqs = [[x] for x in currSeqs]
-        currAlign = alignSequences(currSeqs, method=method, verbose=False)
-        if (currAlign[0][0].get_alignment_length() - referenceAlignment.get_alignment_length()) < tolerance:
-            return True
-        else:
-            return False
+        #No point in even trying to align too long sequences because they'll never work...
+        if len(seq) <= referenceAlignment.get_alignment_length() + tolerance:
+            currSeqs = strippedAlignment + [seq]
+            #alignSequences expects a phyloGenerator sequence list, so manually alter
+            currSeqs = [[x] for x in currSeqs]
+            currAlign = alignSequences(currSeqs, method=method, verbose=False)
+            if (currAlign[0][0].get_alignment_length() - referenceAlignment.get_alignment_length()) < tolerance:
+                return True
+            else:
+                return False
     
     finalSeqs = []
     edit = []
-    species = []
     #Strip the reference alignment for re-alignment
     strippedAlignment = []
     for i,seq in enumerate(referenceAlignment):
@@ -405,9 +406,10 @@ def referenceSearch(speciesList, geneName, referenceAlignment, iterCheck=20, fai
     
     #Loop through the species to be downloaded
     for i,sp in enumerate(speciesList):
-        if (i % 10) == 0:
-            time.sleep(10)
-        seqs, _ = sequenceDownload(sp, [geneName], noSeqs=failSp, targetLength=targetLength, DNAtype=DNAtype, includeGenome=includeGenome, includePartial=includePartial, thorough=thorough)
+        print "...", sp
+        if (i % interval) == 0:
+            time.sleep(delay)
+        seqs, _ = sequenceDownload(sp, geneName, noSeqs=failSp, targetLength=targetLength, DNAtype=DNAtype, includeGenome=includeGenome, includePartial=includePartial, thorough=thorough)
         #...check whether we've only got one sequence (this is silly!)
         if seqs:
             if isinstance(seqs, SeqRecord):
@@ -418,31 +420,26 @@ def referenceSearch(speciesList, geneName, referenceAlignment, iterCheck=20, fai
                 seqs = sorted(seqs, key=len, reverse=True)
         for each in seqs:
             if checkSeq(each, strippedAlignment, referenceAlignment, method, tolerance):
-                print sp, len(each)
                 finalSeqs.append(each)
                 edit.append("None")
-                species.append(sp)
                 break
             else:
-                each = findGeneInSeq(each, [geneName], trimSeq=False)
+                each = findGeneInSeq(each, geneName, trimSeq=False)
                 if checkSeq(each, strippedAlignment, referenceAlignment, method, tolerance):
-                    print sp, len(each)
                     finalSeqs.append(each)
                     edit.append("Annotation")
-                    species.append(sp)
                     break
                 else:
                     each = trimSequence(each, DNAtype=DNAtype, gapType=gapType)
                     if checkSeq(each, strippedAlignment, referenceAlignment, method, tolerance):
-                        print sp, len(each)
                         finalSeqs.append(each)
                         edit.append("Annotated and Trimmed")
-                        species.append(sp)
                         break
         else:
-            print sp, "failure"
+            finalSeqs.append(())
+            edit.append("")
     
-    return (finalSeqs, species, edit)
+    return (finalSeqs, edit)
 
 
 def findGenes(speciesList, geneNames, download=False, targetNoGenes=-1, noSeqs=1, includePartial=True, includeGenome=True, seqChoice='random', verbose=True, thorough=False, spacer=10, delay=5, retMax=20):
@@ -2067,7 +2064,7 @@ class PhyloGenerator:
             self.loadDNAFile(args.dna)
         
         if args.species:
-            self.loadGenBank(args.species)
+            self.loadGenBank(args.species, args.referenceDownload)
 
         if args.existingAlignment:
             self.loadDNAAlignment(args.existingAlignment)
@@ -2191,7 +2188,7 @@ class PhyloGenerator:
                     print "\nNo DNA loaded"
                     locker = False
     
-    def loadGenBank(self, inputFile=""):
+    def loadGenBank(self, inputFile="", refSeqsLocation=""):
         if inputFile:
             try:
                 with open(inputFile, 'r') as f:
@@ -2229,11 +2226,12 @@ class PhyloGenerator:
                 self.email = raw_input("Email: ")
                 Entrez.email = self.email
             if not self.genes:
-                print"\nPlease enter the name of the gene you want to use, e.g. 'COI' for cytochrome oxidase one. To enter multiple genes, enter each on a separateline. Just hit enter to abort."
+                print"\nPlease enter the name of the gene you want to use, e.g. 'COI' for cytochrome oxidase one. To enter multiple genes, enter each on a separate line, finishing with an empty line."
+                print "To abort, hit enter"
                 locker = True
                 self.nGenes = 0
                 while locker:
-                    inputGene = raw_input("")
+                    inputGene = raw_input("Gene name: ")
                     if inputGene:
                         self.genes.append([inputGene])
                         self.codonModels.append('Standard')
@@ -2241,56 +2239,97 @@ class PhyloGenerator:
                     else:
                         locker = False
             if self.genes:
-                self.sequences, self.genes = findGenes(self.speciesNames, self.genes, seqChoice=self.seqChoice, verbose=True, download=True, thorough=True, targetNoGenes=self.nGenes, spacer=self.spacer, delay=self.delay)
-                self.sequenceEdits = [["" for i in each] for each in self.sequences]
+                if refSeqsLocation:
+                    try:
+                        refSeqsLocation = refSeqsLocation.split(",")
+                        self.referenceSequences = [list(SeqIO.parse(file, 'fasta')) for file in refSeqsLocation]
+                    except IOError:
+                        print "Reference alignment(s) not found. Try inputting the files again..."
+                if not self.referenceSequences:
+                    print "\nTo use the referenceDownload method, enter locations of sequence files (on separate lines), finishing with an empty line."
+                    print "Just hit enter to perform a standard search (this is probably the option you're looking for)."
+                    locker = True
+                    while locker:
+                        inputRef = raw_input("refDownload: ")
+                        if inputRef:
+                            try:
+                                self.referenceSequences.append(list(SeqIO.parse(inputRef, "fasta")))
+                            except IOError:
+                                print "File not found. Try again..."
+                        else:
+                            if self.referenceSequences:
+                                if len(self.referenceSequences) == len(self.genes):
+                                    self.loadReferenceDownload()
+                                    locker = False
+                                else:
+                                    print "You've given a different number of gene names and reference sequences."
+                                    print "Exiting..."
+                                    sys.exit() 
+                            else:
+                                locker = False
+                                self.sequences, self.genes = findGenes(self.speciesNames, self.genes, seqChoice=self.seqChoice, verbose=True, download=True, thorough=True, targetNoGenes=self.nGenes, spacer=self.spacer, delay=self.delay)
+                                self.sequenceEdits = [["" for i in each] for each in self.sequences]
+                else:
+                    self.loadReferenceDownload()
 
-    def loadReferenceDownload(self):
+    def loadReferenceDownload(self, inputFile=False):
+        #If this is being called in init, we need to set everything up
+        # - this probably needs refactoring, Will, because you're repeating yourself now...
         if inputFile:
             files = inputFile.split(",")
             sequences = []
-            files = [list(SeqIO.parse(file, 'fasta')) for file in files]
-            for each in files[0]:
-                self.sequences.append([])
-                self.sequenceEdits.append([])
-            firstTime = True
-            self.referenceSequences = inputFile
-            self.speciesNames.extend([x.name for x in files[0]])
-            for i,seqs in enumerate(files):
-                for j,seq in enumerate(seqs):
-                    self.sequences[j].append(seq)
-                    self.sequenceEdits[j].append("")
-                self.codonModels.append('Standard')
+            try:
+                self.referenceSequences = [list(SeqIO.parse(file, 'fasta')) for file in files]
+            except IOError:
+                print "Reference alignment(s) not found. Exiting..."
+                sys.exit()
             if not self.genes:
-                print "ERROR. You need to specify the gene names you're using when loading multiple reference sequences"
+                print "ERROR. You need to specify the gene names you're using when using reference sequences"
                 print "Something like '-gene rbcL,matK'"
                 sys.exit()
-        else:
+        
+        #Set gene types
+        print "\nChoosing DNA Sequence Type"
+        print ""
+        print "Below are the names and IDs of gene-types."
+        print "ID", "Gene Type"
+        for i,x in enumerate(CodonTable.unambiguous_dna_by_name.keys()):
+            print str(i).ljust(2), x
+        print "\nIn the prompt below is the name of a gene. Type the ID number of the codon model you'd like to use for thaqt gene. Note that the standard (default) model is usually number 10."
+        print "Knowing the gene type is *really* important for this method!"
+        for i,gene in enumerate(self.geneNames()):
             locker = True
-            print "\nIf you have a reference DNA sequence to aid the GenBank search, please enter its location."
             while locker:
-                inputFile = raw_input("")
-                if inputFile:
-                    try:
-                        tempSeqs = list(SeqIO.parse(inputFile, 'fasta'))
-                        for each in tempSeqs:
-                            self.sequences.append([each])
-                            self.sequenceEdits.append([""])
-                        self.speciesNames.extend([x.name for x in tempSeqs])
-                        self.referenceSequences = [inputFile]
-                        if not self.genes:
-                            print "DNA loaded; please enter the name of the gene you're using below"
-                            self.genes.append([raw_input("Gene name: ")])
-                            self.nGenes = 1
-                        self.codonModels.append('Standard')
-                        print "DNA loaded"
-                        locker = False
-                    except IOError:
-                        print "\nFile not found. Please try again!"
-                else:
-                    print "\nNo DNA loaded"
+                choice = raw_input(gene+": ")
+                if int(choice) in range(len(CodonTable.unambiguous_dna_by_name.keys())):
+                    self.codonModels[i] = CodonTable.unambiguous_dna_by_name.keys()[int(choice)]
                     locker = False
-    
-    
+                else:
+                    print "Sorry, didn't get that. Try again."
+        print "Choose a % tolerance of sequence length for the search (enter for default):"
+        locker = True
+        while locker:
+            try:
+                temp = raw_input("% tolerance (5%): ")
+                if not temp:
+                    self.referenceTolerance = 5
+                else:
+                    self.referenceTolerance = float(temp)
+                locker = False
+            except:
+                print "...that's not a number. Try again!"
+        
+        #Download DNA
+        seqs = []; edits = []
+        print "\nStarting referenceDownload - now would be a good time to put the kettle on..."
+        for i,ref in enumerate(self.referenceSequences):
+            print "Downloading", self.genes[i], "..."
+            align = alignSequences([[x] for x in ref], method="mafft", verbose=False)
+            seqs.append([]); edits.append([])
+            seqs[i], edits[i] = referenceDownload(self.speciesNames, self.genes[i], align[0][0], tolerance=int(0.01 * self.referenceTolerance * align[0][0].get_alignment_length()))
+        for i,sp in enumerate(self.speciesNames):
+            self.sequences.append([x[i] for x in seqs])
+            self.sequenceEdits.append([x[i] for x in edits])        
     
     def dnaChecking(self, tolerance=0.1):
         self.tolerance = tolerance
@@ -3806,7 +3845,7 @@ class PhyloGenerator:
         if len(self.genes) > 1:
             lengths = set([len(x) for x in self.alignment])
             #Check to see if we need to cleverly link the sequences
-            if len(lengths)!=0 and list(lengths)[0] != len(self.speciesNames):
+            if set(lengths) != set([len(self.speciesNames)]):
                 spp = []
                 for i,align in enumerate(self.alignment):
                     for j,seq in enumerate(align):
@@ -3860,7 +3899,7 @@ class PhyloGenerator:
 def main():
     args = parser.parse_args()
     if args.version:
-        print "v1.1d"
+        print "v1.2"
     elif args.manual:
          webbrowser.open("http://willpearse.github.com/phyloGenerator")
     else:
