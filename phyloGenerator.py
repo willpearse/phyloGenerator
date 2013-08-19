@@ -147,10 +147,10 @@ def findLineage(spName):
     except:
         return ()
 
-def findRelativeSequence(spName, geneName=None, cladeDepth=0, thorough=False, rettype='gb', noSeqs=1, seqChoice='random', download=True, retStart=0, retMax=20, targetLength=None, trimSeq=False, DNAtype='Standard', gapType='-', includeGenome=True, includePartial=True):
+def findRelativeSequence(spName, geneName=None, cladeDepth=0, thorough=False, rettype='gb', noSeqs=1, seqChoice='random', download=True, retStart=0, retMax=20, targetLength=None, trimSeq=False, DNAtype='Standard', gapType='-', includeGenome=True, includePartial=True, taxonIDs=False):
     genusName = spName.partition(' ')[0]
     namesTried = [genusName]
-    genusDownload, _ = sequenceDownload(spName, geneName, thorough, rettype, noSeqs, seqChoice, download, retStart, retMax, targetLength, trimSeq, DNAtype, gapType, includeGenome, includePartial)
+    genusDownload, _ = sequenceDownload(spName, geneName, thorough, rettype, noSeqs, seqChoice, download, retStart, retMax, targetLength, trimSeq, DNAtype, gapType, includeGenome, includePartial, taxonIDs)
     if genusDownload:
         return (genusDownload, namesTried)
     else:
@@ -161,7 +161,7 @@ def findRelativeSequence(spName, geneName=None, cladeDepth=0, thorough=False, re
             del cladeNames[0]
         currentClade = 0
         while cladeDepth:
-            attempt, _ = sequenceDownload(cladeNames[currentClade], geneName, thorough, rettype, noSeqs, seqChoice, download, retStart, retMax, targetLength, trimSeq, DNAtype, gapType, includeGenome, includePartial)
+            attempt, _ = sequenceDownload(cladeNames[currentClade], geneName, thorough, rettype, noSeqs, seqChoice, download, retStart, retMax, targetLength, trimSeq, DNAtype, gapType, includeGenome, includePartial, taxonIDs)
             namesTried.append(cladeNames[currentClade])
             currentClade = currentClade + 1
             if attempt:
@@ -253,13 +253,16 @@ def eSummary(seqID):
                 return(tuple())
     return results[0]
 
-def sequenceDownload(spName, geneName, thorough=False, rettype='gb', noSeqs=1, seqChoice='random', download=True, retStart=0, retMax=20, targetLength=None, trimSeq=False, DNAtype='Standard', gapType='-', includeGenome=True, includePartial=True):
+def sequenceDownload(spName, geneName, thorough=False, rettype='gb', noSeqs=1, seqChoice='random', download=True, retStart=0, retMax=20, targetLength=None, trimSeq=False, DNAtype='Standard', gapType='-', includeGenome=True, includePartial=True, taxonID=False):
     """Download a DNA sequence. Example: sequenceDownload("Quercus robur", ['rbcL'], noSeqs=1) downloads one rbcL sequence.
     Note: the second argument (geneName) is a list of potential gene names - starting with the first element, the function will keep searching until it finds something, and then return.
     There is some stripping of GenBank search text, etc. Look at the source code - this also shows how the 'seqChoice' argument works.
     Returns: (sequence, gene) OR ([seq_1, seq_2], gene) if more than one sequence requested."""
     def dwnSeq(includeGenome, includePartial, gene):
-        searchTerm = spName + "[Organism]"
+        if taxonID:
+            searchTerm = "txid" + spName + "[Organism]"
+        else:
+            searchTerm = spName + "[Organism]"
         if gene: searchTerm = "(" + searchTerm + ") AND " + gene + "[Gene]"
         if titleText: searchTerm = "(" + searchTerm + ") AND " + titleText + " [Title]"
         if not includePartial: searchTerm = "(" + searchTerm + ") NOT " + "partial [Title]"
@@ -384,7 +387,7 @@ def sequenceDownload(spName, geneName, thorough=False, rettype='gb', noSeqs=1, s
 
 
 #Doesn't handle species without sequences, or check iteratively (yet!)
-def referenceDownload(speciesList, geneName, referenceAlignment, iterCheck=20, failSp=10, tolerance=20, method='mafft', targetLength=None, DNAtype='Standard', gapType='-', includeGenome=True, includePartial=True, thorough=True, delay=10, interval=10):
+def referenceDownload(speciesList, geneName, referenceAlignment, iterCheck=20, failSp=10, tolerance=20, method='mafft', targetLength=None, DNAtype='Standard', gapType='-', includeGenome=True, includePartial=True, thorough=True, delay=10, interval=10, taxonIDs=False):
     def checkSeq(seq, strippedAlignment, referenceAlignment, method, tolerance):
         #No point in even trying to align too long sequences because they'll never work...
         if len(seq) <= referenceAlignment.get_alignment_length() + tolerance:
@@ -409,7 +412,7 @@ def referenceDownload(speciesList, geneName, referenceAlignment, iterCheck=20, f
         print "...", sp
         if (i % interval) == 0:
             time.sleep(delay)
-        seqs, _ = sequenceDownload(sp, geneName, noSeqs=failSp, targetLength=targetLength, DNAtype=DNAtype, includeGenome=includeGenome, includePartial=includePartial, thorough=thorough)
+        seqs, _ = sequenceDownload(sp, geneName, noSeqs=failSp, targetLength=targetLength, DNAtype=DNAtype, includeGenome=includeGenome, includePartial=includePartial, thorough=thorough, taxonID=taxonIDs)
         #...check whether we've only got one sequence (this is silly!)
         if seqs:
             if isinstance(seqs, SeqRecord):
@@ -442,7 +445,7 @@ def referenceDownload(speciesList, geneName, referenceAlignment, iterCheck=20, f
     return (finalSeqs, edit)
 
 
-def findGenes(speciesList, geneNames, download=False, targetNoGenes=-1, noSeqs=1, includePartial=True, includeGenome=True, seqChoice='random', verbose=True, thorough=False, spacer=10, delay=5, retMax=20):
+def findGenes(speciesList, geneNames, download=False, targetNoGenes=-1, noSeqs=1, includePartial=True, includeGenome=True, seqChoice='random', verbose=True, thorough=False, spacer=10, delay=5, retMax=20, taxonIDs=False):
     """Attempts to find sequences for the specified species. Can specify more genes than you want, and use 'targetNoGenes' to select the set of genes that provides the best overall coverage (greedily).
     You can search without actually downloading anything; this is the default! Note the nested lists on the gene examples below.
     Example: findGenes(['quercus robur', 'quercus ilex'], [['rbcL']], download=True)
@@ -468,7 +471,7 @@ def findGenes(speciesList, geneNames, download=False, targetNoGenes=-1, noSeqs=1
             if verbose: print "Searching for:", speciesList[i]
             speciesGenes = []
             for k in range(len(geneNames)):
-                sequence, _ = sequenceDownload(speciesList[i], geneNames[k], noSeqs=noSeqs, includePartial=includePartial, includeGenome=includeGenome, seqChoice=seqChoice, download=download, thorough=thorough, retMax=retMax)
+                sequence, _ = sequenceDownload(speciesList[i], geneNames[k], noSeqs=noSeqs, includePartial=includePartial, includeGenome=includeGenome, seqChoice=seqChoice, download=download, thorough=thorough, retMax=retMax, taxonID=taxonIDs)
                 counter += 1
                 if counter == spacer:
                     time.sleep(delay)
@@ -507,7 +510,7 @@ def findGenes(speciesList, geneNames, download=False, targetNoGenes=-1, noSeqs=1
     else:
         output = []
         for species in speciesList:
-            sequence, _ = sequenceDownload(species, geneNames, noSeqs=noSeqs, includePartial=includePartial, includeGenome=includeGenome, seqChoice=seqChoice, download=download, thorough=thorough, retMax=retMax)
+            sequence, _ = sequenceDownload(species, geneNames, noSeqs=noSeqs, includePartial=includePartial, includeGenome=includeGenome, seqChoice=seqChoice, download=download, thorough=thorough, retMax=retMax, taxonID=taxonIDs)
             if download:
                 output.append(sequence)
             else:
@@ -1979,6 +1982,13 @@ class PhyloGenerator:
         self.smoothPhylogeny = False
         self.smoothPhylogenyMerged = False
         self.targetLength = False
+        self.referenceSequences = []
+
+        #Check for GenBank TaxIDs:
+        if args.taxonIDs:
+            self.taxonIDs = True
+        else:
+            self.taxonIDs = False
         
         #Backup working directory
         self.oldDirectory = os.getcwd()
@@ -2267,7 +2277,7 @@ class PhyloGenerator:
                                     sys.exit() 
                             else:
                                 locker = False
-                                self.sequences, self.genes = findGenes(self.speciesNames, self.genes, seqChoice=self.seqChoice, verbose=True, download=True, thorough=True, targetNoGenes=self.nGenes, spacer=self.spacer, delay=self.delay)
+                                self.sequences, self.genes = findGenes(self.speciesNames, self.genes, seqChoice=self.seqChoice, verbose=True, download=True, thorough=True, targetNoGenes=self.nGenes, spacer=self.spacer, delay=self.delay, taxonIDs=self.taxonIDs)
                                 self.sequenceEdits = [["" for i in each] for each in self.sequences]
                 else:
                     self.loadReferenceDownload()
@@ -2489,7 +2499,7 @@ class PhyloGenerator:
                         index = int(inputSeq)
                         for i,each in enumerate(self.sequences[index]):
                             self.APICheck()
-                            self.sequences[index][i], _ = sequenceDownload(self.speciesNames[index], self.genes[i], thorough=True, retMax=self.genBankRetMax, seqChoice=self.seqChoice, targetLength=self.targetLength[i])
+                            self.sequences[index][i], _ = sequenceDownload(self.speciesNames[index], self.genes[i], thorough=True, retMax=self.genBankRetMax, seqChoice=self.seqChoice, targetLength=self.targetLength[i], taxonID=self.taxonIDs)
                             if self.genBankIDs:
                                 self.genBankIDs[index][i] = self.sequences[index][i].id
                                 self.sequences[index][i].id = self.speciesNames[i]
@@ -2506,7 +2516,7 @@ class PhyloGenerator:
                             if seqID and seqID < len(self.sequences):
                                 print "Reloading SeqID", seqID, "gene", gene
                                 self.APICheck()
-                                self.sequences[seqID][i], _ = sequenceDownload(self.speciesNames[seqID], self.genes[i], thorough=True, retMax=self.genBankRetMax, seqChoice=self.seqChoice, targetLength=self.targetLength[i])
+                                self.sequences[seqID][i], _ = sequenceDownload(self.speciesNames[seqID], self.genes[i], thorough=True, retMax=self.genBankRetMax, seqChoice=self.seqChoice, targetLength=self.targetLength[i], taxonID=self.taxonIDs)
                                 if self.genBankIDs:
                                     self.genBankIDs[seqID][i] = self.sequences[seqID][i].id
                                     self.sequences[seqID][i].id = self.speciesNames[seqID]
@@ -2521,7 +2531,7 @@ class PhyloGenerator:
                         for j,gene in enumerate(sp):
                             if len(self.sequences[i][j]) > threshold:
                                 self.APICheck()
-                                self.sequences[i][j], _ = sequenceDownload(self.speciesNames[i], self.genes[j], thorough=True, retMax=self.genBankRetMax, seqChoice=self.seqChoice, targetLength=self.targetLength[j])
+                                self.sequences[i][j], _ = sequenceDownload(self.speciesNames[i], self.genes[j], thorough=True, retMax=self.genBankRetMax, seqChoice=self.seqChoice, targetLength=self.targetLength[j], taxonID=self.TaxonIDs)
                                 if self.genBankIDs:
                                     self.genBankIDs[i][j] = self.sequences[i][j].id
                                     self.sequences[i][j].id = self.speciesNames[i]
@@ -2534,7 +2544,7 @@ class PhyloGenerator:
                         for j,gene in enumerate(sp):
                             if len(self.sequences[i][j]) < threshold:
                                 self.APICheck()
-                                self.sequences[i][j], _ = sequenceDownload(self.speciesNames[i], self.genes[j], thorough=True, retMax=self.genBankRetMax, seqChoice=self.seqChoice, targetLength=self.targetLength[j])
+                                self.sequences[i][j], _ = sequenceDownload(self.speciesNames[i], self.genes[j], thorough=True, retMax=self.genBankRetMax, seqChoice=self.seqChoice, targetLength=self.targetLength[j], taxonID=self.taxonIDs)
                                 if self.genBankIDs:
                                     self.genBankIDs[i][j] = self.sequences[i][j].id
                                     self.sequences[i][j].id = self.speciesNames[i]
@@ -2542,7 +2552,7 @@ class PhyloGenerator:
                     self.dnaChecking()
                     return 'reload', False
                 if inputSeq == "EVERYTHING":
-                    geneOutput = findGenes(self.speciesNames, self.genes, seqChoice=self.seqChoice, verbose=True, thorough=True, download=True, retMax=self.genBankRetMax, targetNoGenes=self.nGenes, delay=self.delay, spacer=self.spacer)
+                    geneOutput = findGenes(self.speciesNames, self.genes, seqChoice=self.seqChoice, verbose=True, thorough=True, download=True, retMax=self.genBankRetMax, targetNoGenes=self.nGenes, delay=self.delay, spacer=self.spacer, taxonIDs=self.taxonIDs)
                     if self.genBankIDs:
                         self.genBankIDs = False
                         self.renameSequences()
@@ -2688,7 +2698,7 @@ class PhyloGenerator:
                                 locker = False
                                 for j,gene in enumerate(self.genes):
                                     self.APICheck()
-                                    temp.append(sequenceDownload(candidate[0], gene)[0])
+                                    temp.append(sequenceDownload(candidate[0], gene, taxonIDs=self.taxonIDs)[0])
                                     if temp[j]:
                                         locker = True
                                 if locker:
@@ -2712,7 +2722,7 @@ class PhyloGenerator:
                                     for candidate in replacements:
                                         locker = False
                                         for j,gene in enumerate(self.genes):
-                                            temp.append(sequenceDownload(candidate[0], gene)[0])
+                                            temp.append(sequenceDownload(candidate[0], gene, taxonIDs=self.taxonIDs)[0])
                                             if temp[j]:
                                                 locker = True
                                         if locker:
@@ -2748,7 +2758,7 @@ class PhyloGenerator:
                                 locker = False
                                 for gene in self.genes:
                                     self.APICheck()
-                                    temp.append(sequenceDownload(candidate[0], gene)[0])
+                                    temp.append(sequenceDownload(candidate[0], gene, taxonIDs=self.taxonIDs)[0])
                                     if temp:
                                         locker = True
                                 if locker:
@@ -2793,7 +2803,7 @@ class PhyloGenerator:
                                     locker = False
                                     for gene in self.genes:
                                         self.APICheck()
-                                        temp, _ = sequenceDownload(candidate, gene)
+                                        temp, _ = sequenceDownload(candidate, gene, taxonIDs=self.taxonIDs)
                                         geneList.append(temp)
                                         if temp:
                                             self.speciesNames[i] = self.speciesNames[i]
@@ -4017,5 +4027,6 @@ if __name__ == '__main__':
     parser.add_argument("-options", "-o", help="Options file giving detailed instructions to phyloGen.")
     parser.add_argument("-delay", help="Delay (seconds) when pausing between any internet API calls.")
     parser.add_argument("-referenceDownload", help="Sequences for use in referenceDownload method. Must be of same length as 'genes' argument.")
+    parser.add_argument("-taxonIDs", action="store_true", help="Indicates the 'species' listed in the '-species' file are actually taxonIDs that will be used as such in all GenBank searches.")
     parser.add_argument("-existingAlignment", help="Existing alignment(s) file locations (multiple files are comma-separated). Using this bypasses all sequence and alignment checking.")
     main()
