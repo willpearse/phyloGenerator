@@ -161,6 +161,8 @@
 	  <p>Not all sequences on GenBank are annotated in the same way; for example, a cytochrome oxidase one sequence might be labelled as a 'COI', 'Cox1', or 'cytochrome oxidase one' sequence. You can use 'gene aliasing' to account for this, in this example specifying the gene's name as "COI-Cox1-cytochrome_oxidase_one" - aliases are split using '-', and spaces are replaced with '_'.</p>
 		<h4>DNA Input</h4>
 			<p>If you've already downloaded or sequenced your data, but not aligned it, tell phyloGenerator where that FASTA formatted file is now. Otherwise, just press enter.</p>
+			<p>If you want to put data from more than one locus (gene) into pG, have a separate file for each gene and supply all the files at the same time, separated by commas. For example, '<em>/home/will/first_gene.fasta,/home/will/second_gene.fasta</em>'. The names of the sequences will be used to match the data up. The output pG gives you after you search for more than one gene will be sufficient for this.</p>
+			<p>If you have DNA alignment(s) you really want to use, these can be given to pG as command-line arguments but pG won't ask you for alignment while it's running interactively. Something like '<em>./phyloGenerator.py -existingAlignment /home/will/first_gene.fasta,/home/will/second_gene.fasta</em>', would work well. Note that pG is expecting the output from a previous pG run, which means alignments that don't have the same number of taxa in the same order, will lead to problems! You will not be given an opportunity to alter these alignments - if you're providing an alignment, I presume you're happy with it (...I'm not sure why you're using pG in that case, but you asked for it, so you've got it!)</p>
 			</div>
 	    <div class="span6">
 			<h4>DNA Download</h4>
@@ -168,6 +170,8 @@
 				<p>If you're downloading DNA, you'll need to provide a valid email address so Entrez can contact you about your downloads - this is if you download too much, and has never happened to me.</p>
 				<p>You may have to wait some time before your sequences have all been downloaded, but phyloGenerator will tell you how it's doing. By default, it waits ten seconds after downloading each DNA sequence so that it doesn't irritate the servers at GenBank.</p>
 				<p>You may see warnings relating to 'NCBI's DTD' files. This is nothing to worry about.</p>
+				<p>You will be asked if you want to use the new 'referenceDownload' method; this is not described in pG paper, so if you're in any doubt just hit enter to carry on without it. The referenceDownload method is intended to make building extremely large phylogenies much easier, and I'd strongly recommend you check out the FAQ about it if you're interested in doing that. There's an example of how to use the method in the <em>Silwood_Plants</em> demo.</p>
+				<p>You can now supply phyloGenerator with GenBank TaxonIDs of species, instead of binomial names, which it will search for. Just specify the '<em>-taxonIDs</em>' option from the command line, and you're away. There's an example There's an example of how to use the method in the <em>Silwood_Plants</em> demo. You should think about doing this if you're concerned that taxonomic mismatches on GenBank are going to cause problems for your analysis, and <a href="http://www.ncbi.nlm.nih.gov/taxonomy">you can find out more about TaxonIDs here</a>.<p>
 </section>
 
 
