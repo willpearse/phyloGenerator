@@ -2160,7 +2160,7 @@ class PhyloGenerator:
             try:
                 files = [list(SeqIO.parse(file, 'fasta')) for file in files]
             except IOError:
-                print "\nFile not found. Please try again!"
+                print "\nDNA file(s) not found. Please try again!"
                 return False
                 
             #Get unique set of species, alphabetise, and link everything up
@@ -2184,7 +2184,8 @@ class PhyloGenerator:
         if inputFile:
             check = doWork(inputFile)
             if not check:
-                print "Exiting; change input arguments and try again!"
+                print "Exiting; alter your command line arguments (see above)!"
+                sys.exit()
         else:
             locker = True
             print "\nIf you already have DNA sequences in a FASTA file, please enter its location"
@@ -2206,7 +2207,7 @@ class PhyloGenerator:
                         self.speciesNames.append(each.strip())
                         aborted = False
             except IOError:
-                print "\nERROR: File not found. Exiting..."
+                print "\nERROR: Species name file not found. Exiting..."
                 sys.exit()
         else:
             locker = True

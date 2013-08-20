@@ -1,26 +1,45 @@
-::Plant example
-:: - assumes phyloGenerator is copied to your 'Program Files' folder. If not, replace ' C:\Program Files\phyloGenerator\phyloGenerator.exe ' with the program's location
-:: - data taken from a field experiment at Silwood Park
-:: - thanks to Kate Luckett (kathryn.luckett08@imperial.ac.uk)
+#Plant example
+# - assumes phyloGenerator is copied to your applications folder. If not, replace '/Applications/phyloGenerator.app' with the program's location
+# - data taken from a field experiment at Silwood Park
+# - thanks to Kate Luckett (kathryn.luckett08@imperial.ac.uk)
 
-::DESCRIPTION
-::'species.txt' - list of plant species found at a site
-::'sequences.fasta' - rbcL sequences for those species already downloaded from GenBank
-::'constraint.tre' - a Newick constraint tree, generated using Phylomatic. Note that Phylomatic chops the ends off species' names (on my Mac!), so I've manually checked the species names in this file.
-::'phylomatic_taxonomy.txt' - a taxonomy file to be used with Phylomatic
-::'phylomatic_phylogeny.tre' - a refernce phylogeny (Davies et al. 2004) for use with Phylomatic
+#DESCRIPTION
+#'species.txt' - list of plant species found at a site
+#'sequences.fasta' - rbcL sequences for those species already downloaded from GenBank
+#'constraint.tre' - a Newick constraint tree, generated using Phylomatic. Note that Phylomatic chops the ends off species' names (on my Mac!), so I've manually checked the species names in this file.
+#'phylomatic_taxonomy.txt' - a taxonomy file to be used with Phylomatic
+#'phylomatic_phylogeny.tre' - a refernce phylogeny (Davies et al. 2004) for use with Phylomatic
 
-::Simple search
-C:\Program Files\phyloGenerator\phyloGenerator.exe -name silwoodSimple -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene rbcL -species FILLINTHERESTOFTHISPATH\Demos\Silwood_Plants\species.txt -alignment mafft -phylogen beast-GTR-GAMMA
-::This should look something like this, once you've filled in the bits I've put in capitals: C:\Program Files\phyloGenerator\phyloGenerator.exe -name silwoodSimple -wd C:\Users\bob\phyloGenTest -email bob@university.ac.uk -gene rbcL -species C:\Users\bob\phyloGenTest\Demos\Silwood_Plants\species.txt -alignment mafft -phylogen beast-GTR-GAMMA
+#Simple search
+/Applications/phyloGenerator.app/Contents/MacOS/phyloGenerator -name silwoodSimple -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene rbcL -species FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/species.txt -alignment mafft -phylogen beast-GTR-GAMMA
+#This should look something like this, once you've filled in the bits I've put in capitals: /Applications/phyloGenerator.app/Contents/MacOS/phyloGenerator -name silwoodSimple -wd /Users/bob/phyloGenTest -email bob@university.ac.uk -gene rbcL -species /Users/bob/phyloGenTest/Demos/Silwood_Plants/species.txt -alignment mafft -phylogen beast-GTR-GAMMA
+#Consider trimming Anagallis_arvensis, and see what the effect of not setting the gene type beforehand is
 
-::Simple search with dated constraint tree (NOTE: using downloaded sequences now)
-C:\Program Files\phyloGenerator\phyloGenerator.exe -name silwoodConstrained -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene rbcL -dna FILLINTHERESTOFTHISPATH\Demos\Silwood_Plants\sequences.fasta -alignment mafft -phylogen beast-GTR-GAMMA -consTree FILLINTHERESTOFTHISPATH\Demos\Silwood_Plants\constraint.tre
+#Simple search with dated constraint tree (NOTE: using downloaded sequences now)
+/Applications/phyloGenerator.app/Contents/MacOS/phyloGenerator -name silwoodConstrained -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene rbcL -dna FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/sequences.fasta -alignment mafft -phylogen beast-GTR-GAMMA -consTree FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/constraint.tre
 
-::More complex search, with dated constraint tree - used in paper
-C:\Program Files\phyloGenerator\phyloGenerator.exe -name silwoodConstrainedTwoGenes -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene rbcL,matK -species FILLINTHERESTOFTHISPATH\Demos\Silwood_Plants\species.txt -alignment quick -phylogen beast-GTR-GAMMA
+#More complex search, with dated constraint tree - used in paper
+/Applications/phyloGenerator.app/Contents/MacOS/phyloGenerator -name silwoodConstrainedTwoGenes -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene rbcL,matK -species FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/species.txt -alignment quick -phylogen beast-GTR-GAMMA
 
-::Complex search but without the constraint tree - to demonstrate that the method works quite well even if you don't have data
-C:\Program Files\phyloGenerator\phyloGenerator.exe -name silwoodFree -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene rbcL,matK -species FILLINTHERESTOFTHISPATH\Demos\Silwood_Plants\species.txt -alignment quick -phylogen beast-GTR-GAMMA
+#Complex search but without the constraint tree - to demonstrate that the method works quite well even if you don't have data
+/Applications/phyloGenerator.app/Contents/MacOS/phyloGenerator -name silwoodFree -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene rbcL,matK -species FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/species.txt -alignment quick -phylogen beast-GTR-GAMMA
 
-::...compare these with the Phylomatic constraint tree, as in the paper. Note the increased resolution in many of the clades, but that the named clades retain their dates. The ages at these nodes are drawn from a normal distribution with a mean of the stated age, but an SD of 1.
+#...compare these with the Phylomatic constraint tree, as in the paper. Note the increased resolution in many of the clades, but that the named clades retain their dates. The ages at these nodes are drawn from a normal distribution with a mean of the stated age, but an SD of 1.
+
+#################################
+#NEW FEATURES (as of v1.2)#######
+#################################
+
+#Load in multiple DNA sequences from an earlier (phyloGenerator) search:
+/Applications/phyloGenerator.app/Contents/MacOS/phyloGenerator -name silwoodTwoSeqs -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene rbcL,matK -dna /Users/will/Documents/code/phylogenerator/Demos/Silwood_Plants/rbcL_raw.fasta,/Users/will/Documents/code/phylogenerator/Demos/Silwood_Plants/matK_raw.fasta -alignment quick -phylogen beast-GTR-GAMMA-chainLength=100000
+
+#Load in DNA alignments from an earlier (phyloGenerator) run:
+/Applications/phyloGenerator.app/Contents/MacOS/phyloGenerator -name silwoodTwoAlign -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene rbcL,matK -existingAlignment FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/rbcL_alignment.fasta,FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/matK_alignment.fasta -alignment quick -phylogen beast-GTR-GAMMA
+
+#referenceDownload search, using two sets of DNA reference genes
+# - this one takes a while (more so than the other methods!)
+/Applications/phyloGenerator.app/Contents/MacOS/phyloGenerator -name silwoodRefDownload -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene rbcL,matK -species -species FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/species.txt -alignment quick -referenceDownload FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/rbcL_reference.fasta,FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/matK_reference.fasta -phylogen beast-GTR-GAMMA-chainLength=100000
+
+#Download using taxonIDs on GenBank
+# - these are just the first eight taxon IDs from the example dataset - hopefully this makes it clear what to do!
+/Applications/phyloGenerator.app/Contents/MacOS/phyloGenerator -name silwoodRefDownload -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene rbcL,matK -species FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/taxIDs.txt -alignment quick -phylogen beast-GTR-GAMMA-chainLength=100000 -taxonIDs

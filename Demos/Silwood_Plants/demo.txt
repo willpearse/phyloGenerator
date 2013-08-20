@@ -25,3 +25,21 @@
 /Applications/phyloGenerator.app/Contents/MacOS/phyloGenerator -name silwoodFree -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene rbcL,matK -species FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/species.txt -alignment quick -phylogen beast-GTR-GAMMA
 
 #...compare these with the Phylomatic constraint tree, as in the paper. Note the increased resolution in many of the clades, but that the named clades retain their dates. The ages at these nodes are drawn from a normal distribution with a mean of the stated age, but an SD of 1.
+
+#################################
+#NEW FEATURES (as of v1.2)#######
+#################################
+
+#Load in multiple DNA sequences from an earlier (phyloGenerator) search:
+/Applications/phyloGenerator.app/Contents/MacOS/phyloGenerator -name silwoodTwoSeqs -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene rbcL,matK -dna /Users/will/Documents/code/phylogenerator/Demos/Silwood_Plants/rbcL_raw.fasta,/Users/will/Documents/code/phylogenerator/Demos/Silwood_Plants/matK_raw.fasta -alignment quick -phylogen beast-GTR-GAMMA-chainLength=100000
+
+#Load in DNA alignments from an earlier (phyloGenerator) run:
+/Applications/phyloGenerator.app/Contents/MacOS/phyloGenerator -name silwoodTwoAlign -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene rbcL,matK -existingAlignment FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/rbcL_alignment.fasta,FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/matK_alignment.fasta -alignment quick -phylogen beast-GTR-GAMMA
+
+#referenceDownload search, using two sets of DNA reference genes
+# - this one takes a while (more so than the other methods!)
+/Applications/phyloGenerator.app/Contents/MacOS/phyloGenerator -name silwoodRefDownload -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene rbcL,matK -species FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/species.txt -alignment quick -referenceDownload FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/rbcL_reference.fasta,FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/matK_reference.fasta -phylogen beast-GTR-GAMMA-chainLength=100000
+
+#Download using taxonIDs on GenBank
+# - these are just the first eight taxon IDs from the example dataset - hopefully this makes it clear what to do!
+/Applications/phyloGenerator.app/Contents/MacOS/phyloGenerator -name silwoodRefDownload -wd WHEREYOUWANTYOURFILES -email PUTINYOUROWNEMAIL -gene rbcL,matK -species FILLINTHERESTOFTHISPATH/Demos/Silwood_Plants/taxIDs.txt -alignment quick -phylogen beast-GTR-GAMMA-chainLength=100000 -taxonIDs
