@@ -2699,7 +2699,7 @@ class PhyloGenerator:
                                 locker = False
                                 for j,gene in enumerate(self.genes):
                                     self.APICheck()
-                                    temp.append(sequenceDownload(candidate[0], gene, taxonIDs=self.taxonIDs)[0])
+                                    temp.append(sequenceDownload(candidate[0], gene, taxonID=self.taxonIDs)[0])
                                     if temp[j]:
                                         locker = True
                                 if locker:
@@ -2723,7 +2723,7 @@ class PhyloGenerator:
                                     for candidate in replacements:
                                         locker = False
                                         for j,gene in enumerate(self.genes):
-                                            temp.append(sequenceDownload(candidate[0], gene, taxonIDs=self.taxonIDs)[0])
+                                            temp.append(sequenceDownload(candidate[0], gene, taxonID=self.taxonIDs)[0])
                                             if temp[j]:
                                                 locker = True
                                         if locker:
@@ -2759,7 +2759,7 @@ class PhyloGenerator:
                                 locker = False
                                 for gene in self.genes:
                                     self.APICheck()
-                                    temp.append(sequenceDownload(candidate[0], gene, taxonIDs=self.taxonIDs)[0])
+                                    temp.append(sequenceDownload(candidate[0], gene, taxonID=self.taxonIDs)[0])
                                     if temp:
                                         locker = True
                                 if locker:
@@ -2804,7 +2804,7 @@ class PhyloGenerator:
                                     locker = False
                                     for gene in self.genes:
                                         self.APICheck()
-                                        temp, _ = sequenceDownload(candidate, gene, taxonIDs=self.taxonIDs)
+                                        temp, _ = sequenceDownload(candidate, gene, taxonID=self.taxonIDs)
                                         geneList.append(temp)
                                         if temp:
                                             self.speciesNames[i] = self.speciesNames[i]
