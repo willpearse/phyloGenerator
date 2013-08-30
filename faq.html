@@ -84,7 +84,7 @@
 <div class="container">
       <h1>Necessities</h1>
       <h3>Who should I cite?</h3>
-	  <p><a href="http://onlinelibrary.wiley.com/doi/10.1111/2041-210X.12055/abstract">This paper please!</a></p>
+	  <p><a href="http://onlinelibrary.wiley.com/doi/10.1111/2041-210X.12055/abstract">This paper please!</a> Also, see the extra programs below!</p>
   <h3>Where can I find out more details of how this program runs?</h3>
   <p><a href="http://onlinelibrary.wiley.com/doi/10.1111/2041-210X.12055/abstract">Have a read of the paper!</a></p>
   <h3>It randomly crashes on Windows and I don't know what's going on!</h3>
@@ -117,6 +117,8 @@
 		<p>Use Phylomatic to make a constraint, take one from a paper - whatever - that way you <emph>can't</emph> get something you wouldn't expect. If you're using a dated phylogeny, make sure you <emph>name</emph> the dated clades in your phylogeny - something like '((A:2,B:2), C:3)Named.clade:5' as oppose to '((A:2, B:2), C:3):5'.</p>
 		<p>Check your alignment. phyloGenerator will warn you (the column marked 'warn') if your alignments seem too long. Output them, open them in a program like Clustal-X2, and see if there are long stretches of gaps, or an alignment that doesn't look like a set of neatly-lined-up sequences. If you find that, go back to the sequence download stage, trim your sequences, check the lengths, and maybe think about using TrimAl in the alignment stage.</p>
 		<p>Finally, you may find some species are on <emph>incredibly</emph> long branches, or that your smoothed phylogeny with PATHd8 have lots of polytomies (multiple branches coming from the same node). The later is caused by the former, because the long branches make the small branches look so small they get averaged down to zero length by PATHd8. The solution is to find better sequences for those long-branch species (see the section on DNA download in the guide), or, if that doesn't work, to try adding in a few more species that are relatives of that long branch group. If you can't fix this problem using these methods, do <a href="http://willpearse.com/">drop me an email</a>, but you may have hit a problem that requires the expertise of a phylogeneticist. Sorry!</p>
+		<h3>I can't see the files pG is writing out / it crashes when I'm trying to write out files ('OSErrors')</h3>
+		<p>Whenever you need to input a file or directory, you'll need to give phyloGenerator the 'absolute path' to the file. Something like '/Users/will/Documents/dna.fasta', or 'C:\Documents and Settings\dna.fasta'. If you're on a Mac or Linux computer, <em>do not</em> use something like '~/Documents/dna.fasta' - only '/Users/will/Documents/dna.fasta' will work. Doing <em>anything else</em> will produce errors during the program, and because pG uses so many other programs it's hard for me to predict exactly when that might happen. Sorry!</p>
 		<h3>I can't get PATHd8 to work on a PC!</h3>
 		<p>First, try installing Cygwin (type 'cygwin' when prompted to go to their website). If that doesn't work, you can try copying a DLL into the 'requires' folder inside the 'phyloGenerator' folder on your computer - again, you can download this when prompted too. If that doesn't work, please <a href="http://willpearse.com/">contact me</a>. Those two steps have worked for everyone so far, but if they don't for you I want to know!</p>
 		<h3>Whenever my PC uses BEAST, phyloGenerator crashes/suddenly exits.</h3>
