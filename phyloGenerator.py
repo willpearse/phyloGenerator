@@ -1004,6 +1004,9 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
     if constraint and constraint.is_bifurcating():
         completeConstraint = False
     agedConstraint = False
+    hardConstraint = False
+    if 'hardConstraint' in method:
+        hardConstraint = True
     if sys.platform == "win32":
         oldWD = os.getcwd()
         os.chdir('requires')
@@ -1032,7 +1035,7 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
             ages = []
             for x,clade in enumerate(constraint.find_clades()):
                 temp = [x.name for x in clade.get_terminals()]
-                if len(temp) > 1:
+                if len(temp) > 1 and len(temp) != len(constraint.get_terminals()):
                     clades.append(temp)
                     cladesNames.append(clade.name)
                     #Sadly, this is the best way to get a clade's age, apparently...
@@ -1143,6 +1146,10 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
                 f.write('       </mrca>\n')
                 f.write('<treeModel idref="treeModel"/>\n')
                 f.write('</monophylyStatistic>\n')
+                if hardConstraint:
+                    f.write('<booleanLikelihood id="boolCladeNo' + str(i) + '">\n')
+                f.write('<monophylyStatistic idref="monophyly(' + str(i) +')"/>\n')
+                f.write('</booleanLikelihood>\n')
         f.write('   <!-- Generate a speciation likelihood for Yule or Birth Death                -->\n')
         f.write('   <speciationLikelihood id="speciation">\n')
         f.write('       <model>\n')
@@ -1485,6 +1492,9 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
         f.write('   <mcmc id="mcmc" chainLength="' + str(chainLength) + '" autoOptimize="true">\n')
         f.write('       <posterior id="posterior">\n')
         f.write('           <prior id="prior">\n')
+        if hardConstraint:
+            for i in range(len(clades)):
+                f.write('               <booleanLikelihood idref="boolCladeNo' + str(i) + '"/>\n')
         if agedConstraint:
             for age,clade in zip(ages, agedNames):
                 f.write('               <normalPrior mean="'+ str(age) + '" stdev="1.0">\n')
@@ -2040,6 +2050,9 @@ class PhyloGenerator:
             self.codonModels = ['Standard'] * len(self.genes)
         else:
             print "Please enter the gene(s) you want to use (e.g., 'COI' for cytochrome oxidase one')"
+            print "Specify 'aliases' (alternate names) by listing them after the main name using '-'"
+            print "Gene names may contain spaces, or (as with the command line) they can be replaced with '_'"
+            print "e.g., COI-this_is_an_alis-this is also an alias"
             print "If you wish to use the defaults for your taxa, please enter 'plant', 'invertebrate', or 'vertebrate' instead"
             print "Each gene on a separate line, and an empty line to continue\n"
             locker = True
@@ -2057,7 +2070,9 @@ class PhyloGenerator:
                         self.genes = [['rbcL', 'matK']]
                         self.codonModels.append('Plant Plastid')
                     else:
-                        self.genes.append([inputGene])
+                        genes = inputGene.replace("_", " ")
+                        genes.split("-")
+                        self.genes.append(genes)
                         self.codonModels.append('Standard')
                 else:
                     if self.genes:
@@ -2588,6 +2603,7 @@ class PhyloGenerator:
                 print "Other modes: 'delete', 'reload', 'replace', 'merge'. Hit enter to continue.\n"
             inputSeq = raw_input("DNA Editing (trim):")
             if inputSeq:
+                pdb.set_trace()
                 try:
                     seqNo = int(inputSeq)
                     if seqNo in range(len(self.speciesNames)):
@@ -2608,7 +2624,7 @@ class PhyloGenerator:
                             if seqID < len(self.sequences):
                                 print "Trimming SeqID", seqID, "gene", gene
                                 self.sequences[seqID][i] = cleanSequenceWrapper(self.sequences[seqID][i], self.genes[i], DNAtype=self.codonModels[i], gapType='-')
-                                self.sequenceEdits[seqNo][i] += "trim;"
+                                self.sequenceEdits[seqID][i] += "trim;"
                                 print "Re-calulating summary statistics..."
                                 self.dnaChecking()
                                 return 'trim', False
@@ -3233,6 +3249,8 @@ class PhyloGenerator:
                     methods +=  '-GAMMA'
                 if 'overwriteBlock' in inputStr:
                     overwrite = False
+                if 'hardConstraint' in inputStr:
+                    methods += '-hardConstraint'
                 #Oh my god make this simpler, it's absurd!!!
                 if 'chainLength' in inputStr:
                     temp = inputStr.split('-')
@@ -3288,14 +3306,19 @@ class PhyloGenerator:
                 #print "\t 'screenRate=X' - report ouptut to the screen every 'X' steps"
                 print "\t 'burnin=X' - discard 'X' initial fraction of chain as a 'burnin' (default 0.1 = 10%)"
                 print "\t 'overwriteBlock' - causes BEAST to halt if there are any files from previous attempts in your working directory"
+                print"\t 'hardConstraint' - fits very hard priors on constraints; can cause BEAST (and so pG) to crash out due to starting tree problems. Explore if your phylogeny doesn't match your constraint!"
                 #print "\t 'restart=X' - conduct X independent searches"
                 print "You must specify a DNA model (GTR or HKY) if defining your own parameters"
-                print "Specify multiple options with hyphens (e.g., 'GTR-GAMMA=chainLength=2000000'), but do not mix options marked with '(!)'"
+                print "Specify multiple options with hyphens (e.g., 'GTR-GAMMA-chainLength=2000000'), but do not mix options marked with '(!)'"
                 print "Hit enter to use the defaults"
                 print ""
                 print "TIPS:"
-                print "\tMake sure you check your runs for convergence"
-                print "\tYour BEAST XML file we be outputted at the end, so you can run multiple runs yourself easily"
+                print "\tPLEASE be careful with this. The BEAST readme says:"
+                print "\t\t'BEAST is not a black-box into which you can put your data and expect an"
+                print "\t\teasily interpretable answer. It requires careful inspection of the output"
+                print "\t\tto check that it has performed correctly and usually will need tweaking,"
+                print "\t\tadjustment and a number of runs to get a valid answer. Sorry.'"
+                print "\tYou will get the raw BEAST XML output at the end of pG, so you can do all this yourself easily"
                 print ""
                 beastLock = True
                 while beastLock:
