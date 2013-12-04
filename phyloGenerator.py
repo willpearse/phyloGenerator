@@ -30,6 +30,7 @@ import webbrowser #Load website on request
 import sys #To exit on errors
 import copy #Getting subtrees
 import warnings, pdb
+import dendropy#To drop tips...
 maxCheck = 4
 def unrootPhylomatic(tree):
     Phylo.write(tree, 'unrootingOutput.tre', 'newick')
@@ -563,7 +564,7 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
                 try:
                     newSeqs = AlignIO.read(outputFile, 'fasta')
                 except:
-                    raise RuntimeError("MUSCLE unable to run: check your input sequences don't need trimming!")
+                    raise RuntimeError("MUSCLE unable to run:\n\tcan you write files where pG is installed?\tcheck your input sequences don't need trimming!")
                 sortedAligns = []
                 for oldSeq in seqs:
                     for alignSeq in newSeqs:
@@ -589,7 +590,7 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
                 try:
                     geneOutput.append(AlignIO.read(outputFile, 'fasta'))
                 except:
-                    raise RuntimeError("MAFFT unable to run: check your input sequences don't need trimming!")
+                    raise RuntimeError("MAFFT unable to run:\n\tcan you write files where pG is installed?\tcheck your input sequences don't need trimming!")
                 os.remove(outputFile)
                 alignedSomething = True
             else:
@@ -610,7 +611,7 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
                     os.remove(outputFile)
                     alignedSomething = True
                 except:
-                    raise RuntimeError("Clustal-Omega unable to run: check your input sequences don't need trimming!")
+                    raise RuntimeError("Clustal-Omega unable to run:\n\tcan you write files where pG is installed?\tcheck your input sequences don't need trimming!")
             else:
                 raise RuntimeError("Clustal-o alignment not complete in time allowed")
         
@@ -627,7 +628,7 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
                 try:
                     geneOutput.append(AlignIO.read(outputFile+".best.fas", 'fasta'))
                 except:
-                    raise RuntimeError("PRANK unable to run: check your input sequences don't need trimming!")
+                    raise RuntimeError("PRANK unable to run:\n\tcan you write files where pG is installed?\tcheck your input sequences don't need trimming!")
                 dirList = os.listdir(os.getcwd())
                 for each in dirList:
                     if re.search("("+outputFile+")", each):
@@ -1905,6 +1906,18 @@ def metal(alignList, tempStem='tempMetal', timeout=100):
     
     return distances
 
+def dirExistsWritable(dir):
+    try:
+        oldDir = os.getcwd()
+        os.chdir(dir)
+        with open("test_writable.txt", "w") as handle:
+            handle.write("writably file?")
+            os.remove("test_writable.txt")
+            os.chdir(oldDir)
+        return True
+    except:
+        return False
+
 class TerminationPipe(object):
     #Background process class
     def __init__(self, cmd, timeout, silent=True):
@@ -2013,17 +2026,40 @@ class PhyloGenerator:
         
         #Working directory
         if args.wd:
-            self.workingDirectory = args.wd
-            print "\nUsing working directory '" + args.wd + "' ..."
+            if os.path.exists(args.wd):
+                if dirExistsWritable(args.wd):
+                    self.workingDirectory = args.wd
+                    print "\nUsing working directory '" + args.wd + "' ..."
+                else:
+                    print "\nWorking directory '" + args.wd + "'not writable. Exiting..."
+                    sys.exit()
+            else:
+                print "\nWorking directory '" + args.wd + "'doesn't exist. Exiting..."
+                sys.exit()
         else:
             temp = os.getcwd()
             if 'phyloGenerator.app/Contents/Resources' in temp:
                 temp = temp.replace('phyloGenerator.app/Contents/Resources', '')
             print "\nPlease input an *existing* directory for all your output"
             print "\t(hit enter to use " + temp
-            self.workingDirectory = raw_input("Working directory (" + temp + "): ")
-            if not self.workingDirectory:
-                self.workingDirectory = temp
+            locker = True
+            while locker:
+                self.workingDirectory = raw_input("Working directory (" + temp + "): ")
+                if not self.workingDirectory:
+                    self.workingDirectory = temp
+                    locker = False
+                else:
+                    if os.path.exists(self.workingDirectory):
+                        if not dirExistsWritable(self.workingDirectory):
+                            print "\nWorking directory '" + self.workingDirectory + "'not writable. Try again..."
+                    else:
+                        locker = False
+        
+        #Check pG is writable
+        if not dirExistsWritable(os.getcwd()):
+            print "Current working directory or install location of phyloGenerator is not writable."
+            print "Cannot continue; exiting..."
+            sys.exit()
         
         #Email
         if args.email:
@@ -2603,7 +2639,6 @@ class PhyloGenerator:
                 print "Other modes: 'delete', 'reload', 'replace', 'merge'. Hit enter to continue.\n"
             inputSeq = raw_input("DNA Editing (trim):")
             if inputSeq:
-                pdb.set_trace()
                 try:
                     seqNo = int(inputSeq)
                     if seqNo in range(len(self.speciesNames)):
@@ -2875,6 +2910,7 @@ class PhyloGenerator:
                 print "\nMERGE MODE"
                 print "\tSpID,SpID - merge species into a group, e.g. 0,1,2"
                 print "Groups must have only one species with sequence data. There is no 'undo' option, and you *must not* merge two merged groups."
+                print "\tNote: the bundled R script 'merging.R' will do this for you once you have your phylogeny, makes it easier to keep track of alterations, and is very easy to use. If I were you, I'd use it!"
                 print "Other modes: 'delete', 'reload', 'trim', 'replace'. Hit enter to continue.\n"
             inputSeq = raw_input("DNA Editing (merge): ")
             if inputSeq:
@@ -3548,6 +3584,35 @@ class PhyloGenerator:
             print "\nThe following species did not have any DNA associated with them, and so have been excluded:"
             for each in cleaned:
                 print each
+            if self.constraint:
+                print "Removing excluded species from constraint tree..."
+                Phylo.write(self.constraint, "temp_constraint.tre", "newick")
+                temp = dendropy.Tree.get_from_path("temp_constraint.tre", "newick")
+                temp.prune_taxa(cleaned)
+                temp.write_to_path("temp_constraint.tre", "newick")
+                print ""
+                print "Your constraint tree has been written out to 'temp_constraint.tre' in your current working directory."
+                print "I *strongly* urge you to check it; your named clades and ages may have been altered by this pruning."
+                print "Check this phylogeny, alter it if necessary, then hit enter to use this constraint tree"
+                print "Else, *delete* 'temp_constraint.tre' and then hit enter to continue without a constraint tree"
+                #BioPython.Phylo doesn't like unrooted phylogenies...
+                with open("temp_constraint.tre") as handle:
+                        temp = handle.readlines()[0].strip()
+                with open("temp_constraint.tre", "w") as handle:
+                    handle.write(temp.replace("[&U]", ""))
+                self.constraint = Phylo.read("temp_constraint.tre", "newick")
+                if not self.checkConstraint():
+                    print "...there are mis-matches between the altered constraint and the species in your dataset"
+                    print "...most likely, this stems from the tree your originally provided!"
+                _ = raw_input("Check altered constraint:")
+                try:
+                    self.constraint = Phylo.read("temp_constraint.tre", "newick")
+                    print "Using altered checked, altered constraint tree"
+                    os.remove("temp_constraint.tre")
+                except:
+                    self.constraint = False
+                    self.constraintFile = False
+                    print "Constraint tree deleted; you will be given another chance to input one later"
     
     def renameSequences(self):
         for i,name in enumerate(self.speciesNames):
