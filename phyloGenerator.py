@@ -529,7 +529,7 @@ def argsCheck(arguments, parameter, argSplit='-', paramSplit=' '):
         else:
             raise RuntimeError("A match value for '" + paramter + "' was not found in the call '" + arguments + "'")
 
-def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, silent=False, nGenes=1, verbose=True):
+def alignSequences(seqList, method='muscle', tempStem='temp', silent=False, nGenes=1, verbose=True):
     """Aligns sequences (given in pG sequence list format), by default with MUSCLE.
     You *must* have a 'requires' folder in your working directory, or this won't work (see script guide).
     Example: seqs = list(SeqIO.parse("tests/sequences.fasta", "fasta"))
@@ -557,7 +557,7 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
             outputFile = tempStem + 'Out.fasta'
             commandLine = 'muscle -in ' + inputFile + " -out " + outputFile
             SeqIO.write(seqs, inputFile, "fasta")
-            pipe = TerminationPipe(commandLine, timeout)
+            pipe = TerminationPipe(commandLine)
             pipe.run(silent=silent)
             os.remove(inputFile)
             if not pipe.failure:
@@ -584,7 +584,7 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
             outputFile = tempStem + 'Out.fasta'
             commandLine = 'mafft --auto ' + inputFile + " > " + outputFile
             SeqIO.write(seqs, inputFile, "fasta")
-            pipe = TerminationPipe(commandLine, timeout)
+            pipe = TerminationPipe(commandLine)
             pipe.run(silent=silent)
             os.remove(inputFile)
             if not pipe.failure:
@@ -603,7 +603,7 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
             outputFile = tempStem + 'Out.fasta'
             commandLine = 'clustalo -i ' + inputFile + " -o " + outputFile + " -v"
             SeqIO.write(seqs, inputFile, "fasta")
-            pipe = TerminationPipe(commandLine, timeout)
+            pipe = TerminationPipe(commandLine)
             pipe.run(silent=silent)
             os.remove(inputFile)
             if not pipe.failure:
@@ -622,7 +622,7 @@ def alignSequences(seqList, method='muscle', tempStem='temp', timeout=99999999, 
             outputFile = tempStem + 'Out.fasta'
             commandLine = 'prank -d=' + inputFile + " -o=" + outputFile
             SeqIO.write(seqs, inputFile, "fasta")
-            pipe = TerminationPipe(commandLine, timeout)
+            pipe = TerminationPipe(commandLine)
             pipe.run(silent=silent)
             os.remove(inputFile)
             if not pipe.failure:
@@ -860,7 +860,7 @@ def treeDistances(trees, nReps, fileName='tempStem'):
     SDs = [std(firstGroup), std(secondGroup), std(betweenGroup)]
     return (means, SDs)
 
-def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, timeout=999999999, cladeList=None,  DNAmodel='GTR+G', partitions=None, constraint=None, cleanup=True, runNow=True, startingTree=None):
+def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, cladeList=None,  DNAmodel='GTR+G', partitions=None, constraint=None, cleanup=True, runNow=True, startingTree=None):
     """Run an alignment through RAxML. Arguments are passed to it as in the command-line version of pG.
     Note: Unlike BEAST, to run a partitioned analysis, give it a single (concatenated) alignment, and then specify the partition lengths (as shown below). This matches how RAxML takes the input files, and so makes sense in my head. I hope it does to you!
     Note: Specify 'cleanup=False' to keep all the additional RAxML input (e.g., bootstrapped trees)
@@ -964,7 +964,7 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
     
     if not runNow:
         return commandLine
-    pipe = TerminationPipe(commandLine, timeout)
+    pipe = TerminationPipe(commandLine)
     pipe.run()
     if not pipe.failure:
         extraFiles = False
@@ -1001,7 +1001,7 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
     else:
         raise RuntimeError("Either phylogeny building program failed, or ran out of time")
 
-def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, constraint=None, cleanup=False, runNow=True, chainLength=10000, logRate=1000, screenRate=1000, overwrite=True, burnin=0.1, restart=None):
+def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', constraint=None, cleanup=False, runNow=True, chainLength=10000, logRate=1000, screenRate=1000, overwrite=True, burnin=0.1, restart=None):
     """Run an alignment through BEAST. DNA sequence evolution models are defined as in the command-line version of pG, and other options are set as arguments (see below). Can be given multiple DNA alignments in a list, and each will be partitioned as a separate gene in the final run.
     Returns: a tuple detailing where the output files have been saved OR what you can type from a terminal to run BEAST on the output file (runNow=False).
     Example:
@@ -1671,7 +1671,7 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
     if not runNow:
         return commandLine
     
-    pipe = TerminationPipe(commandLine, timeout)
+    pipe = TerminationPipe(commandLine)
     if sys.platform == "win32":
         pipe.run(silent=False, changeDir=False)
     else:
@@ -1680,7 +1680,7 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
         print "...removing burn-in of ", str(burnin*100), "%..."
         burnin = int(burnin * (chainLength / logRate))
         commandLine = 'treeannotator -burnin ' + str(burnin) + ' -heights median ' + tempStem + '.trees ' + tempStem + 'Final.tre'
-        pipeAnotate = TerminationPipe(commandLine, timeout)
+        pipeAnotate = TerminationPipe(commandLine)
         if sys.platform == "win32":
             pipeAnotate.run(silent=False, changeDir=False)
         else:
@@ -1717,7 +1717,7 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
 
 #This doesn't use the standard pG sequence format; it will take an alignment list though (and not treat it as an alignment)
 #I don't want people putting all their sequences into this; it would take waaaay too long to build an alignment otherwise
-def sate(alignList, options="--auto", dnaModel="-gtr -gamma", outputDirectory="sateOutput", constraint=False, runNow=True, timeout=999999, configFile=False, merger="muscle", aligner="mafft"):
+def sate(alignList, options="--auto", dnaModel="-gtr -gamma", outputDirectory="sateOutput", constraint=False, runNow=True, configFile=False, merger="muscle", aligner="mafft"):
     #Setup
     geneNames = []
     for i,gene in enumerate(alignList):
@@ -1793,7 +1793,7 @@ def sate(alignList, options="--auto", dnaModel="-gtr -gamma", outputDirectory="s
     if not runNow:
         return options
     
-    pipe = TerminationPipe(options, timeout)
+    pipe = TerminationPipe(options)
     if 'win32' in sys.platform:
         pipe.run(silent=False, changeDir=False)
     else:
@@ -1869,7 +1869,7 @@ def cleanSequenceWrapper(seq, gene, DNAtype='Standard', gapType='-'):
             return seq
     return output
 
-def rateSmooth(phylo, method='PATHd8', nodes=tuple(), sequenceLength=int(), tempStem='temp', timeout=999999):
+def rateSmooth(phylo, method='PATHd8', nodes=tuple(), sequenceLength=int(), tempStem='temp'):
     if not phylo.rooted:
         raise RuntimeError("Phylogeny *must* be rooted")
     if method == 'PATHd8':
@@ -1892,7 +1892,7 @@ def rateSmooth(phylo, method='PATHd8', nodes=tuple(), sequenceLength=int(), temp
                     commandLine = ' '.join(['PATHd8.exe', tempPATHd8Input, tempPATHd8Output])
                 else:
                     commandLine = ' '.join(['PATHd8', tempPATHd8Input, tempPATHd8Output])
-                pipe = TerminationPipe(commandLine, timeout)
+                pipe = TerminationPipe(commandLine)
                 pipe.run()
                 os.remove(tempPhyloFile)
                 os.remove(tempPATHd8Input)
@@ -1918,7 +1918,7 @@ def rateSmooth(phylo, method='PATHd8', nodes=tuple(), sequenceLength=int(), temp
     else:
         raise RuntimeError("I haven't implemented anything other than default PATHd8 smoothing methods yet")
 
-def cleanAlignment(align, method='trimAl-automated', tempStem='temp', timeout=None):
+def cleanAlignment(align, method='trimAl-automated', tempStem='temp'):
     if 'trimAl' in method:
         options = ""
         if 'automated' in method:
@@ -1931,15 +1931,14 @@ def cleanAlignment(align, method='trimAl-automated', tempStem='temp', timeout=No
                 fileLine = " -in " + tempStem + "Input.fasta -out " + tempStem + "Output.fasta -fasta"
                 trimalVersion = "trimal"
                 commandLine = trimalVersion + fileLine + options
-                if timeout:
-                    pipe = TerminationPipe(commandLine, timeout)
-                    pipe.run()
-                    if not pipe.failure:
-                        geneOutput.append(AlignIO.read(tempStem + "Output.fasta", "fasta"))
-                        os.remove(tempStem + "Output.fasta")
-                        os.remove(tempStem + "Input.fasta")
-                    else:
-                        raise RuntimeError("Either trimAl failed, or it ran out of time")
+                pipe = TerminationPipe(commandLine)
+                pipe.run()
+                if not pipe.failure:
+                    geneOutput.append(AlignIO.read(tempStem + "Output.fasta", "fasta"))
+                    os.remove(tempStem + "Output.fasta")
+                    os.remove(tempStem + "Input.fasta")
+                else:
+                    raise RuntimeError("Either trimAl failed, or it ran out of time")
             output.append(geneOutput)
         return output
     else:
@@ -1988,7 +1987,7 @@ def createConstraintTree(spNames, method="phylomaticTaxonomy", fileName='', temp
     else:
         raise RuntimeError("Unrecognised constraint tree creation method specified")
 
-def metal(alignList, tempStem='tempMetal', timeout=100):
+def metal(alignList, tempStem='tempMetal'):
     #Write out alignments
     distances = []
     for i,gene in enumerate(alignList):
@@ -2000,7 +1999,7 @@ def metal(alignList, tempStem='tempMetal', timeout=100):
         for j in range(0, len(alignLocations)-1):
             currDist = []
             for k in range(j+1, len(alignLocations)):
-                pipe = TerminationPipe("metal --ignore-names "+alignLocations[j] + " " + alignLocations[k], timeout=timeout)
+                pipe = TerminationPipe("metal --ignore-names "+alignLocations[j] + " " + alignLocations[k])
                 pipe.run()
                 temp = re.search('[0-9]*\ /\ [0-9]*', pipe.output[0]).group()
                 temp = 'float(' + temp + '.0)'
@@ -2024,11 +2023,11 @@ def dirExistsWritable(dir):
     except:
         return False
 
+#Note: I've left 'timeout' as an argument in case anything depends on it, but it is depreciated and no longer does anything!
 class TerminationPipe(object):
     #Background process class
-    def __init__(self, cmd, timeout, silent=True):
+    def __init__(self, cmd, timeout=-1, silent=True):
         self.cmd = cmd
-        self.timeout = timeout
         self.process = None
         self.output = None
         self.failure = False
@@ -2069,7 +2068,7 @@ class TerminationPipe(object):
         else:
             thread = threading.Thread(target=loudTarget)
         thread.start()
-        thread.join(self.timeout)
+        thread.join()
         if thread.is_alive():
             self.process.terminate()
             thread.join()
@@ -3194,7 +3193,7 @@ class PhyloGenerator:
                     self.align()
                     alignmentDisplay(self.alignment, self.alignmentMethods, self.geneNames(), checkAlignmentList(self.alignment, method='everything'))
                 elif inputAlign == 'trimal':
-                    self.alignment = cleanAlignment(self.alignment, timeout=99999)
+                    self.alignment = cleanAlignment(self.alignment)
                     alignmentDisplay(self.alignment, self.alignmentMethods, self.geneNames(), checkAlignmentList(self.alignment, method='everything'))
                 elif inputAlign == 'metal':
                     if len(self.alignmentMethods) == 1:
@@ -3307,7 +3306,7 @@ class PhyloGenerator:
                     self.alignmentMethod = 'mafft'
                     locker = False
         print "Starting alignment..."
-        self.alignment = alignSequences(seqList=self.sequences, method=self.alignmentMethod, tempStem='temp', timeout=99999999, nGenes=len(self.genes))
+        self.alignment = alignSequences(seqList=self.sequences, method=self.alignmentMethod, tempStem='temp', nGenes=len(self.genes))
         print "\nAlignment complete!"
         if self.alignmentMethod == 'everything':
             self.alignmentMethods = ['muscle', 'mafft', 'clustalo', 'prank']
@@ -3372,7 +3371,7 @@ class PhyloGenerator:
                         print "...running RAxML with default options:", self.phylogenyMethods
                         raxmlLock = False
             
-            self.phylogeny, self.raxmlFiles = RAxML(align, method=self.phylogenyMethods+'localVersion', constraint=self.constraint, timeout=999999, partitions=partitions)
+            self.phylogeny, self.raxmlFiles = RAxML(align, method=self.phylogenyMethods+'localVersion', constraint=self.constraint, partitions=partitions)
         
         def beastSetup(options=False):
             def parseOptions(inputStr):
@@ -3485,9 +3484,9 @@ class PhyloGenerator:
                 self.phylogenyMethods += '-GTR-GAMMA'
             print "...running BEAST with options ", self.phylogenyMethods
             if len(self.alignment) > 1:
-                self.phylogeny, self.beastXML, self.beastTrees, self.beastLogs = BEAST(self.alignment, method=self.phylogenyMethods, constraint=self.constraint, timeout=999999, chainLength=chainLength, logRate=logRate, screenRate=screenRate, overwrite=overwrite, burnin=burnin)
+                self.phylogeny, self.beastXML, self.beastTrees, self.beastLogs = BEAST(self.alignment, method=self.phylogenyMethods, constraint=self.constraint, chainLength=chainLength, logRate=logRate, screenRate=screenRate, overwrite=overwrite, burnin=burnin)
             else:
-                self.phylogeny, self.beastXML, self.beastTrees, self.beastLogs  = BEAST(self.alignment[0], method=self.phylogenyMethods, constraint=self.constraint, timeout=999999, chainLength=chainLength, logRate=logRate, screenRate=screenRate, overwrite=overwrite, burnin=burnin)
+                self.phylogeny, self.beastXML, self.beastTrees, self.beastLogs  = BEAST(self.alignment[0], method=self.phylogenyMethods, constraint=self.constraint, chainLength=chainLength, logRate=logRate, screenRate=screenRate, overwrite=overwrite, burnin=burnin)
         
         if self.phylogenyMethods:
             if 'beast' in self.phylogenyMethods:
@@ -3630,9 +3629,9 @@ class PhyloGenerator:
                     if methods:
                         self.rateSmoothMethods = 'BEAST' + methods
                         if len(self.alignment) > 1:
-                            self.smoothPhylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs  = BEAST(self.alignment, method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, burnin=burnin, timeout=999999, tempStem='beast_smooth')
+                            self.smoothPhylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs  = BEAST(self.alignment, method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, burnin=burnin, tempStem='beast_smooth')
                         else:
-                            self.smoothPhylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs = BEAST(self.alignment[0], method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, burnin=burnin, tempStem='beast_smooth')
+                            self.smoothPhylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs = BEAST(self.alignment[0], method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, burnin=burnin, tempStem='beast_smooth')
                         beastLock = False
                     else:
                         print "Sorry, I don't understand", beastInput, "- please try again."
@@ -3640,9 +3639,9 @@ class PhyloGenerator:
                     print "...running BEAST with default options"
                     self.rateSmoothMethods = 'BEAST-GTR-GAMMA'
                     if len(self.alignment) > 1:
-                        self.smoothPhylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs = BEAST(self.alignment, method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, burnin=burnin, tempStem='beast_smooth')
+                        self.smoothPhylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs = BEAST(self.alignment, method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, burnin=burnin, tempStem='beast_smooth')
                     else:
-                        self.smoothPhylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs = BEAST(self.alignment[0], method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, timeout=999999, burnin=burnin, tempStem='beast_smooth')
+                        self.smoothPhylogeny, self.smoothBeastXML, self.smoothBeastTrees, self.smoothBeastLogs = BEAST(self.alignment[0], method=self.rateSmoothMethods, constraint=self.phylogeny, logRate=logRate, screenRate=screenRate, chainLength=chainLength, overwrite=overwrite, burnin=burnin, tempStem='beast_smooth')
                     beastLock = False
         
         
