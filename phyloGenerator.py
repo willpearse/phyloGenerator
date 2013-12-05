@@ -887,16 +887,16 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
         options += ' -y'
     else:
         #Restarts
-        if 'restarts' in method:
+        if 'restart' in method:
             temp = method.split('-')
             for each in temp:
-                if 'restarts' in each:
-                    number = each.replace('restarts=', '')
+                if 'restart' in each:
+                    number = each.replace('restart=', '')
                     options += ' -N ' + number
                     break
         #Algorithm
         if 'integratedBootstrap' in method:
-            if 'restarts' in method:
+            if 'restart' in method:
                 raise RuntimeError("RAxML cannot do the accelerated bootstrap multiple times (at least not the way I'm using it).")
             temp = method.split('-')
             for each in temp:
@@ -967,12 +967,23 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
     pipe = TerminationPipe(commandLine, timeout)
     pipe.run()
     if not pipe.failure:
+        extraFiles = False
         if 'startingOnly' in method:
             tree = Phylo.read('RAxML_parsimonyTree.' + outputFile, "newick")
         elif 'integratedBootstrap' in method:
             tree = Phylo.read('RAxML_bipartitions.' + outputFile, "newick")
+            os.rename("RAxML_bootstrap."+outputFile, "RAxML_bootstraps.tre")
+            extraFiles = "RAxML_bootstraps.tre"
+        elif 'restart' in method:
+            with zipfile.ZipFile("RAxML_raw_trees.zip", "w") as handle:
+                for each in os.listdir(os.getcwd()):
+                    if "RAxML_result" in each:
+                        handle.write(each)
+                        extraFiles = "RAxML_raw_trees.zip"
+            tree = Phylo.read('RAxML_bestTree.' + outputFile, "newick")
         else:
             tree = Phylo.read('RAxML_bestTree.' + outputFile, "newick")
+                        
         if cleanup:
             if startingTree:
                 os.remove(tempStem + 'startingTree.tre')
@@ -981,13 +992,12 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
             if partitions:
                 os.remove(tempStem+"_partitions.txt")
             os.remove(inputFile)
-            dirList = os.listdir(os.getcwd())
-            for each in dirList:
-                if re.search("(RAxML)", each):
+            for each in os.listdir(os.getcwd()):
+                if re.search("(RAxML)", each) and each!="RAxML_raw_trees.zip" and each!="RAxML_bootstraps.tre":
                     os.remove(each)
                 if tempStem+"In.phylip.reduced"==each:
                     os.remove(each)
-        return tree
+        return (tree, extraFiles)
     else:
         raise RuntimeError("Either phylogeny building program failed, or ran out of time")
 
@@ -2102,6 +2112,7 @@ class PhyloGenerator:
         self.smoothPhylogenyMerged = False
         self.targetLength = False
         self.referenceSequences = []
+        self.raxmlFiles = False
 
         #Check for GenBank TaxIDs:
         if args.taxonIDs:
@@ -3225,7 +3236,8 @@ class PhyloGenerator:
                                     #Get the trees
                                     methodTrees = []
                                     for k in range(noTrees):
-                                        methodTrees.append(RAxML(method, 'localVersion'))
+                                        temp = RAxML(method, 'localVersion')
+                                        methodTrees.append(temp[0])
                                     geneTrees.append(methodTrees)
                                 trees.append([item for sublist in geneTrees for item in sublist])
                                 
@@ -3360,7 +3372,7 @@ class PhyloGenerator:
                         print "...running RAxML with default options:", self.phylogenyMethods
                         raxmlLock = False
             
-            self.phylogeny = RAxML(align, method=self.phylogenyMethods+'localVersion', constraint=self.constraint, timeout=999999, partitions=partitions)
+            self.phylogeny, self.raxmlFiles = RAxML(align, method=self.phylogenyMethods+'localVersion', constraint=self.constraint, timeout=999999, partitions=partitions)
         
         def beastSetup(options=False):
             def parseOptions(inputStr):
@@ -3778,6 +3790,8 @@ class PhyloGenerator:
                     os.rename(self.oldDirectory + '/' + self.beastLogs, self.stem+"_"+self.geneNames()[i]+"_RAW_BEAST.log")
                 else:
                     Phylo.write(self.phylogeny, self.stem+"_phylogeny.tre", 'newick')
+                    if self.raxmlFiles != False:
+                        os.rename(self.oldDirectory + '/' + self.raxmlFiles, os.getcwd()+"/"+self.stem+"_"+self.raxmlFiles)
         
         #Constraint tree
         if self.constraint:
@@ -3978,9 +3992,11 @@ class PhyloGenerator:
                         nSearch = int(checkerInput)
                         trees = []
                         for i in range(nSearch):
-                            trees.append(RAxML(align, partitions=partitions))
+                            temp = RAxML(align, partitions=partitions)
+                            trees.append(temp[0])
                         for i in range(nSearch):
-                            trees.append(RAxML(align, partitions=partitions, constraint=self.constraint))
+                            temp = RAxML(align, partitions=partitions, constraint=self.constraint)
+                            trees.append(temp[0])
                         Phylo.write(trees, 'constraintCheckTemp.tre', 'newick')
                         pipe = TerminationPipe('raxml -f r -z constraintCheckTemp.tre -n constraintCheckTemp -m GTRGAMMA', 999999)
                         pipe.run()
