@@ -30,7 +30,8 @@ import webbrowser #Load website on request
 import sys #To exit on errors
 import copy #Getting subtrees
 import warnings, pdb
-import dendropy#To drop tips...
+import dendropy#To drop tips
+import zipfile#To zip SATe
 maxCheck = 4
 def unrootPhylomatic(tree):
     Phylo.write(tree, 'unrootingOutput.tre', 'newick')
@@ -1703,6 +1704,101 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
             raise RuntimeError("Either tree annotation failed, or ran out of time")
     else:
         raise RuntimeError("Either phylogeny building program failed, or ran out of time")
+
+#This doesn't use the standard pG sequence format; it will take an alignment list though (and not treat it as an alignment)
+#I don't want people putting all their sequences into this; it would take waaaay too long to build an alignment otherwise
+def sate(alignList, options="--auto", dnaModel="-gtr -gamma", outputDirectory="sateOutput", constraint=False, runNow=True, timeout=999999, configFile=False, merger="muscle", aligner="mafft"):
+    #Setup
+    geneNames = []
+    for i,gene in enumerate(alignList):
+        gene = [SeqRecord(Seq(seq.seq.tostring().replace("-", "")), id=seq.id) for seq in gene]
+        geneNames.append(str(i) + ".fasta")
+        SeqIO.write(gene, geneNames[i], "fasta")
+    if "win" in sys.platform:
+        slash = '\\'
+    else:
+        slash = '/'
+    #Runtime arguments
+    #Input sequences
+    if len(alignList) > 1:
+        options += " --multilocus --input " + os.getcwd()
+    else:
+        options += " --input " + geneNames[0]
+    #Output directory
+    options += " -o " + outputDirectory
+    #Add SATE necessaries
+    options = "sate-core" + slash + "run_sate.py " + options
+
+    #Handle config file
+    if configFile:
+        options += ' ' + configFile
+    else:
+        options += " default_sate_options.txt"
+        with open("default_sate_options.txt", "w") as handle:
+            handle.write("[clustalw2]\n")
+            handle.write("path = " + os.getcwd() + slash + "requires" + slash + "clustalw2\n")
+            handle.write("[commandline]\n")
+            handle.write("aligned = False\n")
+            handle.write("auto = False\n")
+            handle.write("datatype = dna\n")
+            handle.write("job = pgSATE\n")
+            handle.write("keepalignmenttemps = False\n")
+            handle.write("keeptemp = False\n")
+            handle.write("multilocus = False\n")
+            handle.write("raxml_search_after = False\n")
+            handle.write("two_phase = False\n")
+            handle.write("untrusted = False\n")
+            if dnaModel:
+                handle.write("model = " + dnaModel + "\n")
+            handle.write("options = \n")
+            handle.write("[raxml]\n")
+            handle.write("args = \n")
+            handle.write("model = \n")
+            handle.write("[sate]\n")
+            handle.write("after_blind_iter_term_limit = -1\n")
+            handle.write("after_blind_iter_without_imp_limit = 1\n")
+            handle.write("after_blind_time_term_limit = -1.0\n")
+            handle.write("after_blind_time_without_imp_limit = -1.0\n")
+            handle.write("aligner = " + aligner + "\n")
+            handle.write("blind_after_iter_without_imp = -1\n")
+            handle.write("blind_after_time_without_imp = -1.0\n")
+            handle.write("blind_after_total_iter = -1\n")
+            handle.write("blind_after_total_time = -1.0\n")
+            handle.write("blind_mode_is_final = True\n")
+            handle.write("break_strategy = centroid\n")
+            handle.write("iter_limit = -1\n")
+            handle.write("iter_without_imp_limit = -1\n")
+            handle.write("max_mem_mb = 1024\n")
+            handle.write("max_subproblem_frac = 0.5\n")
+            handle.write("max_subproblem_size = 16\n")
+            handle.write("merger = " + merger + "\n")
+            handle.write("move_to_blind_on_worse_score = True\n")
+            handle.write("return_final_tree_and_alignment = False\n")
+            handle.write("start_tree_search_from_current = True\n")
+            handle.write("time_limit = -1.0\n")
+            handle.write("time_without_imp_limit = -1.0\n")
+            handle.write("tree_estimator = raxml\n")
+    
+    #Run SATE
+    if not runNow:
+        return options
+    
+    pipe = TerminationPipe(options, timeout)
+    if 'win32' in sys.platform:
+        pipe.run(silent=False, changeDir=False)
+    else:
+        pipe.run(silent=False)
+    if pipe.failure:
+        raise RuntimeError("Error with SATE: program failed to run, or took too long.")
+    #Collate output and return
+    with zipfile.ZipFile(outputDirectory+'.zip', 'w') as handle:
+        for each in os.listdir(outputDirectory):
+            handle.write(outputDirectory + slash + each)
+    tree = Phylo.read(outputDirectory + slash + "pgSATE.tre", "newick")
+    [os.remove(outputDirectory + slash + each) for each in os.listdir(outputDirectory)]
+    os.rmdir(outputDirectory)
+    [os.remove(each) for each in geneNames]
+    return (tree, outputDirectory+'.zip')
 
 def trimSequence(seq, DNAtype='Standard', gapType='-'):
     stop = CodonTable.unambiguous_dna_by_name[DNAtype].stop_codons
