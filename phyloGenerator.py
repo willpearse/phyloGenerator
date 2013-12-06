@@ -1810,6 +1810,87 @@ def sate(alignList, options="--auto", dnaModel="-gtr -gamma", outputDirectory="s
     [os.remove(each) for each in geneNames]
     return (tree, outputDirectory+'.zip')
 
+#Assumes a concatenated alignment; need to pass a way of handling that...
+def pastis(align, species, taxonomy, constraint, options='', runNow=True, chainLength=10000, nRuns=1, nChains=1, logRate=1000, burnin=0.1, cleanup=True):
+    #Setup
+    AlignIO.write(align, "pG_pastis_sequences.fasta", "fasta")
+    with open("pG_pastis_species.txt", "w") as handle:
+        for each in species:
+            handle.write(each + "\n")
+    with open("pG_pastis_taxonomy.txt", "w") as handle:
+        for each in taxonomy:
+            handle.write(each + "\n")
+    Phylo.write(constraint, "pG_pastis_constraint.tre", "newick")        
+
+    #Write out MrBayes template
+    with open("pG_pastis_MrBayes_template.txt", "w") as handle:
+        handle.write('Begin DATA; \n')
+        handle.write('Dimensions ntax=<ntax> nchar=<nchar>;\n')
+        handle.write('Format datatype=DNA gap=- missing=?; \n')
+        handle.write('Matrix \n')
+        handle.write('\n')
+        handle.write('<sequences>   \n')
+        handle.write('  ; \n')
+        handle.write('\n')
+        handle.write('\n')
+        handle.write('begin MRBAYES; \n')
+        handle.write('\n')
+        handle.write('unlink shape=(all) tratio=(all) statefreq=(all) revmat=(all) pinvar=(all); \n')
+        handle.write('<constraints>\n')
+        handle.write('  \n')
+        handle.write('  \n')
+        handle.write('  set usebeagle=no Beaglesse=no; \n')
+        handle.write('\n')
+        handle.write('prset brlenspr=clock:birthdeath; \n')
+        handle.write('prset Extinctionpr = Fixed(0); \n')
+        handle.write('prset Speciationpr=exponential(1); \n')
+        handle.write('prset clockvarpr=ibr; \n')
+        handle.write('prset ibrvarpr=exponential(10); \n')
+        handle.write('mcmcp nruns='+str(nRuns)+' nchains='+str(nChains)+' ngen='+str(chainLength)+' samplefreq='+str(logRate)+'; \n')
+        handle.write('mcmc; \n')
+        handle.write('\n')
+        handle.write('sumt filename=<outputfile> burnin='+str(burnin*chainLength)+' contype=halfcompat;\n')
+        handle.write('\n')
+        handle.write('end;')
+    
+    #Write out R script
+    with open("pG_pastis_script.R", "w") as handle:
+        handle.write('require(pastis)\n')
+        handle.write('setwd("'+os.getcwd()+'")\n')
+	handle.write('constraint <- read.tree("'+os.getcwd()+'//'+'pG_pastis_constraint.tre")\n')
+        handle.write('taxonomy <- read.table("'+os.getcwd()+'//'+'pG_pastis_taxonomy.txt", header=FALSE, sep="/")[,1]\n')
+        handle.write('species <- read.table("'+os.getcwd()+'//'+'pG_pastis_species.txt", header=FALSE, as.is=TRUE)[,1]\n')
+        handle.write('taxa_list <- data.frame(taxon=species, clade=taxonomy, taxa_char=species)\n')
+        handle.write('pastis <- read_input(constraint, taxa_list, sequences="'+os.getcwd()+'//'+'pG_pastis_sequences.fasta", output_template="'+os.getcwd()+'//'+'pG_pastis_MrBayes_template.txt")\n')
+        handle.write('pastis_simple(pastis, base_name="pG_pastis")\n')
+    
+    #Run R
+    # - easier to do this manually as it's the only time we have to call R and R really should be globally installed!
+    if runNow:
+        thread = subprocess.Popen("R CMD BATCH pG_pastis_script.R", stdout=subprocess.PIPE, shell=True, stderr=subprocess.PIPE)
+        thread.wait()
+    else:
+        output = ["R CMD BATCH pG_pastis.R"]
+    
+    #Run MrBayes
+    pipe = TerminationPipe("mrbayes pG_pastis.nexus")
+    if runNow:
+        pipe.run()
+    else:
+        output.append("mrbayes pG_pastis.nexus")
+        return output
+    if pipe.failure:
+        raise RuntimeError("Error: cannot execute MrBayes")
+
+    #Prepare output and return
+    with zipfile.ZipFile("pastis.zip", "w") as handle:
+        for each in os.listdir(os.getcwd()):
+            if "pG_pastis.nexus" in each:
+                handle.write(each)
+            if cleanup and 'pG_pastis' in each:
+                os.remove(each)                        
+    return "pastis.zip"
+
 def trimSequence(seq, DNAtype='Standard', gapType='-'):
     stop = CodonTable.unambiguous_dna_by_name[DNAtype].stop_codons
     start = CodonTable.unambiguous_dna_by_name[DNAtype].start_codons
@@ -2112,6 +2193,9 @@ class PhyloGenerator:
         self.targetLength = False
         self.referenceSequences = []
         self.raxmlFiles = False
+        self.cleanedSpecies = []
+        self.cleanedTaxonomy = []
+        self.cleanedEdits = []
 
         #Check for GenBank TaxIDs:
         if args.taxonIDs:
@@ -3667,35 +3751,33 @@ class PhyloGenerator:
                 locker = False
     
     def cleanUpSequences(self):
-        cleaned = []
         for i,sp in reversed(list(enumerate(self.sequences))):
             foundSequence = False
             for j,seq in reversed(list(enumerate(sp))):
                 if seq:
                     foundSequence = True
-                #else:
-                #   self.sequences[i][j] = SeqRecord(Seq(""))
-                #   self.sequences[i][j].id = self.speciesNames[i]
-                #   self.sequences[i][j].name = self.speciesNames[i]
-                #   self.sequences[i][j].description = 'Empty sequence made up by phyloGenerator'
             
             if not foundSequence:
-                cleaned.append(self.speciesNames[i])
+                self.cleanedSpecies.append(self.speciesNames[i])
+                self.cleanedSeqEdits.append(self.sequenceEdits[i])
                 del self.sequences[i]
                 del self.speciesNames[i]
                 del self.sequenceEdits[i]
                 if self.taxonomy:
+                    self.cleanedTaxonomy.append(self.taxonomy[i])
                     del self.taxonomy[i]
         
-        if cleaned:
-            print "\nThe following species did not have any DNA associated with them, and so have been excluded:"
-            for each in cleaned:
+        if self.cleanedSpecies:
+            print ""
+            print "The following species did not have any DNA associated with them, and so have been excluded:"
+            for each in self.cleanedSpecies:
                 print each
+            print "...these species will be automatically added back in if you choose the 'pastis' option later"
             if self.constraint:
                 print "Removing excluded species from constraint tree..."
                 Phylo.write(self.constraint, "temp_constraint.tre", "newick")
                 temp = dendropy.Tree.get_from_path("temp_constraint.tre", "newick")
-                temp.prune_taxa(cleaned)
+                temp.prune_taxa(self.cleanedSpecies)
                 temp.write_to_path("temp_constraint.tre", "newick")
                 print ""
                 print "Your constraint tree has been written out to 'temp_constraint.tre' in your current working directory."
