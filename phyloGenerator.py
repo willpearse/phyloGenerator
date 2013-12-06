@@ -2665,6 +2665,12 @@ class PhyloGenerator:
                     return "replace", True
                 elif inputSeq == "merge":
                     return "merge", True
+                elif inputSeq == "missing_advice":
+                    self.missing_advice()
+                    return "delete", False
+                elif inputSeq == "rant":
+                    self.rant()
+                    return "delete", False
                 else:
                     print "Sorry,", inputSeq, "was not recognised. Please try again."
                     return 'delete', False
@@ -2811,6 +2817,12 @@ class PhyloGenerator:
                     return "replace", True
                 elif inputSeq == "merge":
                     return "merge", True
+                elif inputSeq == "missing_advice":
+                    self.missing_advice()
+                    return "reload", False
+                elif inputSeq == "rant":
+                    self.rant()
+                    return "reload", False
                 else:
                     print "Sorry,", inputSeq, "was not recognised. Please try again."
                     return 'reload', False
@@ -2900,6 +2912,12 @@ class PhyloGenerator:
                     return "replace", True
                 elif inputSeq == "merge":
                     return "merge", True
+                elif inputSeq == "missing_advice":
+                    self.missing_advice()
+                    return "trim", False
+                elif inputSeq == "rant":
+                    self.rant()
+                    return "trim", False
                 elif inputSeq == "EVERYTHING":
                     for i,sp in enumerate(self.sequences):
                         for j,gene in enumerate(sp):
@@ -3058,29 +3076,6 @@ class PhyloGenerator:
                     print "Re-calulating summary statistics..."
                     self.dnaChecking()
                     return 'replace', False
-                #elif inputSeq == "GENUS":
-                #   self.speciesGenera = [x.partition('_')[0] for x in self.speciesNames]
-                #   genusCounts = {x: self.speciesGenera.count(x) for x in self.speciesGenera}
-                #   genusProcessed = {x: False for x in self.speciesGenera}
-                #   for i,genus in enumerate(self.speciesNames):
-                #       if not genusProcessed[genus]:
-                #           if genusCounts[genus] > 1:
-                #               pass
-                #           else:
-                #               for gene in self.genes:
-                #                   temp.append(sequenceDownload(candidate[0], gene)[0])
-                #                   if temp:
-                #                       locker = True
-                #                   if locker:
-                #                       self.sequences[i] = temp
-                #   #Identify genera
-                #   #If:
-                #   # - singleton genera
-                #   # -------- no sequence => try genus search
-                #   # - multiple genera
-                #   # -------- single sequence => merge genus
-                #   # -------- multiple sequences => use all sequences; mark clade as one to be replaced with polytomy later
-                #   # -------- no sequences => try genus search
                 elif inputSeq == "delete":
                     return "delete", True
                 elif inputSeq == "reload":
@@ -3089,6 +3084,12 @@ class PhyloGenerator:
                     return "trim", True
                 elif inputSeq == "merge":
                     return "merge", True
+                elif inputSeq == "missing_advice":
+                    self.missing_advice()
+                    return "replace", False
+                elif inputSeq == "rant":
+                    self.rant()
+                    return "replace", False
                 else:
                     print "Sorry,", inputSeq, "was not recognised. Please try again."
                     return 'replace', False
@@ -3150,6 +3151,12 @@ class PhyloGenerator:
                     return "trim", True
                 elif inputSeq == "replace":
                     return "replace", True
+                elif inputSeq == "missing_advice":
+                    self.missing_advice()
+                    return "merge", False
+                elif inputSeq == "rant":
+                    self.rant()
+                    return "merge", False
                 else:
                     print "Sorry,", inputSeq, "was not recognised. Please try again."
                     return 'reload', False
@@ -3176,6 +3183,71 @@ class PhyloGenerator:
                 if mode == "EXIT":
                     self.alignment = []
                     locker = False
+
+    def missing_advice(self):
+        print ""
+        print "I'm often asked how I deal with species for which there are no"
+        print "sequence data on GenBank. This is what I do:"
+        print ""
+        print "1: 'replace' species with a congener when I think that genus is"
+        print "monophyletic."
+        print ""
+        print "2: Use the R script 'merging.R' (bundled with pG) to 'merge' missing"
+        print "species into my phylogeny once it's built. This way it's easy to keep"
+        print "track of what I've merged, and I can change my merging later if I'm"
+        print "unhappy with it. I don't use the 'merge' feature inside the program"
+        print "itself!"
+        print ""
+        print "If I'm pushed for time, I might use the 'THOROUGH' method to"
+        print "automatically merge species when the NCBI taxonomy suggests it's safe"
+        print "to do so (but see the warning/rant below)."
+        print ""
+        print "Sometimes I'll use the 'pastis' option in the phylogeny building step"
+        print "to account for uncertainty. This requires knowledge of Bayesian"
+        print "statistics and phylogenetics, but both of these are fun!"
+        print ""
+        print "...if you're wondering why I can't just automate all of this, 'like in"
+        print "Phylomatic', then type 'rant' into the console."
+        print ""
+    
+    def rant(self):
+        print ""
+        print "Warning/rant: What follows is a semi-coherent response to the questions"
+        print "'why can't you just automate all the sequence"
+        print "downloading/merging/replacing in phyloGenerator?' and 'why isn't pG"
+        print "one-click like Phylomatic?', both of which I get asked quite often."
+        print ""
+        print "Taxonomy != phylogeny, and there is no guarantee that NCBI's taxonomic"
+        print "ranks match onto monophyletic clades. Indeed, if they did, you"
+        print "wouldn't need phyloGenerator to build a phylogeny for you!  I'm not"
+        print "comfortable writing a script that will 'merge' or 'replace' species"
+        print "for you (I think the 'THOROUGH' method is far enough as it is),"
+        print "because I can't promise you I'll always do it right."
+        print ""
+        print "I wrote phyloGenerator because the kinds of analyses I do require"
+        print "resolved, accurately-dated phylogenies. These cannot come from"
+        print "taxonomy alone. Taxonomies are necessarily not bifurcating, and have"
+        print "no information about the timing of evolutionary divergence. Building a"
+        print "phylogeny is hard, even (especially?) with phyloGenerator, but the"
+        print "reward is a more powerful tool for your later analyses."
+        print ""
+        print "If you're willing to assume that your taxonomic information reflects"
+        print "phylogeny, have a phylogeny that you trust, and are willing to make"
+        print "novel inferences about the timing of evolutionary divergence without"
+        print "any novel DNA data, there are a number of other tools that you can"
+        print "use. My personal favourite is Phylomatic - I like it so much I built"
+        print "it into phyloGenerator! Phylomatic is a powerful tool that I use"
+        print "often, but like all powerful tools it requires discretion: garbage in,"
+        print "garbage out. I am sure that the authors of Phylomatic would agree with"
+        print "me in saying that just because Phylomatic gives an answer quickly"
+        print "doesn't mean you should just blindly trust what it's given you!"
+        print ""
+        print "The same level of diligence and attention to detail is required when"
+        print "making replace/merge decisions based on taxonomy in phyloGenerator,"
+        print "and this is why I am unwilling to write any more automated species"
+        print "merge/replace options into phyloGenerator."
+        print "   -    Will Pearse, 2013-12-05"
+        print ""
     
     def unmerge(self):
         def unmergeNewick(tree, sppList):
@@ -4247,7 +4319,8 @@ def main():
             print "\tCheck for long sequences, and TRIM them (use the '>' command). Make sure you've set the 'type' of gene you're using first"
             print "\tTry RELOADing short sequences (use the '>' command). Consider searching for the 'max' length sequences"
             print "\tREPLACE species for which you can't find sequence data (use the 'THOROUGH' command)"
-            print "\tIf you have alignment problems, you can return to this stage"
+            print "\tIf you have alignment problems, you can return to this stage later"
+            print "\tType 'missing_advice' to hear how the author would handle missing species"
             currentState.dnaEditing()
             
             #DNA Cleanup and renaming
