@@ -2,7 +2,7 @@ phyloGenerator -automated phylogeny generation for ecologists
 ===============================================================
 Will Pearse (wdpearse@umn.edu)
 
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. The following restriction to the GNU GPL applies: contact the author of this program (wdpearse@umn.edu) for a suitable citation when using the code.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. The following restriction to the GNU GPL applies: use the citation below when using, modifying, or working with this code.
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -16,6 +16,7 @@ There should be a 'Demos' folder with your distribution - if not, *please email 
 
 ##Questions:
 Please feel free to drop me an email, or put any feature requests/bugs online at https://github.com/willpearse/phyloGenerator/issues.
+If you're a PC or Mac person, please please please try to use the pre-compiled versions of this available on the main website. You'll have a lot more fun, I promise!
 
 ##Citation:
 http://onlinelibrary.wiley.com/doi/10.1111/2041-210X.12055/abstract

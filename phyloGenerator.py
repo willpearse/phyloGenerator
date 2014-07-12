@@ -1149,8 +1149,8 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
                 f.write('</monophylyStatistic>\n')
                 if hardConstraint:
                     f.write('<booleanLikelihood id="boolCladeNo' + str(i) + '">\n')
-                f.write('<monophylyStatistic idref="monophyly(' + str(i) +')"/>\n')
-                f.write('</booleanLikelihood>\n')
+                    f.write('<monophylyStatistic idref="monophyly(' + str(i) +')"/>\n')
+                    f.write('</booleanLikelihood>\n')
         f.write('   <!-- Generate a speciation likelihood for Yule or Birth Death                -->\n')
         f.write('   <speciationLikelihood id="speciation">\n')
         f.write('       <model>\n')
