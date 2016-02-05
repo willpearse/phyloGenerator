@@ -1653,7 +1653,7 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
         f.write('</beast>\n')
     
     if overwrite:
-        commandLine = "beast -overwrite " + tempStem + "_BEAST.xml"
+        commandLine = "beast -beagle_off -overwrite " + tempStem + "_BEAST.xml"
     else:
         commandLine = "beast -beagle_off " + tempStem + "_BEAST.xml"
     
@@ -1661,7 +1661,7 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
         return commandLine
     
     pipe = TerminationPipe(commandLine, timeout)
-    if sys.platform == "win32":
+    if sys.platform == "win32" or sys.platform == "linux2":
         pipe.run(silent=False, changeDir=False)
     else:
         pipe.run(silent=False)
@@ -1670,7 +1670,7 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
         burnin = int(burnin * (chainLength / logRate))
         commandLine = 'treeannotator -burnin ' + str(burnin) + ' -heights median ' + tempStem + '.trees ' + tempStem + 'Final.tre'
         pipeAnotate = TerminationPipe(commandLine, timeout)
-        if sys.platform == "win32":
+        if sys.platform == "win32" or sys.platform == "linux2":
             pipeAnotate.run(silent=False, changeDir=False)
         else:
             pipeAnotate.run(silent=False)
