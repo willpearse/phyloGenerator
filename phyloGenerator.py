@@ -1655,7 +1655,7 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
     if overwrite:
         commandLine = "beast -overwrite " + tempStem + "_BEAST.xml"
     else:
-        commandLine = "beast " + tempStem + "_BEAST.xml"
+        commandLine = "beast -beagle_off " + tempStem + "_BEAST.xml"
     
     if not runNow:
         return commandLine
