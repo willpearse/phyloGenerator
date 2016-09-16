@@ -29,7 +29,7 @@ import argparse #For command line arguments
 import webbrowser #Load website on request
 import sys #To exit on errors
 import copy #Getting subtrees
-import warnings, pdb
+import warnings
 import dendropy#To drop tips...
 maxCheck = 4
 def unrootPhylomatic(tree):
@@ -61,7 +61,7 @@ def taxonIDLookup(taxonID):
                 print "!!!Server error - retrying..."
                 finished += 1
                 time.sleep(10)
-            elif finished == maxCheck:
+            elif finished >= maxCheck:
                 print "!!!!!!Unreachable. Returning nothing."
                 return(tuple())
             else:
@@ -118,7 +118,7 @@ def cladeSpecies(cladeName):
                 print "!!!Server error checking", cladeName, " - retrying..."
                 finished += 1
                 time.sleep(10)
-            elif finished == maxCheck:
+            elif finished >= maxCheck:
                 print "!!!!!!Unreachable. Returning nothing."
                 return()
             else:
@@ -186,7 +186,8 @@ def eSearch(term, retStart=0, retMax=20, usehistory="y"):
             if finished == 0:
                 print "!!!Server error checking", term, " - retrying..."
                 time.sleep(10)
-            elif finished == maxCheck:
+                finished += 1
+            elif finished >= maxCheck:
                 print "!!!!!!Unreachable. Returning nothing."
                 return()
             else:
@@ -210,7 +211,7 @@ def eFetchSeqID(seqID, rettype='gb'):
                 print "!!!Server error - retrying..."
                 finished += 1
                 time.sleep(10)
-            if finished == maxCheck:
+            if finished >= maxCheck:
                 print "!!!!!!Unreachable. Returning nothing."
                 return(tuple())
     return results
@@ -231,7 +232,7 @@ def eFetchESearch(eSearchOutput, rettype='gb'):
                 print "!!!Server error - retrying..."
                 finished += 1
                 time.sleep(10)
-            if finished == maxCheck:
+            if finished >= maxCheck:
                 print "!!!!!!Unreachable. Returning nothing."
                 return(tuple())
     return results
@@ -249,7 +250,7 @@ def eSummary(seqID):
                 print "!!!Server error - retrying..."
                 finished += 1
                 time.sleep(10)
-            if finished == maxCheck:
+            if finished >= maxCheck:
                 print "!!!!!!Unreachable. Returning nothing."
                 return(tuple())
     return results[0]
@@ -1912,8 +1913,8 @@ def dirExistsWritable(dir):
         os.chdir(dir)
         with open("test_writable.txt", "w") as handle:
             handle.write("writably file?")
-            os.remove("test_writable.txt")
-            os.chdir(oldDir)
+        os.remove("test_writable.txt")
+        os.chdir(oldDir)
         return True
     except:
         return False
