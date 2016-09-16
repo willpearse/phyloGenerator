@@ -1,5 +1,5 @@
 README phyloGenerator - Automated phylogeny generation for ecologists.
-Will Pearse (wdpearse@umn.edu)
+Will Pearse (will.pearse@usu.edu)
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. The following restriction to the GNU GPL applies: contact the author of this program (wdpearse@umn.edu) for a suitable citation when using the code.
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
