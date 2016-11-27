@@ -85,6 +85,7 @@ print "Checking Python libraries\n"
 tracker = checkModule("numpy", "Run 'sudo apt-get install python-numpy'") and tracker
 tracker = checkModule("scipy", "Run 'sudo apt-get install python-scipy'") and tracker
 tracker = checkModule("Bio", "Run 'sudo apt-get install python-biopython'") and tracker
+tracker = checkModule("dendropy", "Run 'sudo pip install -U dendropy'") and tracker
 
 #Clean-up
 if tracker:
