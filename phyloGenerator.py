@@ -31,6 +31,7 @@ import sys #To exit on errors
 import copy #Getting subtrees
 import warnings
 import dendropy#To drop tips...
+import pdb
 maxCheck = 4
 def unrootPhylomatic(tree):
     Phylo.write(tree, 'unrootingOutput.tre', 'newick')
@@ -991,7 +992,7 @@ def RAxML(alignment, method='localVersion', tempStem='temp', outgroup=None, time
     else:
         raise RuntimeError("Either phylogeny building program failed, or ran out of time")
 
-def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, constraint=None, cleanup=False, runNow=True, chainLength=10000, logRate=1000, screenRate=1000, overwrite=True, burnin=0.1, restart=None):
+def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, constraint=None, cleanup=False, runNow=True, chainLength=10000, logRate=1000, screenRate=1000, overwrite=True, burnin=0.1, restart=None, no_beagle=False):
     """Run an alignment through BEAST. DNA sequence evolution models are defined as in the command-line version of pG, and other options are set as arguments (see below). Can be given multiple DNA alignments in a list, and each will be partitioned as a separate gene in the final run.
     Returns: a tuple detailing where the output files have been saved OR what you can type from a terminal to run BEAST on the output file (runNow=False).
     Example:
@@ -1654,24 +1655,30 @@ def BEAST(alignment, method='GTR+GAMMA', tempStem='temp', timeout=999999999, con
         f.write('</beast>\n')
     
     if overwrite:
-        commandLine = "beast -beagle_off -overwrite " + tempStem + "_BEAST.xml"
+        if sys.platform == "linux2" or no_beagle==True:
+            commandLine = "beast -beagle_off -overwrite " + tempStem + "_BEAST.xml"
+        else:
+            commandLine = "beast -overwrite " + tempStem + "_BEAST.xml"
     else:
-        commandLine = "beast -beagle_off " + tempStem + "_BEAST.xml"
+        if sys.platform == "linux2" or no_beagle==True:
+            commandLine = "beast " + tempStem + "_BEAST.xml"
+        else:
+            commandLine = "beast -beagle_off " + tempStem + "_BEAST.xml"
     
     if not runNow:
         return commandLine
     
     pipe = TerminationPipe(commandLine, timeout)
-    if sys.platform == "win32" or sys.platform == "linux2":
+    if sys.platform == "win32":
         pipe.run(silent=False, changeDir=False)
     else:
-        pipe.run(silent=False)
+        pipe.run(silent=False, changeDir=True)
     if not pipe.failure:
         print "...removing burn-in of ", str(burnin*100), "%..."
         burnin = int(burnin * (chainLength / logRate))
         commandLine = 'treeannotator -burnin ' + str(burnin) + ' -heights median ' + tempStem + '.trees ' + tempStem + 'Final.tre'
         pipeAnotate = TerminationPipe(commandLine, timeout)
-        if sys.platform == "win32" or sys.platform == "linux2":
+        if sys.platform == "win32":
             pipeAnotate.run(silent=False, changeDir=False)
         else:
             pipeAnotate.run(silent=False)
@@ -3378,6 +3385,7 @@ class PhyloGenerator:
                 self.phylogenyMethods += '-GTR-GAMMA'
             print "...running BEAST with options ", self.phylogenyMethods
             if len(self.alignment) > 1:
+                print "1"
                 self.phylogeny, self.beastXML, self.beastTrees, self.beastLogs = BEAST(self.alignment, method=self.phylogenyMethods, constraint=self.constraint, timeout=999999, chainLength=chainLength, logRate=logRate, screenRate=screenRate, overwrite=overwrite, burnin=burnin)
             else:
                 self.phylogeny, self.beastXML, self.beastTrees, self.beastLogs  = BEAST(self.alignment[0], method=self.phylogenyMethods, constraint=self.constraint, timeout=999999, chainLength=chainLength, logRate=logRate, screenRate=screenRate, overwrite=overwrite, burnin=burnin)
